@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "88004700400",
+    "project_id": "duudle-296a9",
+    "storage_bucket": "duudle-296a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:88004700400:android:b77095b39db4cb4bcb3a35",
+        "android_client_info": {
+          "package_name": "com.example.duudle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYPn9N9pZFnM3GZNMkkCmahf9QLbbOhcU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
