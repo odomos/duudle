@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.pem
+serviceAccountKey.json
+node_modules/
+.claude/
+.agents/
+skills-lock.json

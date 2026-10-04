@@ -2,7 +2,9 @@ package com.example.duudle
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Bundle
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -32,6 +35,7 @@ import androidx.work.WorkerParameters
 import com.example.duudle.ui.theme.DuudleTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -42,17 +46,27 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val replyToUid = intent.getStringExtra("reply_to_uid")
+        val replyToUsername = intent.getStringExtra("reply_to_username")
+
         setContent {
             DuudleTheme {
                 val context = LocalContext.current
                 val prefs = remember { context.getSharedPreferences("duudle_prefs", Context.MODE_PRIVATE) }
                 var currentScreen by remember {
-                    mutableStateOf(if (!prefs.getString("username", null).isNullOrBlank()) Screen.HOME else Screen.WELCOME)
+                    mutableStateOf(
+                        when {
+                            replyToUid != null -> Screen.DRAW
+                            !prefs.getString("username", null).isNullOrBlank() -> Screen.HOME
+                            else -> Screen.WELCOME
+                        }
+                    )
                 }
                 var isSigningIn by remember { mutableStateOf(false) }
                 var signInError by remember { mutableStateOf<String?>(null) }
-                var recipientUid by remember { mutableStateOf<String?>(null) }
-                var recipientUsername by remember { mutableStateOf<String?>(null) }
+                var recipientUid by remember { mutableStateOf(replyToUid) }
+                var recipientUsername by remember { mutableStateOf(replyToUsername) }
                 var incomingDoodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
 
                 val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -170,8 +184,23 @@ private fun saveUsername(uid: String, username: String, onResult: (Boolean, Stri
     val db = FirebaseFirestore.getInstance()
     val userData = hashMapOf("username" to username, "uid" to uid)
     db.collection("users").document(uid).set(userData)
-        .addOnSuccessListener { onResult(true, null) }
+        .addOnSuccessListener {
+            onResult(true, null)
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token -> saveFcmToken(uid, token) }
+                .addOnFailureListener { e ->
+                    android.util.Log.e("DuudleFCM", "Failed to get FCM token: ${e.message}")
+                }
+        }
         .addOnFailureListener { e -> onResult(false, e.message) }
+}
+
+fun saveFcmToken(uid: String, token: String) {
+    FirebaseFirestore.getInstance().collection("users").document(uid)
+        .update("fcmToken", token)
+        .addOnFailureListener { e ->
+            android.util.Log.e("DuudleFCM", "Failed to save FCM token: ${e.message}")
+        }
 }
 
 class OverlayWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -329,4 +358,118 @@ fun showTestOverlay(context: Context) {
 fun removeTestOverlay(context: Context) {
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     overlayView?.let { windowManager.removeView(it); overlayView = null }
+}
+
+// ===== REAL DOODLE OVERLAY =====
+
+private class DoodleCanvasView(context: Context, private val strokes: List<DoodleStroke>) : View(context) {
+    private val paint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        isAntiAlias = true
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val w = width.toFloat()
+        val h = height.toFloat()
+        for (stroke in strokes) {
+            paint.color = stroke.color.toArgb()
+            paint.strokeWidth = stroke.width
+            val pts = stroke.points
+            for (i in 0 until pts.size - 1) {
+                canvas.drawLine(
+                    pts[i].x * w, pts[i].y * h,
+                    pts[i + 1].x * w, pts[i + 1].y * h,
+                    paint
+                )
+            }
+        }
+    }
+}
+
+private var realDoodleOverlayView: View? = null
+
+private fun dpToPx(context: Context, dp: Int): Int {
+    val density = context.resources.displayMetrics.density
+    return (dp * density).toInt()
+}
+
+fun showRealDoodleOverlay(
+    context: Context,
+    doodleId: String,
+    senderUid: String,
+    senderUsername: String,
+    strokes: List<DoodleStroke>
+) {
+    removeRealDoodleOverlay(context)
+    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    val container = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundColor(Color.parseColor("#F5F0FB"))
+        setPadding(32, 32, 32, 32)
+    }
+
+    container.addView(TextView(context).apply {
+        text = "🖍 Doodle from $senderUsername"
+        setTextColor(Color.BLACK)
+        textSize = 16f
+        setPadding(0, 0, 0, 16)
+    })
+
+    val canvasView = DoodleCanvasView(context, strokes).apply {
+        setBackgroundColor(Color.WHITE)
+    }
+    val canvasSize = dpToPx(context, 260)
+    container.addView(canvasView, LinearLayout.LayoutParams(canvasSize, canvasSize))
+
+    val buttonRow = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, 16, 0, 0)
+    }
+
+    buttonRow.addView(Button(context).apply {
+        text = "Snooze"
+        setOnClickListener { removeRealDoodleOverlay(context) }
+    })
+    buttonRow.addView(Button(context).apply {
+        text = "Remove"
+        setOnClickListener {
+            markDoodleStatus(doodleId, "removed")
+            removeRealDoodleOverlay(context)
+        }
+    })
+    buttonRow.addView(Button(context).apply {
+        text = "Draw"
+        setOnClickListener {
+            markDoodleStatus(doodleId, "removed")
+            removeRealDoodleOverlay(context)
+            val replyIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra("reply_to_uid", senderUid)
+                putExtra("reply_to_username", senderUsername)
+            }
+            context.startActivity(replyIntent)
+        }
+    })
+    container.addView(buttonRow)
+
+    val params = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        PixelFormat.TRANSLUCENT
+    ).apply {
+        gravity = Gravity.CENTER
+    }
+
+    windowManager.addView(container, params)
+    realDoodleOverlayView = container
+}
+
+fun removeRealDoodleOverlay(context: Context) {
+    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    realDoodleOverlayView?.let { windowManager.removeView(it); realDoodleOverlayView = null }
 }

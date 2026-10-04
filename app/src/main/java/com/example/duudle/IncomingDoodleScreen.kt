@@ -24,7 +24,7 @@ data class IncomingDoodle(
 )
 
 @Suppress("UNCHECKED_CAST")
-private fun parseDoodleDoc(doc: DocumentSnapshot): IncomingDoodle? {
+ fun parseDoodleDoc(doc: DocumentSnapshot): IncomingDoodle? {
     val senderId = doc.getString("senderId") ?: return null
     val senderUsername = doc.getString("senderUsername") ?: "Unknown"
     val rawStrokes = doc.get("strokes") as? List<Map<String, Any>> ?: return null
