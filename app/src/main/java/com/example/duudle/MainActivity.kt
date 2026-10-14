@@ -16,11 +16,13 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -40,34 +42,50 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-enum class Screen { WELCOME, HOME, DRAW, FRIENDS, OVERLAY_DEBUG, VIEW_DOODLE }
+enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE }
+
+private data class ReplyTarget(val uid: String, val username: String?)
 
 class MainActivity : ComponentActivity() {
+    // Set by the overlay's "Draw" button — via onCreate on a cold start, or via
+    // onNewIntent when the app is already running. The UI consumes it once.
+    private var pendingReply by mutableStateOf<ReplyTarget?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val replyToUid = intent.getStringExtra("reply_to_uid")
-        val replyToUsername = intent.getStringExtra("reply_to_username")
+        // After a rotation or process restore the saved screen state wins;
+        // re-reading the launch extras would yank the user back to Draw.
+        if (savedInstanceState == null) consumeReplyIntent(intent)
 
         setContent {
             DuudleTheme {
                 val context = LocalContext.current
                 val prefs = remember { context.getSharedPreferences("duudle_prefs", Context.MODE_PRIVATE) }
-                var currentScreen by remember {
+                var currentScreen by rememberSaveable {
                     mutableStateOf(
-                        when {
-                            replyToUid != null -> Screen.DRAW
-                            !prefs.getString("username", null).isNullOrBlank() -> Screen.HOME
-                            else -> Screen.WELCOME
-                        }
+                        if (!prefs.getString("username", null).isNullOrBlank()) Screen.HOME else Screen.WELCOME
                     )
                 }
                 var isSigningIn by remember { mutableStateOf(false) }
                 var signInError by remember { mutableStateOf<String?>(null) }
-                var recipientUid by remember { mutableStateOf(replyToUid) }
-                var recipientUsername by remember { mutableStateOf(replyToUsername) }
+                var recipientUid by rememberSaveable { mutableStateOf<String?>(null) }
+                var recipientUsername by rememberSaveable { mutableStateOf<String?>(null) }
                 var incomingDoodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
+
+                LaunchedEffect(pendingReply) {
+                    val reply = pendingReply ?: return@LaunchedEffect
+                    recipientUid = reply.uid
+                    recipientUsername = reply.username
+                    currentScreen = Screen.DRAW
+                    pendingReply = null
+                }
+
+                // Without this, system back closes the app from every screen.
+                BackHandler(enabled = currentScreen != Screen.HOME && currentScreen != Screen.WELCOME) {
+                    currentScreen = Screen.HOME
+                }
 
                 val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                 val currentUsername = prefs.getString("username", "") ?: ""
@@ -109,17 +127,22 @@ class MainActivity : ComponentActivity() {
                             },
                             onFriendsClick = { currentScreen = Screen.FRIENDS },
                             onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
+                            onVaultClick = { currentScreen = Screen.VAULT },
                             newDoodleFromUsername = incomingDoodles.firstOrNull()?.senderUsername,
                             onViewDoodle = { currentScreen = Screen.VIEW_DOODLE }
                         )
-                        Screen.DRAW -> DrawScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            recipientUid = recipientUid,
-                            recipientUsername = recipientUsername,
-                            currentUid = currentUid,
-                            currentUsername = currentUsername,
-                            onBack = { currentScreen = Screen.HOME }
-                        )
+                        // Keyed on the recipient so a reply arriving while Draw is
+                        // already open starts a fresh canvas addressed to the new sender.
+                        Screen.DRAW -> key(recipientUid) {
+                            DrawScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                recipientUid = recipientUid,
+                                recipientUsername = recipientUsername,
+                                currentUid = currentUid,
+                                currentUsername = currentUsername,
+                                onBack = { currentScreen = Screen.HOME }
+                            )
+                        }
                         Screen.FRIENDS -> FriendsScreen(
                             modifier = Modifier.padding(innerPadding),
                             currentUid = currentUid,
@@ -134,6 +157,23 @@ class MainActivity : ComponentActivity() {
                             onDesignDoodleClick = {
                                 recipientUid = null
                                 recipientUsername = null
+                                currentScreen = Screen.DRAW
+                            },
+                            onVaultClick = { currentScreen = Screen.VAULT }
+                        )
+                        Screen.VAULT -> VaultScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            currentUid = currentUid,
+                            onBack = { currentScreen = Screen.HOME },
+                            onFriendsClick = { currentScreen = Screen.FRIENDS },
+                            onDesignDoodleClick = {
+                                recipientUid = null
+                                recipientUsername = null
+                                currentScreen = Screen.DRAW
+                            },
+                            onReply = { uid, username ->
+                                recipientUid = uid
+                                recipientUsername = username
                                 currentScreen = Screen.DRAW
                             }
                         )
@@ -167,6 +207,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeReplyIntent(intent)
+    }
+
+    private fun consumeReplyIntent(intent: Intent?) {
+        val uid = intent?.getStringExtra("reply_to_uid") ?: return
+        pendingReply = ReplyTarget(uid, intent.getStringExtra("reply_to_username"))
     }
 }
 
@@ -452,7 +503,11 @@ fun showRealDoodleOverlay(
             markDoodleStatus(doodleId, "removed")
             removeRealDoodleOverlay(context)
             val replyIntent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                // CLEAR_TOP + SINGLE_TOP route the intent to the running
+                // MainActivity's onNewIntent instead of being silently dropped.
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra("reply_to_uid", senderUid)
                 putExtra("reply_to_username", senderUsername)
             }

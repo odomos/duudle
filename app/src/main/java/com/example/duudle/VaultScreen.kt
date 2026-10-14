@@ -1,5 +1,6 @@
 package com.example.duudle
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,9 +44,14 @@ fun VaultScreen(
         onDispose { listeners.forEach { it.remove() } }
     }
 
+    // Registered after MainActivity's handler, so back closes the detail view
+    // first instead of leaving the Vault.
+    BackHandler(enabled = selectedDoodle != null) { selectedDoodle = null }
+
     val doodle = selectedDoodle
     if (doodle != null) {
         VaultDoodleDetail(
+            modifier = modifier,
             doodle = doodle,
             currentUid = currentUid,
             onBack = { selectedDoodle = null },
@@ -153,13 +159,14 @@ private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, onClick: 
 
 @Composable
 private fun VaultDoodleDetail(
+    modifier: Modifier = Modifier,
     doodle: IncomingDoodle,
     currentUid: String,
     onBack: () -> Unit,
     onReply: (uid: String, username: String) -> Unit
 ) {
     val isSent = doodle.senderId == currentUid
-    Column(modifier = Modifier.fillMaxSize().background(LavenderBackground)) {
+    Column(modifier = modifier.fillMaxSize().background(LavenderBackground)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically

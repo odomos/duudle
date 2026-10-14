@@ -14,6 +14,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,17 +76,22 @@ fun DrawScreen(
     onBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val strokes = remember { mutableStateListOf<DoodleStroke>() }
+    // Saveable so a rotation or other config change doesn't wipe the drawing.
+    val strokes = rememberSaveable(saver = StrokeListSaver) { mutableStateListOf<DoodleStroke>() }
     var currentPoints by remember { mutableStateOf(listOf<Offset>()) }
-    var selectedColor by remember { mutableStateOf(Color.Black) }
-    var selectedBrush by remember { mutableStateOf(brushSizes[1]) } // Medium by default
+    var selectedColorArgb by rememberSaveable { mutableIntStateOf(Color.Black.toArgb()) }
+    var selectedBrushIndex by rememberSaveable { mutableIntStateOf(1) } // Medium by default
+    val selectedColor = Color(selectedColorArgb)
+    val selectedBrush = brushSizes[selectedBrushIndex]
     var isSending by remember { mutableStateOf(false) }
-    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    // Saved with the strokes: after a rotation it still holds the size the
+    // restored strokes were drawn at, so onSizeChanged can rescale them.
+    var canvasSize by rememberSaveable(stateSaver = IntSizeSaver) { mutableStateOf(IntSize.Zero) }
 
     // The recipient can change after the screen first opens — picking a friend
     // from the in-canvas picker below updates these without losing the drawing.
-    var activeRecipientUid by remember { mutableStateOf(recipientUid) }
-    var activeRecipientUsername by remember { mutableStateOf(recipientUsername) }
+    var activeRecipientUid by rememberSaveable { mutableStateOf(recipientUid) }
+    var activeRecipientUsername by rememberSaveable { mutableStateOf(recipientUsername) }
 
     var showFriendPicker by remember { mutableStateOf(false) }
     var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
@@ -204,7 +213,21 @@ fun DrawScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .background(Color.White)
-                .onSizeChanged { canvasSize = it }
+                .onSizeChanged { newSize ->
+                    // Strokes are in canvas pixels. When the canvas changes size
+                    // (e.g. rotation), map them to the new size the same way the
+                    // 0-1 normalization will, so what's shown is what gets sent.
+                    val old = canvasSize
+                    if (old.width > 0 && old.height > 0 && newSize.width > 0 && newSize.height > 0 && newSize != old) {
+                        val scaleX = newSize.width.toFloat() / old.width
+                        val scaleY = newSize.height.toFloat() / old.height
+                        for (i in strokes.indices) {
+                            val stroke = strokes[i]
+                            strokes[i] = stroke.copy(points = stroke.points.map { Offset(it.x * scaleX, it.y * scaleY) })
+                        }
+                    }
+                    canvasSize = newSize
+                }
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset -> currentPoints = listOf(offset) },
@@ -213,8 +236,17 @@ fun DrawScreen(
                             currentPoints = currentPoints + change.position
                         },
                         onDragEnd = {
+                            // pointerInput(Unit) captures this lambda once, so read the
+                            // state directly rather than the selectedColor/selectedBrush
+                            // values from the first composition.
                             if (currentPoints.size > 1) {
-                                strokes.add(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
+                                strokes.add(
+                                    DoodleStroke(
+                                        currentPoints,
+                                        Color(selectedColorArgb),
+                                        brushSizes[selectedBrushIndex].width
+                                    )
+                                )
                             }
                             currentPoints = emptyList()
                         }
@@ -237,7 +269,7 @@ fun DrawScreen(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .clickable { selectedBrush = brush }
+                        .clickable { selectedBrushIndex = brushSizes.indexOf(brush) }
                         .border(
                             width = if (brush == selectedBrush) 2.dp else 0.dp,
                             color = Color.DarkGray,
@@ -273,7 +305,7 @@ fun DrawScreen(
                             color = if (color == selectedColor) Color.DarkGray else Color.LightGray,
                             shape = CircleShape
                         )
-                        .clickable { selectedColor = color }
+                        .clickable { selectedColorArgb = color.toArgb() }
                 )
             }
         }
@@ -334,6 +366,38 @@ fun DrawScreen(
         )
     }
 }
+
+private val IntSizeSaver = Saver<IntSize, IntArray>(
+    save = { intArrayOf(it.width, it.height) },
+    restore = { IntSize(it[0], it[1]) }
+)
+
+// Flattens each stroke to [colorArgb: Int, width: Float, xy: FloatArray] — all
+// Bundle-friendly types. Points stay in canvas pixels, matching live drawing.
+private val StrokeListSaver = listSaver<SnapshotStateList<DoodleStroke>, Any>(
+    save = { list ->
+        list.flatMap { stroke ->
+            listOf(
+                stroke.color.toArgb(),
+                stroke.width,
+                FloatArray(stroke.points.size * 2) { i ->
+                    val p = stroke.points[i / 2]
+                    if (i % 2 == 0) p.x else p.y
+                }
+            )
+        }
+    },
+    restore = { saved ->
+        saved.chunked(3).map { (color, width, xy) ->
+            val coords = xy as FloatArray
+            DoodleStroke(
+                points = List(coords.size / 2) { i -> Offset(coords[2 * i], coords[2 * i + 1]) },
+                color = Color(color as Int),
+                width = width as Float
+            )
+        }.toMutableStateList()
+    }
+)
 
 private fun DrawScope.drawStroke(stroke: DoodleStroke) {
     for (i in 0 until stroke.points.size - 1) {
