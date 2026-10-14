@@ -36,7 +36,19 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
     return;
   }
 
-  const userDoc = await getFirestore().collection("users").doc(receiverId).get();
+  const receiverRef = getFirestore().collection("users").doc(receiverId);
+  const [userDoc, muteDoc] = await Promise.all([
+    receiverRef.get(),
+    doodle.senderId ? receiverRef.collection("mutes").doc(doodle.senderId).get() : null,
+  ]);
+
+  // Muting only silences the push (and so the overlay). The doodle doc itself
+  // is still written, so it stays in the receiver's Vault and unmuting loses
+  // nothing. The sender is never told.
+  if (muteDoc && muteDoc.exists) {
+    logger.info("Receiver muted sender, skipping push", {doodleId, receiverId});
+    return;
+  }
 
   if (!userDoc.exists) {
     logger.warn("Receiver user document not found", {receiverId});

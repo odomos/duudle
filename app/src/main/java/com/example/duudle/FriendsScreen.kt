@@ -65,9 +65,21 @@ fun FriendsScreen(
     var friendUidsAsUserB by remember { mutableStateOf<List<String>>(emptyList()) }
     var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
     var requests by remember { mutableStateOf<List<FriendRequest>>(emptyList()) }
+    var mutedUids by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     DisposableEffect(currentUid) {
         val db = FirebaseFirestore.getInstance()
+
+        // Mutes live in Firestore so the Cloud Function can skip the push.
+        // Owner-only rules keep a muted friend from ever seeing this list.
+        val mutesListener = db.collection("users").document(currentUid).collection("mutes")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("DuudleDebug", "Mutes listener failed: ${error.message}")
+                    return@addSnapshotListener
+                }
+                mutedUids = snapshot?.documents?.map { it.id }?.toSet() ?: emptySet()
+            }
 
         val listenerA = db.collection("friendships").whereEqualTo("userA", currentUid)
             .addSnapshotListener { snapshot, error ->
@@ -108,6 +120,7 @@ fun FriendsScreen(
             listenerA.remove()
             listenerB.remove()
             requestsListener.remove()
+            mutesListener.remove()
         }
     }
 
@@ -121,13 +134,11 @@ fun FriendsScreen(
             .whereIn(FieldPath.documentId(), allUids)
             .get()
             .addOnSuccessListener { snapshot ->
-                val existingMuted = friends.associate { it.uid to it.muted }
                 friends = snapshot.documents.map { doc ->
                     Friend(
                         uid = doc.id,
                         username = doc.getString("username") ?: "Unknown",
-                        avatarEmoji = emojiForUid(doc.id),
-                        muted = existingMuted[doc.id] ?: false
+                        avatarEmoji = emojiForUid(doc.id)
                     )
                 }
             }
@@ -159,10 +170,12 @@ fun FriendsScreen(
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
                 FriendsTab.FRIENDS -> FriendsList(
-                    friends = friends,
+                    friends = friends.map { it.copy(muted = it.uid in mutedUids) },
                     searchQuery = searchQuery,
                     onToggleMute = { target ->
-                        friends = friends.map { if (it.uid == target.uid) it.copy(muted = !it.muted) else it }
+                        setFriendMuted(currentUid, target.uid, muted = !target.muted) { error ->
+                            Toast.makeText(context, "Couldn't update mute: $error", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onSelectFriend = onSelectFriend
                 )
@@ -586,6 +599,18 @@ fun searchUserByUsername(username: String, onResult: (uid: String?, error: Strin
             onResult(doc?.getString("uid"), null)
         }
         .addOnFailureListener { e -> onResult(null, e.message) }
+}
+
+/** Writes or clears users/{myUid}/mutes/{friendUid}; the snapshot listener updates the UI. */
+fun setFriendMuted(myUid: String, friendUid: String, muted: Boolean, onError: (String?) -> Unit) {
+    val muteRef = FirebaseFirestore.getInstance()
+        .collection("users").document(myUid)
+        .collection("mutes").document(friendUid)
+    val task = if (muted) muteRef.set(mapOf("mutedAt" to System.currentTimeMillis())) else muteRef.delete()
+    task.addOnFailureListener { e ->
+        android.util.Log.e("DuudleDebug", "Mute update failed: ${e.message}")
+        onError(e.message)
+    }
 }
 
 fun checkExistingRelationship(currentUid: String, otherUid: String, onResult: (RelationshipStatus) -> Unit) {

@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Who I've muted. Owner-only, so a muted friend can never find out.
+      // The Cloud Function reads this with admin privileges.
+      match /mutes/{friendUid} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    match /friend_requests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+    match /friendships/{friendshipId} {
+      allow read, write: if request.auth != null;
+    }
+    match /doodles/{doodleId} {
+      allow read, write: if request.auth != null;
+    }
+    match /connection_test/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
