@@ -90,6 +90,12 @@ class MainActivity : ComponentActivity() {
                 val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                 val currentUsername = prefs.getString("username", "") ?: ""
 
+                LaunchedEffect(currentUid) {
+                    if (currentUid.isNotBlank() && currentUsername.isNotBlank()) {
+                        backfillUsernameLower(currentUid, currentUsername)
+                    }
+                }
+
                 DisposableEffect(currentUid) {
                     if (currentUid.isBlank()) return@DisposableEffect onDispose {}
                     val listener = listenForIncomingDoodles(currentUid) { doodles ->
@@ -237,19 +243,41 @@ fun signInAndSaveUsername(username: String, onResult: (Boolean, String?) -> Unit
         .addOnFailureListener { e -> onResult(false, e.message) }
 }
 
+fun usernameKey(username: String): String = username.trim().lowercase()
+
 private fun saveUsername(uid: String, username: String, onResult: (Boolean, String?) -> Unit) {
     val db = FirebaseFirestore.getInstance()
-    val userData = hashMapOf("username" to username, "uid" to uid)
-    db.collection("users").document(uid).set(userData)
-        .addOnSuccessListener {
-            onResult(true, null)
-            FirebaseMessaging.getInstance().token
-                .addOnSuccessListener { token -> saveFcmToken(uid, token) }
-                .addOnFailureListener { e ->
-                    android.util.Log.e("DuudleFCM", "Failed to get FCM token: ${e.message}")
+    // Names are unique ignoring case, so "Bob" and "bob" can't both exist.
+    db.collection("users").whereEqualTo("usernameLower", usernameKey(username)).get()
+        .addOnSuccessListener { snapshot ->
+            if (snapshot.documents.any { it.id != uid }) {
+                onResult(false, "That username is taken, try another")
+                return@addOnSuccessListener
+            }
+            val userData = hashMapOf("username" to username, "usernameLower" to usernameKey(username), "uid" to uid)
+            db.collection("users").document(uid).set(userData)
+                .addOnSuccessListener {
+                    onResult(true, null)
+                    FirebaseMessaging.getInstance().token
+                        .addOnSuccessListener { token -> saveFcmToken(uid, token) }
+                        .addOnFailureListener { e ->
+                            android.util.Log.e("DuudleFCM", "Failed to get FCM token: ${e.message}")
+                        }
                 }
+                .addOnFailureListener { e -> onResult(false, e.message) }
         }
         .addOnFailureListener { e -> onResult(false, e.message) }
+}
+
+/** Accounts created before case-insensitive search lack usernameLower; add it once. */
+fun backfillUsernameLower(uid: String, username: String) {
+    val userRef = FirebaseFirestore.getInstance().collection("users").document(uid)
+    userRef.get().addOnSuccessListener { doc ->
+        if (doc.exists() && doc.getString("usernameLower") == null) {
+            userRef.update("usernameLower", usernameKey(username))
+                .addOnFailureListener { e -> android.util.Log.e("DuudleDebug", "usernameLower backfill failed: ${e.message}") }
+        }
+    }
 }
 
 fun saveFcmToken(uid: String, token: String) {

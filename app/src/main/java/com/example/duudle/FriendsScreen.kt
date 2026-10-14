@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 
 data class Friend(val uid: String, val username: String, val avatarEmoji: String, val muted: Boolean = false)
 data class FriendRequest(val docId: String, val fromUid: String, val fromUsername: String)
@@ -179,7 +180,11 @@ fun FriendsScreen(
                     },
                     onSelectFriend = onSelectFriend
                 )
-                FriendsTab.ADD -> AddFriendTab(currentUid = currentUid, currentUsername = currentUsername)
+                FriendsTab.ADD -> AddFriendTab(
+                    currentUid = currentUid,
+                    currentUsername = currentUsername,
+                    friendUids = friends.map { it.uid }.toSet()
+                )
                 FriendsTab.REQUESTS -> RequestsTab(
                     requests = requests,
                     onAccept = { req -> acceptFriendRequest(req.docId, currentUid, req.fromUid) { } },
@@ -496,109 +501,128 @@ private fun InviteBanner() {
     }
 }
 
+data class UserSearchResult(val uid: String, val username: String)
+
+private enum class AddState { IDLE, WORKING, SENT, ALREADY_SENT, ALREADY_FRIENDS, FAILED }
+
 @Composable
-private fun AddFriendTab(currentUid: String, currentUsername: String) {
+private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids: Set<String>) {
     var searchText by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
-    var foundUid by remember { mutableStateOf<String?>(null) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var relationship by remember { mutableStateOf(RelationshipStatus.NONE) }
-    var requestSent by remember { mutableStateOf(false) }
+    var results by remember { mutableStateOf<List<UserSearchResult>>(emptyList()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var addStates by remember { mutableStateOf<Map<String, AddState>>(emptyMap()) }
+    val query = usernameKey(searchText)
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    // Search as you type, debounced so each keystroke doesn't hit Firestore.
+    LaunchedEffect(query) {
+        errorMessage = null
+        if (query.isEmpty()) {
+            results = emptyList()
+            isSearching = false
+            return@LaunchedEffect
+        }
+        isSearching = true
+        delay(300)
+        searchUsersByPrefix(query) { found, error ->
+            if (usernameKey(searchText) != query) return@searchUsersByPrefix // a newer search is running
+            isSearching = false
+            errorMessage = error?.let { "Search failed: $it" }
+            results = found.filter { it.uid != currentUid && it.uid !in friendUids }
+        }
+    }
+
+    fun setState(uid: String, state: AddState) {
+        addStates = addStates + (uid to state)
+    }
+
+    fun addFriend(user: UserSearchResult) {
+        setState(user.uid, AddState.WORKING)
+        checkExistingRelationship(currentUid, user.uid) { status ->
+            when (status) {
+                RelationshipStatus.ALREADY_FRIENDS -> setState(user.uid, AddState.ALREADY_FRIENDS)
+                RelationshipStatus.REQUEST_ALREADY_SENT -> setState(user.uid, AddState.ALREADY_SENT)
+                RelationshipStatus.NONE -> sendFriendRequest(
+                    fromUid = currentUid,
+                    fromUsername = currentUsername,
+                    toUid = user.uid,
+                    toUsername = user.username
+                ) { success, error ->
+                    setState(user.uid, if (success) AddState.SENT else AddState.FAILED)
+                    if (!success) errorMessage = "Couldn't send request: $error"
+                }
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         Text("Add a friend by username", fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = searchText,
-            onValueChange = {
-                searchText = it
-                foundUid = null
-                statusMessage = null
-                requestSent = false
-                relationship = RelationshipStatus.NONE
-            },
+            onValueChange = { searchText = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("e.g. mayadoodles") },
+            placeholder = { Text("Start typing, e.g. maya") },
             singleLine = true
         )
-        Spacer(Modifier.height(12.dp))
-        Button(
-            onClick = {
-                if (searchText.isBlank()) return@Button
-                isSearching = true
-                statusMessage = null
-                searchUserByUsername(searchText.trim()) { uid, error ->
-                    when {
-                        error != null -> {
-                            isSearching = false
-                            statusMessage = "Search failed: $error"
-                        }
-                        uid == null -> {
-                            isSearching = false
-                            statusMessage = "No user found with that username"
-                        }
-                        uid == currentUid -> {
-                            isSearching = false
-                            statusMessage = "That's your own username!"
-                        }
-                        else -> {
-                            foundUid = uid
-                            checkExistingRelationship(currentUid, uid) { status ->
-                                isSearching = false
-                                relationship = status
-                                statusMessage = when (status) {
-                                    RelationshipStatus.ALREADY_FRIENDS -> "You're already friends with @${searchText.trim()}"
-                                    RelationshipStatus.REQUEST_ALREADY_SENT -> "You already sent a request to @${searchText.trim()} — waiting for them to respond"
-                                    RelationshipStatus.NONE -> "Found @${searchText.trim()}"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            enabled = !isSearching && searchText.isNotBlank(),
-            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary, contentColor = Color.White)
+        Spacer(Modifier.height(8.dp))
+
+        val hint = when {
+            errorMessage != null -> errorMessage
+            query.isEmpty() -> null
+            isSearching -> "Searching..."
+            results.isEmpty() -> "No one new matching \"${searchText.trim()}\""
+            else -> null
+        }
+        hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) }
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            Text(if (isSearching) "Searching..." else "Search")
-        }
-
-        statusMessage?.let {
-            Spacer(Modifier.height(8.dp))
-            Text(it, style = MaterialTheme.typography.bodySmall)
-        }
-
-        if (foundUid != null && relationship == RelationshipStatus.NONE && !requestSent) {
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = {
-                    sendFriendRequest(
-                        fromUid = currentUid,
-                        fromUsername = currentUsername,
-                        toUid = foundUid!!,
-                        toUsername = searchText.trim()
-                    ) { success, error ->
-                        statusMessage = if (success) "Request sent to @${searchText.trim()}!" else "Failed: $error"
-                        if (success) requestSent = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = PinkAction, contentColor = Color.White)
-            ) {
-                Text("Send Request")
+            items(results, key = { it.uid }) { user ->
+                SearchResultRow(user = user, state = addStates[user.uid] ?: AddState.IDLE, onAdd = { addFriend(user) })
             }
         }
     }
 }
 
-fun searchUserByUsername(username: String, onResult: (uid: String?, error: String?) -> Unit) {
+@Composable
+private fun SearchResultRow(user: UserSearchResult, state: AddState, onAdd: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(16.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(LavenderBackground),
+            contentAlignment = Alignment.Center
+        ) { Text(emojiForUid(user.uid), fontSize = 20.sp) }
+        Spacer(Modifier.width(12.dp))
+        Text("@${user.username}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        when (state) {
+            AddState.IDLE, AddState.FAILED -> Button(
+                onClick = onAdd,
+                colors = ButtonDefaults.buttonColors(containerColor = PinkAction, contentColor = Color.White)
+            ) { Text(if (state == AddState.FAILED) "Retry" else "Add") }
+            AddState.WORKING -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            AddState.SENT -> Text("Requested ✓", color = GreenOnline, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            AddState.ALREADY_SENT -> Text("Pending", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            AddState.ALREADY_FRIENDS -> Text("Friends", color = IndigoPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+    }
+}
+
+/** Case-insensitive prefix search on usernameLower. A single-field range needs no composite index. */
+fun searchUsersByPrefix(prefixLower: String, onResult: (List<UserSearchResult>, String?) -> Unit) {
     FirebaseFirestore.getInstance().collection("users")
-        .whereEqualTo("username", username)
-        .limit(1)
+        .whereGreaterThanOrEqualTo("usernameLower", prefixLower)
+        .whereLessThanOrEqualTo("usernameLower", prefixLower + "")
+        .limit(20)
         .get()
         .addOnSuccessListener { snapshot ->
-            val doc = snapshot.documents.firstOrNull()
-            onResult(doc?.getString("uid"), null)
+            onResult(snapshot.documents.map { UserSearchResult(it.id, it.getString("username") ?: "unknown") }, null)
         }
-        .addOnFailureListener { e -> onResult(null, e.message) }
+        .addOnFailureListener { e -> onResult(emptyList(), e.message) }
 }
 
 /** Writes or clears users/{myUid}/mutes/{friendUid}; the snapshot listener updates the UI. */
