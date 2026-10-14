@@ -20,13 +20,21 @@ data class IncomingDoodle(
     val docId: String,
     val senderId: String,
     val senderUsername: String,
-    val strokes: List<DoodleStroke> // points here are normalized 0..1 fractions, not raw pixels
+    val receiverId: String,
+    val receiverUsername: String,
+    val strokes: List<DoodleStroke>, // points here are normalized 0..1 fractions, not raw pixels
+    val createdAt: Long,
+    val status: String
 )
 
 @Suppress("UNCHECKED_CAST")
- fun parseDoodleDoc(doc: DocumentSnapshot): IncomingDoodle? {
+fun parseDoodleDoc(doc: DocumentSnapshot): IncomingDoodle? {
     val senderId = doc.getString("senderId") ?: return null
     val senderUsername = doc.getString("senderUsername") ?: "Unknown"
+    val receiverId = doc.getString("receiverId") ?: ""
+    val receiverUsername = doc.getString("receiverUsername") ?: "Unknown"
+    val createdAt = doc.getLong("createdAt") ?: 0L
+    val status = doc.getString("status") ?: "unknown"
     val rawStrokes = doc.get("strokes") as? List<Map<String, Any>> ?: return null
 
     val strokes = rawStrokes.mapNotNull { strokeMap ->
@@ -41,7 +49,7 @@ data class IncomingDoodle(
         DoodleStroke(points = points, color = Color(colorInt), width = width)
     }
 
-    return IncomingDoodle(doc.id, senderId, senderUsername, strokes)
+    return IncomingDoodle(doc.id, senderId, senderUsername, receiverId, receiverUsername, strokes, createdAt, status)
 }
 
 fun listenForIncomingDoodles(myUid: String, onUpdate: (List<IncomingDoodle>) -> Unit): ListenerRegistration {
@@ -61,6 +69,44 @@ fun listenForIncomingDoodles(myUid: String, onUpdate: (List<IncomingDoodle>) -> 
 fun markDoodleStatus(docId: String, status: String) {
     FirebaseFirestore.getInstance().collection("doodles").document(docId)
         .update("status", status)
+}
+
+/**
+ * Powers the Vault: every doodle you've ever sent or received, newest first.
+ * "Removing" a doodle only ever flipped its status field — the document was
+ * never deleted — so this is free history, no separate save step needed.
+ */
+fun listenForVaultDoodles(myUid: String, onUpdate: (List<IncomingDoodle>) -> Unit): List<ListenerRegistration> {
+    val db = FirebaseFirestore.getInstance()
+    var sent = listOf<IncomingDoodle>()
+    var received = listOf<IncomingDoodle>()
+
+    fun publish() {
+        val merged = (sent + received).distinctBy { it.docId }.sortedByDescending { it.createdAt }
+        onUpdate(merged)
+    }
+
+    val sentListener = db.collection("doodles").whereEqualTo("senderId", myUid)
+        .addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                android.util.Log.e("DuudleDebug", "Vault sent listener failed: ${error.message}")
+                return@addSnapshotListener
+            }
+            sent = snapshot?.documents?.mapNotNull { parseDoodleDoc(it) } ?: emptyList()
+            publish()
+        }
+
+    val receivedListener = db.collection("doodles").whereEqualTo("receiverId", myUid)
+        .addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                android.util.Log.e("DuudleDebug", "Vault received listener failed: ${error.message}")
+                return@addSnapshotListener
+            }
+            received = snapshot?.documents?.mapNotNull { parseDoodleDoc(it) } ?: emptyList()
+            publish()
+        }
+
+    return listOf(sentListener, receivedListener)
 }
 
 @Composable

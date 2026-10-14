@@ -129,6 +129,12 @@ class MainActivity : ComponentActivity() {
                                 recipientUid = friend.uid
                                 recipientUsername = friend.username
                                 currentScreen = Screen.DRAW
+                            },
+                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
+                            onDesignDoodleClick = {
+                                recipientUid = null
+                                recipientUsername = null
+                                currentScreen = Screen.DRAW
                             }
                         )
                         Screen.VIEW_DOODLE -> {

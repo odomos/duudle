@@ -7,7 +7,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,8 +25,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 
 data class DoodleStroke(
@@ -30,6 +37,30 @@ data class DoodleStroke(
     val color: Color,
     val width: Float = 8f
 )
+
+private data class BrushSize(val label: String, val width: Float, val dotSize: androidx.compose.ui.unit.Dp)
+
+private val brushSizes = listOf(
+    BrushSize("Thin", 4f, 10.dp),
+    BrushSize("Medium", 8f, 16.dp),
+    BrushSize("Thick", 14f, 22.dp)
+)
+
+private val palette = listOf(
+    Color.Black,
+    Color(0xFF5C5C5C), // Gray
+    Color.White,       // doubles as an eraser on the white canvas
+    Color.Red,
+    Color(0xFFFF8A00), // Orange
+    Color(0xFFF9A825), // Yellow
+    Color(0xFF2E7D32), // Green
+    Color(0xFF00BCD4), // Cyan
+    Color(0xFF1565C0), // Blue
+    Color(0xFF6A1B9A), // Purple
+    Color(0xFFD81B60)  // Pink
+)
+
+private val LavenderBackground = Color(0xFFEDE3FA)
 
 @Composable
 fun DrawScreen(
@@ -44,13 +75,70 @@ fun DrawScreen(
     val strokes = remember { mutableStateListOf<DoodleStroke>() }
     var currentPoints by remember { mutableStateOf(listOf<Offset>()) }
     var selectedColor by remember { mutableStateOf(Color.Black) }
+    var selectedBrush by remember { mutableStateOf(brushSizes[1]) } // Medium by default
     var isSending by remember { mutableStateOf(false) }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
 
-    val palette = listOf(
-        Color.Black, Color.Red, Color(0xFF2E7D32),
-        Color(0xFF1565C0), Color(0xFFF9A825)
-    )
+    // The recipient can change after the screen first opens — picking a friend
+    // from the in-canvas picker below updates these without losing the drawing.
+    var activeRecipientUid by remember { mutableStateOf(recipientUid) }
+    var activeRecipientUsername by remember { mutableStateOf(recipientUsername) }
+
+    var showFriendPicker by remember { mutableStateOf(false) }
+    var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
+    var friendsLoading by remember { mutableStateOf(true) }
+
+    // Load the current user's friends once, the same way FriendsScreen does,
+    // so the picker has something to show the moment Send is tapped with
+    // nobody chosen yet.
+    DisposableEffect(currentUid) {
+        if (currentUid.isBlank()) {
+            friendsLoading = false
+            return@DisposableEffect onDispose {}
+        }
+        val db = FirebaseFirestore.getInstance()
+        var uidsAsA = listOf<String>()
+        var uidsAsB = listOf<String>()
+
+        fun resolveFriends() {
+            val allUids = (uidsAsA + uidsAsB).filter { it.isNotBlank() }.distinct()
+            if (allUids.isEmpty()) {
+                friends = emptyList()
+                friendsLoading = false
+                return
+            }
+            db.collection("users")
+                .whereIn(FieldPath.documentId(), allUids)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    friends = snapshot.documents.map { doc ->
+                        Friend(
+                            uid = doc.id,
+                            username = doc.getString("username") ?: "Unknown",
+                            avatarEmoji = emojiForUid(doc.id)
+                        )
+                    }
+                    friendsLoading = false
+                }
+                .addOnFailureListener { friendsLoading = false }
+        }
+
+        val listenerA = db.collection("friendships").whereEqualTo("userA", currentUid)
+            .addSnapshotListener { snapshot, _ ->
+                uidsAsA = snapshot?.documents?.mapNotNull { it.getString("userB") } ?: emptyList()
+                resolveFriends()
+            }
+        val listenerB = db.collection("friendships").whereEqualTo("userB", currentUid)
+            .addSnapshotListener { snapshot, _ ->
+                uidsAsB = snapshot?.documents?.mapNotNull { it.getString("userA") } ?: emptyList()
+                resolveFriends()
+            }
+
+        onDispose {
+            listenerA.remove()
+            listenerB.remove()
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -60,18 +148,26 @@ fun DrawScreen(
         ) {
             TextButton(onClick = onBack) { Text("← Back") }
             Text(
-                text = if (recipientUsername != null) "To: $recipientUsername" else "Draw (practice)",
+                text = activeRecipientUsername?.let { "To: $it" } ?: "Draw",
                 style = MaterialTheme.typography.titleMedium
             )
             TextButton(
                 onClick = {
                     when {
-                        recipientUid == null -> Toast.makeText(
-                            context, "Pick a friend from your Friends list first", Toast.LENGTH_SHORT
-                        ).show()
                         strokes.isEmpty() -> Toast.makeText(
                             context, "Draw something first!", Toast.LENGTH_SHORT
                         ).show()
+                        activeRecipientUid == null -> {
+                            // The fix: open a picker right here instead of failing
+                            // silently or navigating away and losing the drawing.
+                            if (friends.isEmpty() && !friendsLoading) {
+                                Toast.makeText(
+                                    context, "Add a friend first from the Friends tab", Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                showFriendPicker = true
+                            }
+                        }
                         canvasSize.width == 0 || canvasSize.height == 0 -> Toast.makeText(
                             context, "Canvas not ready yet, try again", Toast.LENGTH_SHORT
                         ).show()
@@ -80,15 +176,15 @@ fun DrawScreen(
                             sendDoodle(
                                 senderId = currentUid,
                                 senderUsername = currentUsername,
-                                receiverId = recipientUid,
-                                receiverUsername = recipientUsername ?: "Unknown",
+                                receiverId = activeRecipientUid!!,
+                                receiverUsername = activeRecipientUsername ?: "Unknown",
                                 strokes = strokes,
                                 canvasWidth = canvasSize.width.toFloat(),
                                 canvasHeight = canvasSize.height.toFloat()
                             ) { success, error ->
                                 isSending = false
                                 if (success) {
-                                    Toast.makeText(context, "Doodle sent to $recipientUsername!", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Doodle sent to $activeRecipientUsername!", Toast.LENGTH_LONG).show()
                                     onBack()
                                 } else {
                                     Toast.makeText(context, "Failed to send: $error", Toast.LENGTH_LONG).show()
@@ -118,7 +214,7 @@ fun DrawScreen(
                         },
                         onDragEnd = {
                             if (currentPoints.size > 1) {
-                                strokes.add(DoodleStroke(currentPoints, selectedColor))
+                                strokes.add(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
                             }
                             currentPoints = emptyList()
                         }
@@ -127,23 +223,54 @@ fun DrawScreen(
         ) {
             strokes.forEach { drawStroke(it) }
             if (currentPoints.size > 1) {
-                drawStroke(DoodleStroke(currentPoints, selectedColor))
+                drawStroke(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
             }
         }
 
+        // Brush size picker
         Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            brushSizes.forEach { brush ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clickable { selectedBrush = brush }
+                        .border(
+                            width = if (brush == selectedBrush) 2.dp else 0.dp,
+                            color = Color.DarkGray,
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(brush.dotSize)
+                            .clip(CircleShape)
+                            .background(Color.Black)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(brush.label, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        // Color palette — scrollable so it never overflows on smaller screens
+        LazyRow(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            palette.forEach { color ->
+            items(palette) { color ->
                 Box(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(color)
                         .border(
-                            width = if (color == selectedColor) 3.dp else 0.dp,
-                            color = Color.DarkGray,
+                            width = if (color == selectedColor) 3.dp else 1.dp,
+                            color = if (color == selectedColor) Color.DarkGray else Color.LightGray,
                             shape = CircleShape
                         )
                         .clickable { selectedColor = color }
@@ -162,6 +289,49 @@ fun DrawScreen(
                 Text("Clear")
             }
         }
+    }
+
+    if (showFriendPicker) {
+        AlertDialog(
+            onDismissRequest = { showFriendPicker = false },
+            title = { Text("Send to...") },
+            text = {
+                if (friendsLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (friends.isEmpty()) {
+                    Text("You don't have any friends yet. Add one from the Friends tab first.")
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(friends, key = { it.uid }) { friend ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(LavenderBackground, RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        activeRecipientUid = friend.uid
+                                        activeRecipientUsername = friend.username
+                                        showFriendPicker = false
+                                    }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(friend.avatarEmoji, fontSize = 20.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(friend.username, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFriendPicker = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
