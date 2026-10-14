@@ -50,7 +50,9 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   }
 
   const strokesJson = serializeStrokes(doodle.strokes);
-  const MAX_STROKES_BYTES = 3000;
+  // FCM data messages cap at 4KB total; leave ~500 bytes for the other fields.
+  const MAX_STROKES_BYTES = 3600;
+  const pointCount = (doodle.strokes || []).reduce((n, s) => n + ((s.points || []).length), 0);
   const strokesSize = Buffer.byteLength(strokesJson, "utf8");
 
   const data = {
@@ -63,7 +65,7 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   if (strokesSize <= MAX_STROKES_BYTES) {
     data.strokes = strokesJson;
   } else {
-    logger.warn("Doodle too large to embed in push, receiver will need to fetch it", {doodleId, strokesSize});
+    logger.warn("Doodle too large to embed in push, receiver will need to fetch it", {doodleId, strokesSize, pointCount});
   }
 
   const message = {
@@ -76,7 +78,7 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
 
   try {
     const response = await getMessaging().send(message);
-    logger.info("Push sent successfully", {doodleId, receiverId, embedded: strokesSize <= MAX_STROKES_BYTES, response});
+    logger.info("Push sent successfully", {doodleId, receiverId, embedded: strokesSize <= MAX_STROKES_BYTES, strokesSize, pointCount, response});
   } catch (error) {
     logger.error("Failed to send push", {doodleId, receiverId, error: error.message});
   }

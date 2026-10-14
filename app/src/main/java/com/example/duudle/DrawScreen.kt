@@ -347,16 +347,70 @@ private fun DrawScope.drawStroke(stroke: DoodleStroke) {
     }
 }
 
-private fun DoodleStroke.toFirestoreMap(canvasWidth: Float, canvasHeight: Float): Map<String, Any> = mapOf(
-    "points" to points.map {
-        mapOf(
-            "x" to (if (canvasWidth > 0f) (it.x / canvasWidth).toDouble() else 0.0),
-            "y" to (if (canvasHeight > 0f) (it.y / canvasHeight).toDouble() else 0.0)
+// Max distance (as a fraction of the canvas) a dropped point may sit from the
+// simplified line. ~1px on a typical phone canvas, well under any brush width.
+private const val SIMPLIFY_EPSILON = 0.0012f
+
+private fun DoodleStroke.toFirestoreMap(canvasWidth: Float, canvasHeight: Float): Map<String, Any> {
+    val normalized = points.map {
+        Offset(
+            if (canvasWidth > 0f) it.x / canvasWidth else 0f,
+            if (canvasHeight > 0f) it.y / canvasHeight else 0f
         )
-    },
-    "color" to color.toArgb(),
-    "width" to width.toDouble()
-)
+    }
+    // Fewer, rounded points keep most doodles under the FCM embed cap, so the
+    // receiver can skip the slower Firestore fallback. Same format as before.
+    return mapOf(
+        "points" to simplifyStroke(normalized, SIMPLIFY_EPSILON).map {
+            mapOf("x" to roundTo3(it.x), "y" to roundTo3(it.y))
+        },
+        "color" to color.toArgb(),
+        "width" to width.toDouble()
+    )
+}
+
+private fun roundTo3(value: Float): Double = Math.round(value * 1000.0) / 1000.0
+
+/**
+ * Ramer-Douglas-Peucker: drops points lying within [epsilon] of the line between
+ * the points kept around them, so smooth curves need far fewer points. Iterative
+ * to avoid deep recursion on long strokes.
+ */
+internal fun simplifyStroke(points: List<Offset>, epsilon: Float): List<Offset> {
+    if (points.size < 3) return points
+    val keep = BooleanArray(points.size)
+    keep[0] = true
+    keep[points.lastIndex] = true
+    val ranges = ArrayDeque<Pair<Int, Int>>()
+    ranges.addLast(0 to points.lastIndex)
+    while (ranges.isNotEmpty()) {
+        val (start, end) = ranges.removeLast()
+        var maxDistance = 0f
+        var maxIndex = -1
+        for (i in start + 1 until end) {
+            val d = distanceToSegment(points[i], points[start], points[end])
+            if (d > maxDistance) {
+                maxDistance = d
+                maxIndex = i
+            }
+        }
+        if (maxIndex != -1 && maxDistance > epsilon) {
+            keep[maxIndex] = true
+            ranges.addLast(start to maxIndex)
+            ranges.addLast(maxIndex to end)
+        }
+    }
+    return points.filterIndexed { i, _ -> keep[i] }
+}
+
+private fun distanceToSegment(p: Offset, a: Offset, b: Offset): Float {
+    val dx = b.x - a.x
+    val dy = b.y - a.y
+    val lengthSquared = dx * dx + dy * dy
+    if (lengthSquared == 0f) return (p - a).getDistance()
+    val t = (((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared).coerceIn(0f, 1f)
+    return (p - Offset(a.x + t * dx, a.y + t * dy)).getDistance()
+}
 
 fun sendDoodle(
     senderId: String,

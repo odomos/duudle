@@ -6,11 +6,13 @@ import android.provider.Settings
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONArray
+import java.util.concurrent.TimeUnit
 
 class DuudleMessagingService : FirebaseMessagingService() {
 
@@ -46,6 +48,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
         }
 
         if (strokesJson != null) {
+            Log.d("DuudleFCM", "path=embedded doodle=$doodleId bytes=${strokesJson.length}")
             // Parsing is safe on any thread, but showing the overlay is NOT —
             // it creates Android Views, which requires a thread with a running
             // Looper. Whatever thread FCM chose to call us on, hand off to the
@@ -65,27 +68,39 @@ class DuudleMessagingService : FirebaseMessagingService() {
                 }
             }
         } else {
-            // Fallback for unusually large doodles that couldn't fit in the push.
-            FirebaseFirestore.getInstance().collection("doodles").document(doodleId).get()
-                .addOnSuccessListener { doc ->
-                    val incoming = parseDoodleDoc(doc)
-                    if (incoming == null) {
-                        Log.w("DuudleFCM", "Could not parse doodle $doodleId")
-                        return@addOnSuccessListener
-                    }
-                    mainHandler.post {
-                        showRealDoodleOverlay(
-                            context = applicationContext,
-                            doodleId = incoming.docId,
-                            senderUid = incoming.senderId,
-                            senderUsername = senderUsername,
-                            strokes = incoming.strokes
-                        )
-                    }
+            // Fallback for doodles too large to fit in the push. onMessageReceived
+            // runs on a background thread, so block on the fetch here instead of
+            // using async callbacks: once this method returns, Android may kill a
+            // cold-started process before a callback would ever fire.
+            val incoming = try {
+                val doc = Tasks.await(
+                    FirebaseFirestore.getInstance().collection("doodles").document(doodleId).get(),
+                    FALLBACK_FETCH_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS
+                )
+                parseDoodleDoc(doc)
+            } catch (e: Exception) {
+                Log.e("DuudleFCM", "path=fallback failed doodle=$doodleId: ${e.message}")
+                return
+            }
+            if (incoming == null) {
+                Log.w("DuudleFCM", "path=fallback failed doodle=$doodleId: missing or unparseable doc")
+                return
+            }
+            Log.d("DuudleFCM", "path=fallback ok doodle=$doodleId strokes=${incoming.strokes.size}")
+            mainHandler.post {
+                try {
+                    showRealDoodleOverlay(
+                        context = applicationContext,
+                        doodleId = incoming.docId,
+                        senderUid = incoming.senderId,
+                        senderUsername = senderUsername,
+                        strokes = incoming.strokes
+                    )
+                } catch (e: Exception) {
+                    Log.e("DuudleFCM", "Failed to show overlay from fetched doodle: ${e.message}")
                 }
-                .addOnFailureListener { e ->
-                    Log.e("DuudleFCM", "Failed to fetch doodle $doodleId: ${e.message}")
-                }
+            }
         }
     }
 
@@ -107,5 +122,9 @@ class DuudleMessagingService : FirebaseMessagingService() {
             strokes.add(DoodleStroke(points = points, color = Color(colorInt), width = width))
         }
         return strokes
+    }
+
+    private companion object {
+        const val FALLBACK_FETCH_TIMEOUT_SECONDS = 10L
     }
 }
