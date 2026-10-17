@@ -31,8 +31,12 @@ if [ ! -x "$SDKMANAGER" ]; then
 fi
 
 # Accepting licenses also lets the Android Gradle Plugin download any other
-# SDK package it needs during a build.
+# SDK package it needs during a build. `yes` is killed by SIGPIPE once
+# sdkmanager exits, so turn off pipefail here and let sdkmanager's own exit
+# status decide.
+set +o pipefail
 yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses > /dev/null
+set -o pipefail
 "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
 echo "Android SDK ready at $SDK"
