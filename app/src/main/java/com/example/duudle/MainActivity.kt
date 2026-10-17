@@ -192,6 +192,7 @@ class MainActivity : ComponentActivity() {
                                 IncomingDoodleScreen(
                                     modifier = Modifier.padding(innerPadding),
                                     doodle = doodle,
+                                    currentUid = currentUid,
                                     onSnooze = { currentScreen = Screen.HOME },
                                     onRemove = {
                                         markDoodleStatus(doodle.docId, "removed")

@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -109,20 +109,60 @@ fun listenForVaultDoodles(myUid: String, onUpdate: (List<IncomingDoodle>) -> Uni
     return listOf(sentListener, receivedListener)
 }
 
+/**
+ * Favorites are private per user: users/{uid}/favorites/{doodleId}. A field on
+ * the shared doodle doc would let the other person see what you saved.
+ */
+@Composable
+fun rememberFavoriteDoodleIds(myUid: String): Set<String> {
+    var favoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    DisposableEffect(myUid) {
+        if (myUid.isBlank()) return@DisposableEffect onDispose {}
+        val listener = FirebaseFirestore.getInstance()
+            .collection("users").document(myUid).collection("favorites")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("DuudleDebug", "Favorites listener failed: ${error.message}")
+                    return@addSnapshotListener
+                }
+                favoriteIds = snapshot?.documents?.map { it.id }?.toSet() ?: emptySet()
+            }
+        onDispose { listener.remove() }
+    }
+    return favoriteIds
+}
+
+fun setDoodleFavorite(myUid: String, doodleId: String, favorite: Boolean, onError: (String?) -> Unit = {}) {
+    val favoriteRef = FirebaseFirestore.getInstance()
+        .collection("users").document(myUid)
+        .collection("favorites").document(doodleId)
+    val task = if (favorite) favoriteRef.set(mapOf("savedAt" to System.currentTimeMillis())) else favoriteRef.delete()
+    task.addOnFailureListener { e ->
+        android.util.Log.e("DuudleDebug", "Favorite update failed: ${e.message}")
+        onError(e.message)
+    }
+}
+
 @Composable
 fun IncomingDoodleScreen(
     modifier: Modifier = Modifier,
     doodle: IncomingDoodle,
+    currentUid: String,
     onSnooze: () -> Unit,
     onRemove: () -> Unit,
     onReply: (senderUid: String, senderUsername: String) -> Unit
 ) {
+    val isSaved = doodle.docId in rememberFavoriteDoodleIds(currentUid)
     Column(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text("🖍 Doodle from ${doodle.senderUsername}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            TextButton(
+                onClick = { setDoodleFavorite(currentUid, doodle.docId, !isSaved) },
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) { Text(if (isSaved) "★ Saved" else "☆ Save") }
         }
 
         Canvas(

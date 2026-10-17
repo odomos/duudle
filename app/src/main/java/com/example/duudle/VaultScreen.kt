@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.sp
 private val LavenderBackground = Color(0xFFEDE3FA)
 private val IndigoPrimary = Color(0xFF5B3FD9)
 private val PinkAction = Color(0xFFE8637E)
+private val SavedGold = Color(0xFFF2A900)
 
 @Composable
 fun VaultScreen(
@@ -37,6 +39,9 @@ fun VaultScreen(
 ) {
     var doodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
     var selectedDoodle by remember { mutableStateOf<IncomingDoodle?>(null) }
+    var savedOnly by rememberSaveable { mutableStateOf(false) }
+    val favoriteIds = rememberFavoriteDoodleIds(currentUid)
+    val shown = if (savedOnly) doodles.filter { it.docId in favoriteIds } else doodles
 
     DisposableEffect(currentUid) {
         if (currentUid.isBlank()) return@DisposableEffect onDispose {}
@@ -54,6 +59,8 @@ fun VaultScreen(
             modifier = modifier,
             doodle = doodle,
             currentUid = currentUid,
+            isSaved = doodle.docId in favoriteIds,
+            onToggleSaved = { setDoodleFavorite(currentUid, doodle.docId, doodle.docId !in favoriteIds) },
             onBack = { selectedDoodle = null },
             onReply = { uid, username ->
                 selectedDoodle = null
@@ -72,20 +79,23 @@ fun VaultScreen(
                 Spacer(Modifier.weight(1f))
                 Spacer(Modifier.width(64.dp))
             }
-            Text(
-                "${doodles.size} doodles",
-                fontSize = 13.sp,
-                color = IndigoPrimary,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
+            ) {
+                VaultFilterPill("All (${doodles.size})", selected = !savedOnly) { savedOnly = false }
+                VaultFilterPill(
+                    "★ Saved (${doodles.count { it.docId in favoriteIds }})",
+                    selected = savedOnly
+                ) { savedOnly = true }
+            }
 
             Box(modifier = Modifier.weight(1f)) {
-                if (doodles.isEmpty()) {
+                if (shown.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text(
-                            "No doodles yet — send or receive one and it'll show up here!",
+                            if (savedOnly) "Nothing saved yet — open a doodle and tap ☆ to keep it here."
+                            else "No doodles yet — send or receive one and it'll show up here!",
                             color = Color.DarkGray,
                             textAlign = TextAlign.Center
                         )
@@ -98,8 +108,13 @@ fun VaultScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(doodles, key = { it.docId }) { d ->
-                            VaultThumbnail(doodle = d, currentUid = currentUid, onClick = { selectedDoodle = d })
+                        items(shown, key = { it.docId }) { d ->
+                            VaultThumbnail(
+                                doodle = d,
+                                currentUid = currentUid,
+                                isSaved = d.docId in favoriteIds,
+                                onClick = { selectedDoodle = d }
+                            )
                         }
                     }
                 }
@@ -117,7 +132,20 @@ fun VaultScreen(
 }
 
 @Composable
-private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, onClick: () -> Unit) {
+private fun VaultFilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (selected) IndigoPrimary else Color.White)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(label, color = if (selected) Color.White else IndigoPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, isSaved: Boolean, onClick: () -> Unit) {
     val isSent = doodle.senderId == currentUid
     Column(
         modifier = Modifier
@@ -147,13 +175,18 @@ private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, onClick: 
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text(
-            if (isSent) "To ${doodle.receiverUsername}" else "From ${doodle.senderUsername}",
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            color = Color.Black
-        )
-        Text(relativeTime(doodle.createdAt), fontSize = 10.sp, color = Color.Gray)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (isSent) "To ${doodle.receiverUsername}" else "From ${doodle.senderUsername}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = Color.Black
+                )
+                Text(relativeTime(doodle.createdAt), fontSize = 10.sp, color = Color.Gray)
+            }
+            if (isSaved) Text("★", color = SavedGold, fontSize = 18.sp)
+        }
     }
 }
 
@@ -162,6 +195,8 @@ private fun VaultDoodleDetail(
     modifier: Modifier = Modifier,
     doodle: IncomingDoodle,
     currentUid: String,
+    isSaved: Boolean,
+    onToggleSaved: () -> Unit,
     onBack: () -> Unit,
     onReply: (uid: String, username: String) -> Unit
 ) {
@@ -179,7 +214,13 @@ private fun VaultDoodleDetail(
                 fontSize = 16.sp
             )
             Spacer(Modifier.weight(1f))
-            Spacer(Modifier.width(64.dp))
+            TextButton(onClick = onToggleSaved, modifier = Modifier.width(88.dp)) {
+                Text(
+                    if (isSaved) "★ Saved" else "☆ Save",
+                    color = if (isSaved) SavedGold else IndigoPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         Canvas(
