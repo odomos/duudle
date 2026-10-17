@@ -39,4 +39,24 @@ yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses > /dev/null
 set -o pipefail
 "$SDKMANAGER" --sdk_root="$SDK" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
+# repo.maven.apache.org rate-limits the shared cloud network (HTTP 429), so
+# send Maven Central downloads to Google's mirror of it instead. This lives in
+# ~/.gradle/init.d on the cloud VM only; local builds are unaffected.
+mkdir -p "$HOME/.gradle/init.d"
+cat > "$HOME/.gradle/init.d/maven-central-mirror.gradle" <<'GRADLE'
+def mirror = "https://maven-central.storage-download.googleapis.com/maven2/"
+def redirect = { RepositoryHandler repos ->
+    repos.withType(MavenArtifactRepository).configureEach { repo ->
+        if (repo.url.toString().startsWith("https://repo.maven.apache.org/maven2")) {
+            repo.url = mirror
+        }
+    }
+}
+beforeSettings { settings ->
+    redirect(settings.pluginManagement.repositories)
+    redirect(settings.dependencyResolutionManagement.repositories)
+}
+allprojects { redirect(repositories) }
+GRADLE
+
 echo "Android SDK ready at $SDK"
