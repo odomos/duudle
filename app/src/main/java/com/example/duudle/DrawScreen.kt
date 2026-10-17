@@ -5,7 +5,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,10 +25,13 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -33,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toSize
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -87,6 +95,10 @@ fun DrawScreen(
     // Saved with the strokes: after a rotation it still holds the size the
     // restored strokes were drawn at, so onSizeChanged can rescale them.
     var canvasSize by rememberSaveable(stateSaver = IntSizeSaver) { mutableStateOf(IntSize.Zero) }
+    // View-only zoom: strokes stay in un-zoomed canvas pixels, so what gets
+    // sent (normalized to 0-1) never depends on the zoom level.
+    var zoomScale by remember { mutableFloatStateOf(1f) }
+    var zoomOffset by remember { mutableStateOf(Offset.Zero) }
 
     // The recipient can change after the screen first opens — picking a friend
     // from the in-canvas picker below updates these without losing the drawing.
@@ -208,54 +220,95 @@ fun DrawScreen(
             }
         }
 
-        Canvas(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(Color.White)
-                .onSizeChanged { newSize ->
-                    // Strokes are in canvas pixels. When the canvas changes size
-                    // (e.g. rotation), map them to the new size the same way the
-                    // 0-1 normalization will, so what's shown is what gets sent.
-                    val old = canvasSize
-                    if (old.width > 0 && old.height > 0 && newSize.width > 0 && newSize.height > 0 && newSize != old) {
-                        val scaleX = newSize.width.toFloat() / old.width
-                        val scaleY = newSize.height.toFloat() / old.height
-                        for (i in strokes.indices) {
-                            val stroke = strokes[i]
-                            strokes[i] = stroke.copy(points = stroke.points.map { Offset(it.x * scaleX, it.y * scaleY) })
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clipToBounds()
+                    .background(Color.White)
+                    .onSizeChanged { newSize ->
+                        // Strokes are in canvas pixels. When the canvas changes size
+                        // (e.g. rotation), map them to the new size the same way the
+                        // 0-1 normalization will, so what's shown is what gets sent.
+                        val old = canvasSize
+                        if (old.width > 0 && old.height > 0 && newSize.width > 0 && newSize.height > 0 && newSize != old) {
+                            val scaleX = newSize.width.toFloat() / old.width
+                            val scaleY = newSize.height.toFloat() / old.height
+                            for (i in strokes.indices) {
+                                val stroke = strokes[i]
+                                strokes[i] = stroke.copy(points = stroke.points.map { Offset(it.x * scaleX, it.y * scaleY) })
+                            }
+                            zoomScale = 1f
+                            zoomOffset = Offset.Zero
                         }
+                        canvasSize = newSize
                     }
-                    canvasSize = newSize
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset -> currentPoints = listOf(offset) },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            currentPoints = currentPoints + change.position
-                        },
-                        onDragEnd = {
-                            // pointerInput(Unit) captures this lambda once, so read the
-                            // state directly rather than the selectedColor/selectedBrush
-                            // values from the first composition.
-                            if (currentPoints.size > 1) {
-                                strokes.add(
-                                    DoodleStroke(
-                                        currentPoints,
-                                        Color(selectedColorArgb),
-                                        brushSizes[selectedBrushIndex].width
+                    .pointerInput(Unit) {
+                        // One finger draws; two fingers pinch-zoom and pan. pointerInput(Unit)
+                        // captures this lambda once, so it reads state directly rather than
+                        // the selectedColor/selectedBrush values from the first composition.
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            val viewSize = size.toSize()
+                            var drawing = true
+                            currentPoints = listOf(screenToCanvas(down.position, zoomScale, zoomOffset, viewSize))
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val pressed = event.changes.filter { it.pressed }
+                                if (pressed.isEmpty()) break
+                                if (pressed.size > 1) {
+                                    // A second finger turns this gesture into zoom/pan and
+                                    // drops the stroke it interrupted, so no stray line.
+                                    drawing = false
+                                    currentPoints = emptyList()
+                                    val (newScale, newOffset) = applyZoomPan(
+                                        zoomScale, zoomOffset,
+                                        event.calculateCentroid(), event.calculateZoom(), event.calculatePan(),
+                                        viewSize
                                     )
+                                    zoomScale = newScale
+                                    zoomOffset = newOffset
+                                } else if (drawing) {
+                                    currentPoints = currentPoints +
+                                        screenToCanvas(pressed[0].position, zoomScale, zoomOffset, viewSize)
+                                }
+                                event.changes.forEach { it.consume() }
+                            }
+                            if (drawing && currentPoints.size > 1) {
+                                strokes.add(
+                                    DoodleStroke(currentPoints, Color(selectedColorArgb), brushSizes[selectedBrushIndex].width)
                                 )
                             }
                             currentPoints = emptyList()
                         }
-                    )
+                    }
+            ) {
+                withTransform({
+                    translate(zoomOffset.x, zoomOffset.y)
+                    scale(zoomScale, zoomScale, pivot = Offset.Zero)
+                }) {
+                    strokes.forEach { drawStroke(it) }
+                    if (currentPoints.size > 1) {
+                        drawStroke(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
+                    }
                 }
-        ) {
-            strokes.forEach { drawStroke(it) }
-            if (currentPoints.size > 1) {
-                drawStroke(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
+            }
+
+            if (zoomScale > 1.01f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xCC333333))
+                        .clickable {
+                            zoomScale = 1f
+                            zoomOffset = Offset.Zero
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("Reset zoom · ${"%.1f".format(zoomScale)}×", color = Color.White, fontSize = 12.sp)
+                }
             }
         }
 
@@ -398,6 +451,36 @@ private val StrokeListSaver = listSaver<SnapshotStateList<DoodleStroke>, Any>(
         }.toMutableStateList()
     }
 )
+
+internal const val MAX_ZOOM = 4f
+
+/** Maps a touch position on the zoomed view to un-zoomed canvas pixels, clamped to the canvas. */
+internal fun screenToCanvas(point: Offset, scale: Float, offset: Offset, viewSize: Size): Offset {
+    val canvasPoint = (point - offset) / scale
+    return Offset(canvasPoint.x.coerceIn(0f, viewSize.width), canvasPoint.y.coerceIn(0f, viewSize.height))
+}
+
+/**
+ * Applies one pinch step: zoom by [zoom] around [centroid] (the point under the
+ * fingers stays put), then pan by [pan]. The result is clamped to 1x..MAX_ZOOM
+ * and so the canvas always fills the view.
+ */
+internal fun applyZoomPan(
+    scale: Float,
+    offset: Offset,
+    centroid: Offset,
+    zoom: Float,
+    pan: Offset,
+    viewSize: Size
+): Pair<Float, Offset> {
+    val newScale = (scale * zoom).coerceIn(1f, MAX_ZOOM)
+    val raw = centroid - (centroid - offset) * (newScale / scale) + pan
+    val clamped = Offset(
+        raw.x.coerceIn(viewSize.width * (1 - newScale), 0f),
+        raw.y.coerceIn(viewSize.height * (1 - newScale), 0f)
+    )
+    return newScale to clamped
+}
 
 private fun DrawScope.drawStroke(stroke: DoodleStroke) {
     for (i in 0 until stroke.points.size - 1) {
