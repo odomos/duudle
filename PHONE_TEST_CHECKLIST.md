@@ -60,6 +60,9 @@ Files: `DrawScreen.kt` (gesture handling, view transform, Reset pill),
       overlay appears over the home screen and over another app
 - [x] Roadmap #1: Snooze / Remove / Draw from a real push (covered by the
       snooze checks above)
+- [ ] Overlay test screen: turn the overlay permission or battery
+      "Unrestricted" off/on in Settings, come back, and the status updates
+      (`LocalLifecycleOwner` moved to `androidx.lifecycle.compose`)
 
 ## Already passed on the phone
 
