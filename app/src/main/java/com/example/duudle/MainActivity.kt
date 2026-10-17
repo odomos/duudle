@@ -15,6 +15,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -194,10 +195,12 @@ class MainActivity : ComponentActivity() {
                                     onSnooze = { currentScreen = Screen.HOME },
                                     onRemove = {
                                         markDoodleStatus(doodle.docId, "removed")
+                                        DoodleSnooze.cancel(context, doodle.docId)
                                         currentScreen = Screen.HOME
                                     },
                                     onReply = { senderUid, senderUsername ->
                                         markDoodleStatus(doodle.docId, "removed")
+                                        DoodleSnooze.cancel(context, doodle.docId)
                                         recipientUid = senderUid
                                         recipientUsername = senderUsername
                                         currentScreen = Screen.DRAW
@@ -514,14 +517,45 @@ fun showRealDoodleOverlay(
         setPadding(0, 16, 0, 0)
     }
 
+    // Tapping Snooze swaps the main buttons for duration choices, with Back
+    // on its own line since four buttons don't fit the overlay's width.
+    val snoozePanel = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(0, 16, 0, 0)
+        visibility = View.GONE
+    }
+    val durationRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+    for ((label, minutes) in listOf("5 min" to 5, "15 min" to 15, "1 hour" to 60)) {
+        durationRow.addView(Button(context).apply {
+            text = label
+            setOnClickListener {
+                DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes)
+                removeRealDoodleOverlay(context)
+                Toast.makeText(context, "Snoozed for $label", Toast.LENGTH_SHORT).show()
+            }
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    }
+    snoozePanel.addView(durationRow)
+    snoozePanel.addView(Button(context).apply {
+        text = "Back"
+        setOnClickListener {
+            snoozePanel.visibility = View.GONE
+            buttonRow.visibility = View.VISIBLE
+        }
+    }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
     buttonRow.addView(Button(context).apply {
         text = "Snooze"
-        setOnClickListener { removeRealDoodleOverlay(context) }
+        setOnClickListener {
+            buttonRow.visibility = View.GONE
+            snoozePanel.visibility = View.VISIBLE
+        }
     })
     buttonRow.addView(Button(context).apply {
         text = "Remove"
         setOnClickListener {
             markDoodleStatus(doodleId, "removed")
+            DoodleSnooze.cancel(context, doodleId)
             removeRealDoodleOverlay(context)
         }
     })
@@ -529,6 +563,7 @@ fun showRealDoodleOverlay(
         text = "Draw"
         setOnClickListener {
             markDoodleStatus(doodleId, "removed")
+            DoodleSnooze.cancel(context, doodleId)
             removeRealDoodleOverlay(context)
             val replyIntent = Intent(context, MainActivity::class.java).apply {
                 // CLEAR_TOP + SINGLE_TOP route the intent to the running
@@ -543,6 +578,7 @@ fun showRealDoodleOverlay(
         }
     })
     container.addView(buttonRow)
+    container.addView(snoozePanel)
 
     val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,

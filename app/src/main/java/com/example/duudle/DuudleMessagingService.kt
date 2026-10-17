@@ -6,12 +6,14 @@ import android.provider.Settings
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class DuudleMessagingService : FirebaseMessagingService() {
@@ -55,7 +57,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
             // app's real main thread for this part.
             mainHandler.post {
                 try {
-                    val strokes = parseStrokesFromJson(strokesJson)
+                    val strokes = strokesFromJson(strokesJson)
                     showRealDoodleOverlay(
                         context = applicationContext,
                         doodleId = doodleId,
@@ -104,27 +106,43 @@ class DuudleMessagingService : FirebaseMessagingService() {
         }
     }
 
-    private fun parseStrokesFromJson(json: String): List<DoodleStroke> {
-        val strokes = mutableListOf<DoodleStroke>()
-        val strokesArray = JSONArray(json)
-        for (i in 0 until strokesArray.length()) {
-            val strokeObj = strokesArray.getJSONObject(i)
-            val colorInt = strokeObj.getInt("c")
-            val width = strokeObj.getDouble("w").toFloat()
-            val pointsArray = strokeObj.getJSONArray("p")
-            val points = mutableListOf<Offset>()
-            for (j in 0 until pointsArray.length()) {
-                val pointPair = pointsArray.getJSONArray(j)
-                val x = pointPair.getDouble(0).toFloat()
-                val y = pointPair.getDouble(1).toFloat()
-                points.add(Offset(x, y))
-            }
-            strokes.add(DoodleStroke(points = points, color = Color(colorInt), width = width))
-        }
-        return strokes
-    }
-
     private companion object {
         const val FALLBACK_FETCH_TIMEOUT_SECONDS = 10L
     }
+}
+
+/**
+ * The compact stroke format the Cloud Function embeds in pushes:
+ * [{"c": colorArgb, "w": width, "p": [[x, y], ...]}] with normalized 0-1 points.
+ */
+fun strokesFromJson(json: String): List<DoodleStroke> {
+    val strokes = mutableListOf<DoodleStroke>()
+    val strokesArray = JSONArray(json)
+    for (i in 0 until strokesArray.length()) {
+        val strokeObj = strokesArray.getJSONObject(i)
+        val colorInt = strokeObj.getInt("c")
+        val width = strokeObj.getDouble("w").toFloat()
+        val pointsArray = strokeObj.getJSONArray("p")
+        val points = mutableListOf<Offset>()
+        for (j in 0 until pointsArray.length()) {
+            val pointPair = pointsArray.getJSONArray(j)
+            val x = pointPair.getDouble(0).toFloat()
+            val y = pointPair.getDouble(1).toFloat()
+            points.add(Offset(x, y))
+        }
+        strokes.add(DoodleStroke(points = points, color = Color(colorInt), width = width))
+    }
+    return strokes
+}
+
+fun strokesToJson(strokes: List<DoodleStroke>): String {
+    val strokesArray = JSONArray()
+    for (stroke in strokes) {
+        val pointsArray = JSONArray()
+        for (p in stroke.points) pointsArray.put(JSONArray().put(p.x.toDouble()).put(p.y.toDouble()))
+        strokesArray.put(
+            JSONObject().put("c", stroke.color.toArgb()).put("w", stroke.width.toDouble()).put("p", pointsArray)
+        )
+    }
+    return strokesArray.toString()
 }

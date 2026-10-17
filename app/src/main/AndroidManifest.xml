@@ -25,6 +25,10 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".SnoozeAlarmReceiver"
+            android:exported="false" />
+
         <service
             android:name=".DuudleMessagingService"
             android:exported="false">
