@@ -31,6 +31,12 @@ system overlay on the recipient's phone, even with the app killed.
 
 ## Build and test
 - `./gradlew assembleDebug testDebugUnitTest` (unit tests in `app/src/test/`).
+- On the owner's Windows laptop, use Android Studio's bundled JDK:
+  `$env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat assembleDebug testDebugUnitTest`
+- Lint: `lintDebug` (never run yet; expect pre-existing warnings). The Cloud Function has
+  no test suite, so use `node --check functions/index.js`. Emulator AVDs:
+  `Medium_Phone_API_36.0`, `Pixel_7_Pro`; app log tags `DuudleFCM`, `DuudleSnooze`,
+  `DuudleDebug`.
 - Cloud sessions: the Android SDK comes from `scripts/cloud-setup.sh` (pasted into the
   cloud environment's setup script). There's no emulator or phone in the cloud, so
   anything touching overlays, pushes, alarms or gestures needs a check on the real
@@ -45,3 +51,20 @@ system overlay on the recipient's phone, even with the app killed.
 - Don't deploy Firebase (functions or rules) from a cloud session; there are no
   credentials there. Note what needs deploying and the owner deploys from their laptop.
 - Never commit secrets: `*.pem`, `serviceAccountKey.json`, `node_modules/` are ignored.
+
+## Team workflow (/project-partner)
+- For engineering tasks the owner runs `/project-partner <task>`
+  (`.claude/skills/project-partner/SKILL.md`). The main session is the **team lead**: it
+  plans, delegates, verifies and reports to the owner. It never just forwards agent output.
+- Specialists in `.claude/agents/`: `repo-analyst` (read-only analysis),
+  `feature-developer` (the only production-code writer), `test-engineer` (runs checks;
+  writes only tests and `PHONE_TEST_CHECKLIST.md`), and read-only reviewers
+  `code-reviewer`, `security-reviewer`, `ui-ux-reviewer`.
+- One writer per file at a time. Record `git status` before starting; uncommitted files
+  that already existed are the owner's work and must not be reverted or attributed to
+  the task.
+- Approval gates, always: commit, push, merge, history rewrites, `firebase deploy`, live
+  Firestore writes, rules/auth/data-format changes, new dependencies, messaging real
+  users. There's no staging Firebase project.
+- Never report a check as passed unless it actually ran. Anything that needs the
+  emulator or the Samsung and wasn't run is reported as unverified.

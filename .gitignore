@@ -17,6 +17,12 @@ local.properties
 *.pem
 serviceAccountKey.json
 node_modules/
-.claude/
+# Claude Code: share the project-partner team (agents + skill) through Git;
+# keep installed third-party skills and local settings out.
+.claude/*
+!.claude/agents/
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/project-partner/
 .agents/
 skills-lock.json
