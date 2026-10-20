@@ -220,7 +220,10 @@ fun DrawScreen(
             }
         }
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        // The canvas is the largest centered 1:1 square that fits the leftover space, so the
+        // 0-1 normalized strokes keep their proportions on the square viewers. wrapContentSize()
+        // drops the fill min-constraints so aspectRatio can shrink and center the square.
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(LavenderBackground).wrapContentSize().aspectRatio(1f)) {
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()

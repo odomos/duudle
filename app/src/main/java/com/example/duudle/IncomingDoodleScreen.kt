@@ -16,6 +16,8 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 
+private val LavenderBackground = Color(0xFFEDE3FA)
+
 data class IncomingDoodle(
     val docId: String,
     val senderId: String,
@@ -169,6 +171,9 @@ fun IncomingDoodleScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .background(LavenderBackground)
+                .wrapContentSize()
+                .aspectRatio(1f) // square, like the sender's Draw canvas
                 .background(Color.White)
         ) {
             doodle.strokes.forEach { stroke ->

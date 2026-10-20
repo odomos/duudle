@@ -228,6 +228,8 @@ private fun VaultDoodleDetail(
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(16.dp)
+                .wrapContentSize()
+                .aspectRatio(1f) // square, like the sender's Draw canvas
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.White)
         ) {

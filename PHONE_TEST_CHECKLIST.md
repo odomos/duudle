@@ -64,6 +64,29 @@ Files: `DrawScreen.kt` (gesture handling, view transform, Reset pill),
       "Unrestricted" off/on in Settings, come back, and the status updates
       (`LocalLifecycleOwner` moved to `androidx.lifecycle.compose`)
 
+## Square doodle canvas (verified on the A34, 2026-10-20)
+
+Files: `DrawScreen.kt` (draw canvas is a centered 1:1 square),
+`VaultScreen.kt` (detail view square), `IncomingDoodleScreen.kt` (in-app
+viewer square). Emulator: square measured in portrait and landscape, a drawn
+square stays square across rotation, and the Reset-zoom pill sits at the
+square's top-right. Not checked on the emulator: a real send/receive.
+
+- [x] Draw a circle (as round as you can) and send it to a friend. On the
+      receiver it arrives as a circle, not an oval, in all four places:
+      the push overlay, the Vault grid thumbnail, the Vault detail view, and
+      the in-app viewer (tap the mascot on Home before opening the overlay)
+- [x] Draw screen on the A34 in portrait: white canvas is a full-width square,
+      centered between the header and the brush row, nothing cut off
+- [x] Draw screen on the A34 in landscape: white canvas is a square using the
+      full height between the header and the brush row, centered horizontally;
+      brushes, colours, Undo and Clear are still reachable
+- [x] Draw something in portrait, rotate to landscape and back: the drawing
+      keeps its shape and position
+- [x] Doodles sent **before** this change look horizontally stretched (wider
+      than tall) in the Vault and the in-app viewer. This is expected and
+      acceptable; just confirm it's only the old ones
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

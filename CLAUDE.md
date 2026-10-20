@@ -17,6 +17,9 @@ system overlay on the recipient's phone, even with the app killed.
 ## Architecture decisions (don't undo these casually)
 - Strokes are vector data: `DoodleStroke(points, color, width)`, with points stored
   normalized to 0-1 of canvas width/height. Zoom in `DrawScreen` is view-only.
+- Every doodle canvas is a 1:1 square (Draw screen, overlay, Vault, in-app viewer) so the
+  0-1 points keep their proportions. Any new place that draws or renders strokes must be
+  square too. Doodles sent before this rule were drawn on a tall canvas and look stretched.
 - Stroke JSON is embedded in the FCM payload (cap `MAX_STROKES_BYTES` in
   `functions/index.js`, FCM's hard limit is 4KB). Oversized doodles fall back to a
   blocking Firestore fetch in `DuudleMessagingService`. Senders simplify strokes
