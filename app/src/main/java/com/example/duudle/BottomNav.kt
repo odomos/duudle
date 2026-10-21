@@ -1,6 +1,5 @@
 package com.example.duudle
 
-import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,7 +15,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,9 +34,9 @@ fun DuudleBottomNav(
     onHomeClick: () -> Unit,
     onFriendsClick: () -> Unit,
     onDrawClick: () -> Unit,
-    onVaultClick: () -> Unit
+    onVaultClick: () -> Unit,
+    onMeClick: () -> Unit
 ) {
-    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -49,12 +51,7 @@ fun DuudleBottomNav(
             Spacer(Modifier.width(56.dp))
             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
                 NavIcon(emoji = "🗂️", label = "Vault", active = activeTab == DuudleNavTab.VAULT, onClick = onVaultClick)
-                BouncingNavIcon(
-                    emoji = "🙂",
-                    label = "Me",
-                    active = activeTab == DuudleNavTab.ME,
-                    onClick = { Toast.makeText(context, "Your profile page is coming soon!", Toast.LENGTH_SHORT).show() }
-                )
+                BouncingNavIcon(emoji = "🙂", label = "Me", active = activeTab == DuudleNavTab.ME, onClick = onMeClick)
             }
         }
 
@@ -66,11 +63,18 @@ fun DuudleBottomNav(
 private fun NavIcon(emoji: String, label: String, active: Boolean = false, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = onClick
-        )
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .semantics {
+                selected = active
+                role = Role.Tab
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
     ) {
         Text(emoji, fontSize = 22.sp)
         Text(
@@ -93,14 +97,26 @@ private fun BouncingNavIcon(emoji: String, label: String, active: Boolean = fals
     )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            onClick = onClick
-        )
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .semantics {
+                selected = active
+                role = Role.Tab
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
     ) {
-        Text(emoji, fontSize = 22.sp, modifier = Modifier.graphicsLayer { translationY = floatOffset * density })
-        Text(label, fontSize = 11.sp, color = if (active) NavActivePink else Color.Gray)
+        Text(emoji, fontSize = 22.sp, modifier = Modifier.graphicsLayer { translationY = if (active) 0f else floatOffset * density })
+        Text(
+            label,
+            fontSize = 11.sp,
+            color = if (active) NavActivePink else Color.Gray,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 

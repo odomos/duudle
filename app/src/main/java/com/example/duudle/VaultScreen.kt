@@ -35,6 +35,7 @@ fun VaultScreen(
     onBack: () -> Unit = {},
     onFriendsClick: () -> Unit = {},
     onDesignDoodleClick: () -> Unit = {},
+    onMeClick: () -> Unit = {},
     onReply: (uid: String, username: String) -> Unit = { _, _ -> }
 ) {
     var doodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
@@ -125,7 +126,8 @@ fun VaultScreen(
                 onHomeClick = onBack,
                 onFriendsClick = onFriendsClick,
                 onDrawClick = onDesignDoodleClick,
-                onVaultClick = { /* already here */ }
+                onVaultClick = { /* already here */ },
+                onMeClick = onMeClick
             )
         }
     }

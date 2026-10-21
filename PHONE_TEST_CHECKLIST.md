@@ -87,6 +87,42 @@ square's top-right. Not checked on the emulator: a real send/receive.
       than tall) in the Vault and the in-app viewer. This is expected and
       acceptable; just confirm it's only the old ones
 
+## Profile screen (not yet verified on the A34)
+
+Files: `ProfileScreen.kt` (new), `BottomNav.kt` (Me opens Profile instead of
+the "coming soon" toast), `MainActivity.kt` (`Screen.PROFILE`), `HomeScreen.kt`,
+`FriendsScreen.kt`, `VaultScreen.kt` (pass `onMeClick`). Emulator (2026-10-20):
+Me opens Profile from Home/Friends/Vault, stats matched the other screens,
+Back/system back/tabs/Draw FAB/Overlay Debug row all worked. Not checked on the
+emulator: the ❌ + Fix state (both permissions were already on there).
+
+- [ ] Tap **Me** from Home, Friends and Vault: each opens Profile (no "coming
+      soon" toast), and the Me label is pink and bold there
+- [ ] Header shows the same animal avatar your friends see next to your name,
+      the correct `@username`, and "Joined <date>" matching the day this A34
+      account was created (the most recent fresh install/signup)
+- [ ] The four stats change from "…" to numbers (none stay "…" or show "—").
+      **Friends** equals the "N Friends" header on the Friends screen,
+      **Saved** equals Vault "★ Saved (n)", and **Sent + Received** equals
+      Vault "All (n)" plus the number of doodles you sent to yourself
+- [ ] Settings > Apps > Duudle > Appear on top: turn it **off**, open Profile:
+      "Float over other apps" shows ❌ with a pink **Fix**. Tap Fix: it opens
+      Duudle's "Appear on top" page (not a generic list or the app info page).
+      Turn it on, press back: the row is now ✅ On without leaving Profile
+- [ ] Settings > Apps > Duudle > Battery: set to **Optimized** (or Restricted),
+      open Profile: "Battery: Unrestricted" shows ❌ + **Fix**. Tap Fix: note
+      what One UI shows (an "Allow / Stop optimizing" dialog, the app's battery
+      page, or the app info page). Allow / set Unrestricted, come back: the row
+      is ✅ On. Afterwards leave battery on **Unrestricted** again
+- [ ] With either row ❌, the hint says Settings > Battery > Background usage
+      limits > "Never sleeping apps". Check that this menu path exists on the
+      A34's One UI; if it's different, write the real path here:
+      ____________________
+- [ ] Settings > Display > Font size and style: set the largest font size,
+      open Profile and scroll to the bottom: the About card (Version, Overlay
+      Debug Tools, account note) is fully readable above the bottom nav and
+      nothing overlaps; then restore your normal font size
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

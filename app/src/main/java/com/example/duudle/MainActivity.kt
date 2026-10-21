@@ -43,7 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE }
+enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE, PROFILE }
 
 private data class ReplyTarget(val uid: String, val username: String?)
 
@@ -135,6 +135,7 @@ class MainActivity : ComponentActivity() {
                             onFriendsClick = { currentScreen = Screen.FRIENDS },
                             onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
                             onVaultClick = { currentScreen = Screen.VAULT },
+                            onMeClick = { currentScreen = Screen.PROFILE },
                             newDoodleFromUsername = incomingDoodles.firstOrNull()?.senderUsername,
                             onViewDoodle = { currentScreen = Screen.VIEW_DOODLE }
                         )
@@ -166,7 +167,8 @@ class MainActivity : ComponentActivity() {
                                 recipientUsername = null
                                 currentScreen = Screen.DRAW
                             },
-                            onVaultClick = { currentScreen = Screen.VAULT }
+                            onVaultClick = { currentScreen = Screen.VAULT },
+                            onMeClick = { currentScreen = Screen.PROFILE }
                         )
                         Screen.VAULT -> VaultScreen(
                             modifier = Modifier.padding(innerPadding),
@@ -178,6 +180,7 @@ class MainActivity : ComponentActivity() {
                                 recipientUsername = null
                                 currentScreen = Screen.DRAW
                             },
+                            onMeClick = { currentScreen = Screen.PROFILE },
                             onReply = { uid, username ->
                                 recipientUid = uid
                                 recipientUsername = username
@@ -209,6 +212,20 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        Screen.PROFILE -> ProfileScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            currentUid = currentUid,
+                            currentUsername = currentUsername,
+                            onBack = { currentScreen = Screen.HOME },
+                            onFriendsClick = { currentScreen = Screen.FRIENDS },
+                            onVaultClick = { currentScreen = Screen.VAULT },
+                            onDesignDoodleClick = {
+                                recipientUid = null
+                                recipientUsername = null
+                                currentScreen = Screen.DRAW
+                            },
+                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG }
+                        )
                         Screen.OVERLAY_DEBUG -> OverlayTestScreen(
                             modifier = Modifier.padding(innerPadding),
                             onBack = { currentScreen = Screen.HOME }

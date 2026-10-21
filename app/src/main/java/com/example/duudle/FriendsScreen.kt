@@ -55,7 +55,8 @@ fun FriendsScreen(
     onSelectFriend: (Friend) -> Unit = {},
     onOverlayDebugClick: () -> Unit = {},
     onDesignDoodleClick: () -> Unit = {},
-    onVaultClick: () -> Unit = {}
+    onVaultClick: () -> Unit = {},
+    onMeClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(FriendsTab.FRIENDS) }
@@ -198,7 +199,8 @@ fun FriendsScreen(
             onHomeClick = onBack,
             onFriendsClick = { /* already here */ },
             onDrawClick = onDesignDoodleClick,
-            onVaultClick = onVaultClick
+            onVaultClick = onVaultClick,
+            onMeClick = onMeClick
         )
     }
 }

@@ -37,6 +37,7 @@ fun HomeScreen(
     onFriendsClick: () -> Unit = {},
     onOverlayDebugClick: () -> Unit = {},
     onVaultClick: () -> Unit = {},
+    onMeClick: () -> Unit = {},
     newDoodleFromUsername: String? = null,
     onViewDoodle: () -> Unit = {}
 ) {
@@ -104,7 +105,8 @@ fun HomeScreen(
                 onHomeClick = { /* already here */ },
                 onFriendsClick = onFriendsClick,
                 onDrawClick = onDesignDoodleClick,
-                onVaultClick = onVaultClick
+                onVaultClick = onVaultClick,
+                onMeClick = onMeClick
             )
         }
     }
