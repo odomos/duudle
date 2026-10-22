@@ -31,6 +31,9 @@ Read `CLAUDE.md` first and follow its architecture decisions.
   `git clean`, `firebase deploy`, and any write to the live Firestore.
 - Don't modify `firestore.rules` or `functions/index.js` unless they're inside
   your file boundary.
+- Never use `adb` or touch the emulator or phone (no installs, launches or taps).
+  Build with Gradle only; on-device testing belongs to the test-engineer, and two
+  agents driving one device corrupts the test.
 
 ## Before you report
 Compile-check the change:

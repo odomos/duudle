@@ -81,6 +81,9 @@ Rules for delegation:
   changes. Never run two writers on the same files at once. Use parallel writers
   only for genuinely independent files, and isolated git worktrees only when
   that is truly warranted.
+- **One agent per device.** Only the test-engineer drives an emulator or phone, and
+  only one test run per device at a time. Don't let a developer install or launch
+  the app while a tester is using that device.
 - Subagents don't see this conversation. Every brief must be self-contained:
 
 ```
