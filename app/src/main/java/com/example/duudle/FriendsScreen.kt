@@ -1,27 +1,44 @@
 package com.example.duudle
 
-import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.duudle.ui.theme.DuudleColors
+import com.example.duudle.ui.theme.DuudleDisplayFont
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
@@ -31,12 +48,13 @@ data class FriendRequest(val docId: String, val fromUid: String, val fromUsernam
 
 enum class RelationshipStatus { NONE, ALREADY_FRIENDS, REQUEST_ALREADY_SENT }
 
-private val LavenderBackground = Color(0xFFEDE3FA)
-private val CardBackground = Color(0xFFFFFFFF)
-private val IndigoPrimary = Color(0xFF5B3FD9)
-private val PinkAction = Color(0xFFE8637E)
-private val GreenOnline = Color(0xFF3DBE64)
-private val MutedGray = Color(0xFF9E9E9E)
+private val CardShape = RoundedCornerShape(22.dp)
+private val FieldShape = RoundedCornerShape(14.dp)
+// A warm grey that still reads on the cream page (PillGrey all but vanishes on Cream).
+private val SearchFieldGrey = Color(0xFFEBE8E3)
+// Placeholder text on SearchFieldGrey: Ink at 65% clears 4.5:1 (Muted was ~4.1:1).
+private val PlaceholderInk = DuudleColors.Ink.copy(alpha = 0.65f)
+private val FriendsTabLabels = listOf("Friends", "Add", "Requests")
 private val avatarEmojis = listOf("🦊", "🐼", "🐨", "🐸", "🐶", "🐱", "🦁", "🐯", "🐰", "🐻")
 
 fun emojiForUid(uid: String): String {
@@ -58,16 +76,30 @@ fun FriendsScreen(
     onVaultClick: () -> Unit = {},
     onMeClick: () -> Unit = {}
 ) {
+    // onOverlayDebugClick is unused since the overlay banner left this screen (the status
+    // now lives on Home and Profile); kept so MainActivity's call site doesn't change.
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(FriendsTab.FRIENDS) }
     var searchQuery by remember { mutableStateOf("") }
-    val overlayGranted = remember { Settings.canDrawOverlays(context) }
+    val gaze = rememberFaceGaze()
+    // The window no longer pans for the keyboard (adjustResize), so lift the content above
+    // it ourselves and tuck the floating nav away while typing. Derived, so the screen only
+    // recomposes when the keyboard shows or hides, not on every frame of its animation.
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val imeVisible by remember(imeInsets, density) { derivedStateOf { imeInsets.getBottom(density) > 0 } }
 
     var friendUidsAsUserA by remember { mutableStateOf<List<String>>(emptyList()) }
     var friendUidsAsUserB by remember { mutableStateOf<List<String>>(emptyList()) }
     var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
     var requests by remember { mutableStateOf<List<FriendRequest>>(emptyList()) }
     var mutedUids by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // Friends-tab loading: both friendship listeners have answered and the username lookup
+    // has finished (or there was nobody to look up). Until then the tab shows a spinner.
+    var friendshipsAReported by remember { mutableStateOf(false) }
+    var friendshipsBReported by remember { mutableStateOf(false) }
+    var friendsLoaded by remember { mutableStateOf(false) }
+    var friendsLoadFailed by remember { mutableStateOf(false) }
 
     DisposableEffect(currentUid) {
         val db = FirebaseFirestore.getInstance()
@@ -87,18 +119,24 @@ fun FriendsScreen(
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     android.util.Log.e("DuudleDebug", "Friendships A failed: ${error.message}")
+                    friendsLoadFailed = true
+                    friendshipsAReported = true
                     return@addSnapshotListener
                 }
                 friendUidsAsUserA = snapshot?.documents?.mapNotNull { it.getString("userB") } ?: emptyList()
+                friendshipsAReported = true
             }
 
         val listenerB = db.collection("friendships").whereEqualTo("userB", currentUid)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     android.util.Log.e("DuudleDebug", "Friendships B failed: ${error.message}")
+                    friendsLoadFailed = true
+                    friendshipsBReported = true
                     return@addSnapshotListener
                 }
                 friendUidsAsUserB = snapshot?.documents?.mapNotNull { it.getString("userA") } ?: emptyList()
+                friendshipsBReported = true
             }
 
         val requestsListener = db.collection("friend_requests")
@@ -126,10 +164,14 @@ fun FriendsScreen(
         }
     }
 
-    LaunchedEffect(friendUidsAsUserA, friendUidsAsUserB) {
+    LaunchedEffect(friendUidsAsUserA, friendUidsAsUserB, friendshipsAReported, friendshipsBReported) {
+        // Wait for both sides, or someone whose friendships are all on one side would
+        // briefly look friendless.
+        if (!friendshipsAReported || !friendshipsBReported) return@LaunchedEffect
         val allUids = (friendUidsAsUserA + friendUidsAsUserB).filter { it.isNotBlank() }.distinct()
         if (allUids.isEmpty()) {
             friends = emptyList()
+            friendsLoaded = true
             return@LaunchedEffect
         }
         FirebaseFirestore.getInstance().collection("users")
@@ -143,228 +185,171 @@ fun FriendsScreen(
                         avatarEmoji = emojiForUid(doc.id)
                     )
                 }
+                friendsLoadFailed = false
+                friendsLoaded = true
             }
             .addOnFailureListener { e ->
                 android.util.Log.e("DuudleDebug", "Friend username lookup failed: ${e.message}")
+                friendsLoadFailed = true
+                friendsLoaded = true
             }
     }
 
-    Column(modifier = modifier.fillMaxSize().background(LavenderBackground)) {
-        FriendsHeader(onBack = onBack, friendsCount = friends.size)
+    // Rebuilt only when their inputs change, not on every recomposition.
+    val friendsWithMute = remember(friends, mutedUids) { friends.map { it.copy(muted = it.uid in mutedUids) } }
+    val friendUids = remember(friends) { friends.map { it.uid }.toSet() }
 
-        Spacer(Modifier.height(12.dp))
-        FriendsTabBar(
-            selectedTab = selectedTab,
-            friendsCount = friends.size,
-            requestsCount = requests.size,
-            onSelect = { selectedTab = it }
-        )
+    DuudlePage(
+        modifier = modifier
+            .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))
+            .faceGazeSource(gaze)
+    ) {
+        DuudleScreenHeader(title = "Friends", onBack = onBack)
+        HorizontalDivider(color = DuudleColors.Hairline)
 
         Spacer(Modifier.height(14.dp))
-        OverlayStatusBanner(overlayGranted = overlayGranted, onSettingsClick = onOverlayDebugClick)
-
-        if (selectedTab == FriendsTab.FRIENDS) {
-            Spacer(Modifier.height(14.dp))
-            SearchBar(query = searchQuery, onQueryChange = { searchQuery = it })
-        }
+        DuudleSegmentedControl(
+            options = FriendsTabLabels,
+            selectedIndex = selectedTab.ordinal,
+            onSelect = { selectedTab = FriendsTab.entries[it] },
+            badges = listOf(0, 0, requests.size),
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
 
         Spacer(Modifier.height(14.dp))
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
-                FriendsTab.FRIENDS -> FriendsList(
-                    friends = friends.map { it.copy(muted = it.uid in mutedUids) },
+                FriendsTab.FRIENDS -> FriendsTabContent(
+                    friends = friendsWithMute,
+                    loaded = friendsLoaded,
+                    loadFailed = friendsLoadFailed,
                     searchQuery = searchQuery,
+                    onQueryChange = { searchQuery = it },
                     onToggleMute = { target ->
                         setFriendMuted(currentUid, target.uid, muted = !target.muted) { error ->
                             Toast.makeText(context, "Couldn't update mute: $error", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    onSelectFriend = onSelectFriend
+                    onSelectFriend = onSelectFriend,
+                    onAddFriend = { selectedTab = FriendsTab.ADD },
+                    gaze = gaze
                 )
                 FriendsTab.ADD -> AddFriendTab(
                     currentUid = currentUid,
                     currentUsername = currentUsername,
-                    friendUids = friends.map { it.uid }.toSet()
+                    friendUids = friendUids
                 )
                 FriendsTab.REQUESTS -> RequestsTab(
                     requests = requests,
                     onAccept = { req -> acceptFriendRequest(req.docId, currentUid, req.fromUid) { } },
-                    onDecline = { req -> declineFriendRequest(req.docId) }
+                    onDecline = { req -> declineFriendRequest(req.docId) },
+                    gaze = gaze
                 )
             }
         }
 
-        DuudleBottomNav(
-            activeTab = DuudleNavTab.FRIENDS,
-            onHomeClick = onBack,
-            onFriendsClick = { /* already here */ },
-            onDrawClick = onDesignDoodleClick,
-            onVaultClick = onVaultClick,
-            onMeClick = onMeClick
-        )
-    }
-}
-
-@Composable
-private fun FriendsHeader(onBack: () -> Unit, friendsCount: Int) {
-    val context = LocalContext.current
-    Column(modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Back", color = IndigoPrimary, fontWeight = FontWeight.Bold) }
-            Spacer(Modifier.weight(1f))
-            Text("Friends", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Spacer(Modifier.weight(1f))
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { Toast.makeText(context, "QR code invites are coming soon!", Toast.LENGTH_SHORT).show() },
-                contentAlignment = Alignment.Center
-            ) { Text("▦", fontSize = 16.sp, color = IndigoPrimary) }
-        }
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+        AnimatedVisibility(
+            visible = !imeVisible,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
         ) {
-            Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(IndigoPrimary))
-            Spacer(Modifier.width(6.dp))
-            Text("$friendsCount Friends", fontSize = 13.sp, color = IndigoPrimary, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun FriendsTabBar(
-    selectedTab: FriendsTab,
-    friendsCount: Int,
-    requestsCount: Int,
-    onSelect: (FriendsTab) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .background(Color.White, RoundedCornerShape(50))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        TabPill(label = "My Friends", count = friendsCount, selected = selectedTab == FriendsTab.FRIENDS, modifier = Modifier.weight(1f)) {
-            onSelect(FriendsTab.FRIENDS)
-        }
-        TabPill(label = "Add Friends +", selected = selectedTab == FriendsTab.ADD, modifier = Modifier.weight(1f)) {
-            onSelect(FriendsTab.ADD)
-        }
-        TabPill(label = "Requests", count = requestsCount, countColor = PinkAction, selected = selectedTab == FriendsTab.REQUESTS, modifier = Modifier.weight(1f)) {
-            onSelect(FriendsTab.REQUESTS)
-        }
-    }
-}
-
-@Composable
-private fun TabPill(
-    label: String,
-    count: Int? = null,
-    countColor: Color = IndigoPrimary,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (selected) IndigoPrimary else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            label,
-            color = if (selected) Color.White else Color.DarkGray,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = 12.sp
-        )
-        if (count != null) {
-            Spacer(Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(if (selected) Color.White.copy(alpha = 0.3f) else countColor)
-                    .padding(horizontal = 6.dp, vertical = 1.dp)
-            ) {
-                Text(count.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverlayStatusBanner(overlayGranted: Boolean, onSettingsClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(IndigoPrimary)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) { Text("✨", fontSize = 18.sp) }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (overlayGranted) "Overlay Active" else "Overlay Off", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(Modifier.width(6.dp))
-                Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(if (overlayGranted) GreenOnline else PinkAction))
-            }
-            Text("Incoming doodles pop directly on your screen", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-        }
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.15f))
-                .clickable(onClick = onSettingsClick),
-            contentAlignment = Alignment.Center
-        ) { Text("⚙️", fontSize = 14.sp) }
-    }
-}
-
-@Composable
-private fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
-    val context = LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .background(Color.White, RoundedCornerShape(50))
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("🔍", fontSize = 16.sp, color = IndigoPrimary)
-        Spacer(Modifier.width(8.dp))
-        Box(modifier = Modifier.weight(1f)) {
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = TextStyle(fontSize = 14.sp, color = Color.Black)
+            DuudleBottomNav(
+                activeTab = DuudleNavTab.FRIENDS,
+                onHomeClick = onBack,
+                onFriendsClick = { /* already here */ },
+                onDrawClick = onDesignDoodleClick,
+                onVaultClick = onVaultClick,
+                onMeClick = onMeClick
             )
-            if (query.isEmpty()) {
-                Text("Search besties or @handle...", fontSize = 14.sp, color = Color.Gray)
+        }
+    }
+}
+
+/** Grey rounded search field with a magnifier, used on the Friends and Add tabs. */
+@Composable
+private fun GreySearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = TextStyle(fontSize = 16.sp, color = DuudleColors.Ink),
+        cursorBrush = SolidColor(DuudleColors.Ink),
+        modifier = modifier.fillMaxWidth(),
+        decorationBox = { innerTextField ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clip(FieldShape)
+                    .background(SearchFieldGrey)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = null, tint = PlaceholderInk, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    if (value.isEmpty()) {
+                        Text(placeholder, fontSize = 16.sp, color = PlaceholderInk, maxLines = 1)
+                    }
+                    innerTextField()
+                }
             }
         }
-        Box(
-            modifier = Modifier.size(28.dp).clip(CircleShape)
-                .clickable { Toast.makeText(context, "Filters are coming soon!", Toast.LENGTH_SHORT).show() },
-            contentAlignment = Alignment.Center
-        ) { Text("⚙️", fontSize = 14.sp) }
+    )
+}
+
+/** Friends tab: spinner while loading, then the empty state, an error line, or search + list. */
+@Composable
+private fun FriendsTabContent(
+    friends: List<Friend>,
+    loaded: Boolean,
+    loadFailed: Boolean,
+    searchQuery: String,
+    onQueryChange: (String) -> Unit,
+    onToggleMute: (Friend) -> Unit,
+    onSelectFriend: (Friend) -> Unit,
+    onAddFriend: () -> Unit,
+    gaze: FaceGaze
+) {
+    when {
+        !loaded -> Box(modifier = Modifier.fillMaxSize()) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 48.dp)
+                    .size(28.dp),
+                color = DuudleColors.Ink,
+                strokeWidth = 2.5.dp
+            )
+        }
+        friends.isEmpty() && loadFailed -> Box(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Text("Couldn't load your friends.", color = DuudleColors.ErrorRed, textAlign = TextAlign.Center)
+        }
+        friends.isEmpty() -> FriendsEmptyState(gaze = gaze, onAddFriend = onAddFriend)
+        else -> Column(modifier = Modifier.fillMaxSize()) {
+            GreySearchField(
+                value = searchQuery,
+                onValueChange = onQueryChange,
+                placeholder = "Search your friends",
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(12.dp))
+            FriendsList(
+                friends = friends,
+                searchQuery = searchQuery,
+                onToggleMute = onToggleMute,
+                onSelectFriend = onSelectFriend,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -373,132 +358,151 @@ private fun FriendsList(
     friends: List<Friend>,
     searchQuery: String,
     onToggleMute: (Friend) -> Unit,
-    onSelectFriend: (Friend) -> Unit
+    onSelectFriend: (Friend) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val filtered = remember(friends, searchQuery) {
-        if (searchQuery.isBlank()) friends
-        else friends.filter { it.username.contains(searchQuery, ignoreCase = true) }
+    // Typing "@maya" finds maya too.
+    val needle = searchQuery.trim().removePrefix("@")
+    val filtered = remember(friends, needle) {
+        if (needle.isBlank()) friends
+        else friends.filter { it.username.contains(needle, ignoreCase = true) }
     }
+    // A new query starts from the top, so the first match isn't left half off-screen.
+    val listState = rememberLazyListState()
+    LaunchedEffect(needle) { listState.scrollToItem(0) }
 
-    if (friends.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-            Text("No friends yet — add one from the Add Friends tab", color = Color.DarkGray)
-        }
-        return
-    }
     if (filtered.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-            Text("No friends match \"$searchQuery\"", color = Color.DarkGray)
+        Box(modifier = modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.TopCenter) {
+            Text("No friends match \"${searchQuery.trim()}\"", color = DuudleColors.Muted, textAlign = TextAlign.Center)
         }
         return
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        modifier = modifier.fillMaxWidth(),
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
     ) {
         items(filtered, key = { it.uid }) { friend ->
             FriendCard(friend = friend, onToggleMute = onToggleMute, onSelectFriend = onSelectFriend)
         }
-        item { InviteBanner() }
+    }
+}
+
+@Composable
+private fun FriendsEmptyState(gaze: FaceGaze, onAddFriend: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        FriendsEmptyIllustration(gaze = gaze)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "No friends yet!",
+            fontFamily = DuudleDisplayFont,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 24.sp,
+            color = DuudleColors.Ink,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Add a friend by their username and start sending doodles.",
+            fontSize = 15.sp,
+            color = DuudleColors.Muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 40.dp)
+        )
+        Spacer(Modifier.height(24.dp))
+        DuudleInkPill(text = "Add a friend", onClick = onAddFriend)
     }
 }
 
 @Composable
 private fun FriendCard(friend: Friend, onToggleMute: (Friend) -> Unit, onSelectFriend: (Friend) -> Unit) {
-    val context = LocalContext.current
-    Column(modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(20.dp)).padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CardShape)
+            .background(DuudleColors.Paper)
+            .border(1.dp, DuudleColors.Hairline, CardShape)
+            .padding(16.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(LavenderBackground),
-                contentAlignment = Alignment.Center
-            ) { Text(friend.avatarEmoji, fontSize = 24.sp) }
+            DuudleAvatar(uid = friend.uid, size = 52.dp, emoji = friend.avatarEmoji)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(friend.username, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("Presence coming soon", fontSize = 12.sp, color = Color.Gray)
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Switch(
-                    checked = !friend.muted,
-                    onCheckedChange = { onToggleMute(friend) },
-                    colors = SwitchDefaults.colors(checkedTrackColor = IndigoPrimary)
+                Text(
+                    "@${friend.username}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = DuudleColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    if (friend.muted) "MUTED" else "FLOAT ON",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (friend.muted) MutedGray else IndigoPrimary
+                    if (friend.muted) "Muted: their doodles won't pop up" else "Their doodles pop up on your screen",
+                    fontSize = 13.sp,
+                    color = DuudleColors.Muted
                 )
             }
-        }
-
-        Spacer(Modifier.height(10.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                if (friend.muted) "Notifications paused for now" else "Tap below to send a doodle",
-                fontSize = 12.sp,
-                color = if (friend.muted) Color.Gray else Color(0xFF2E7D32)
-            )
-            Text("🔥 Streaks: coming soon", fontSize = 11.sp, color = Color.Gray)
         }
 
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (friend.muted) {
-                Box(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(50)).background(LavenderBackground)
-                        .clickable { onToggleMute(friend) }.padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) { Text("🔊 Unmute Floating", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.DarkGray) }
-                Box(
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(LavenderBackground)
-                        .clickable { Toast.makeText(context, "Notes are coming soon!", Toast.LENGTH_SHORT).show() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) { Text("📝 Note", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray) }
-            } else {
-                Box(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(50)).background(PinkAction)
-                        .clickable { onSelectFriend(friend) }.padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) { Text("✏️ Send Doodle", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
-                Box(
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(LavenderBackground)
-                        .clickable { Toast.makeText(context, "Peep Canvas is coming soon!", Toast.LENGTH_SHORT).show() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) { Text("👀 Peep Canvas", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InviteBanner() {
-    val context = LocalContext.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Brush.horizontalGradient(listOf(IndigoPrimary, PinkAction)), RoundedCornerShape(18.dp))
-            .padding(18.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Need more doodle pals?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text("Invite links are coming soon — use Add Friends for now", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-            }
+        // The whole row toggles, so the label and the switch are one 48dp+ target.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clip(FieldShape)
+                .background(DuudleColors.Cream)
+                .toggleable(value = !friend.muted, role = Role.Switch, onValueChange = { onToggleMute(friend) })
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Pop-ups",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = DuudleColors.Ink,
+                modifier = Modifier.weight(1f)
+            )
+            // Visual only: the toggle already announces on/off.
+            Text(
+                if (friend.muted) "Off" else "On",
+                fontSize = 13.sp,
+                color = DuudleColors.Muted,
+                modifier = Modifier.clearAndSetSemantics { }
+            )
             Spacer(Modifier.width(10.dp))
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White)
-                    .clickable { Toast.makeText(context, "Invite links are coming soon!", Toast.LENGTH_SHORT).show() }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Text("Share Link 🔗", color = IndigoPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
+            Switch(
+                checked = !friend.muted,
+                onCheckedChange = null,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = DuudleColors.Paper,
+                    checkedTrackColor = DuudleColors.Ink,
+                    checkedBorderColor = DuudleColors.Ink,
+                    uncheckedThumbColor = DuudleColors.Muted,
+                    uncheckedTrackColor = DuudleColors.Paper,
+                    uncheckedBorderColor = DuudleColors.Muted
+                )
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        if (friend.muted) {
+            DuudleOutlinePill(text = "Unmute", onClick = { onToggleMute(friend) }, modifier = Modifier.fillMaxWidth())
+        } else {
+            DuudleInkPill(
+                text = "Send doodle",
+                onClick = { onSelectFriend(friend) },
+                modifier = Modifier.fillMaxWidth(),
+                icon = Icons.Filled.Edit
+            )
         }
     }
 }
@@ -557,15 +561,13 @@ private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-        Text("Add a friend by username", fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Text("Add a friend by username", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = DuudleColors.Ink)
+        Spacer(Modifier.height(10.dp))
+        GreySearchField(
             value = searchText,
             onValueChange = { searchText = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Start typing, e.g. maya") },
-            singleLine = true
+            placeholder = "Start typing, e.g. maya"
         )
         Spacer(Modifier.height(8.dp))
 
@@ -576,7 +578,13 @@ private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids
             results.isEmpty() -> "No one new matching \"${searchText.trim()}\""
             else -> null
         }
-        hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.DarkGray) }
+        hint?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (errorMessage != null) DuudleColors.ErrorRed else DuudleColors.Muted
+            )
+        }
 
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -592,24 +600,38 @@ private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids
 @Composable
 private fun SearchResultRow(user: UserSearchResult, state: AddState, onAdd: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(16.dp)).padding(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CardShape)
+            .background(DuudleColors.Paper)
+            .border(1.dp, DuudleColors.Hairline, CardShape)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(LavenderBackground),
-            contentAlignment = Alignment.Center
-        ) { Text(emojiForUid(user.uid), fontSize = 20.sp) }
+        DuudleAvatar(uid = user.uid, size = 44.dp)
         Spacer(Modifier.width(12.dp))
-        Text("@${user.username}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(
+            "@${user.username}",
+            fontWeight = FontWeight.Bold,
+            color = DuudleColors.Ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
         when (state) {
-            AddState.IDLE, AddState.FAILED -> Button(
-                onClick = onAdd,
-                colors = ButtonDefaults.buttonColors(containerColor = PinkAction, contentColor = Color.White)
-            ) { Text(if (state == AddState.FAILED) "Retry" else "Add") }
-            AddState.WORKING -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-            AddState.SENT -> Text("Requested ✓", color = GreenOnline, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            AddState.ALREADY_SENT -> Text("Pending", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            AddState.ALREADY_FRIENDS -> Text("Friends", color = IndigoPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            AddState.IDLE, AddState.FAILED -> DuudleInkPill(
+                text = if (state == AddState.FAILED) "Retry" else "Add",
+                onClick = onAdd
+            )
+            AddState.WORKING -> CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = DuudleColors.Ink,
+                strokeWidth = 2.dp
+            )
+            AddState.SENT -> Text("Requested ✓", color = DuudleColors.Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            AddState.ALREADY_SENT -> Text("Pending", color = DuudleColors.Muted, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            AddState.ALREADY_FRIENDS -> Text("Friends", color = DuudleColors.Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
     }
 }
@@ -721,35 +743,83 @@ fun declineFriendRequest(requestDocId: String) {
 private fun RequestsTab(
     requests: List<FriendRequest>,
     onAccept: (FriendRequest) -> Unit,
-    onDecline: (FriendRequest) -> Unit
+    onDecline: (FriendRequest) -> Unit,
+    gaze: FaceGaze
 ) {
     if (requests.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No pending requests", color = Color.DarkGray) }
+        RequestsEmptyState(gaze = gaze)
         return
     }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
     ) {
         items(requests, key = { it.docId }) { req ->
-            Row(
-                modifier = Modifier.fillMaxWidth().background(CardBackground, RoundedCornerShape(18.dp)).padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(CardShape)
+                    .background(DuudleColors.Paper)
+                    .border(1.dp, DuudleColors.Hairline, CardShape)
+                    .padding(16.dp)
             ) {
-                Box(
-                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(LavenderBackground),
-                    contentAlignment = Alignment.Center
-                ) { Text(emojiForUid(req.fromUid), fontSize = 20.sp) }
-                Spacer(Modifier.width(12.dp))
-                Text(req.fromUsername, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Box(
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(IndigoPrimary)
-                        .clickable { onAccept(req) }.padding(horizontal = 14.dp, vertical = 8.dp)
-                ) { Text("Accept", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { onDecline(req) }) { Text("Decline", color = Color.Gray) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    DuudleAvatar(uid = req.fromUid, size = 44.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "@${req.fromUsername}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = DuudleColors.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    DuudleInkPill(text = "Accept", onClick = { onAccept(req) }, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(10.dp))
+                    DuudleOutlinePill(text = "Decline", onClick = { onDecline(req) }, modifier = Modifier.weight(1f))
+                }
             }
         }
+    }
+}
+
+// A dozing lilac blob keeps the empty Requests tab company.
+private val RequestsEmptyCast = listOf(
+    FaceCharacter(
+        BodyShape.Blob, DuudleColors.Lilac, size = 0.8f, x = 0.5f, y = 0.55f,
+        eyes = EyeStyle.Sleepy, mouth = MouthStyle.SmallSmile, gradient = false, floatSeconds = 3.2f
+    )
+)
+
+@Composable
+private fun RequestsEmptyState(gaze: FaceGaze) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 32.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        FaceScene(characters = RequestsEmptyCast, modifier = Modifier.size(120.dp), gaze = gaze)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "No requests right now",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = DuudleColors.Ink,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "When someone adds you, they'll show up here.",
+            fontSize = 14.sp,
+            color = DuudleColors.Muted,
+            textAlign = TextAlign.Center
+        )
     }
 }
