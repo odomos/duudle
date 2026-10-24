@@ -304,56 +304,73 @@ the old code (same saving, reply and back behaviour), but never run yet.
 - [ ] TalkBack reads each card as one item (e.g. "Doodle from @name, 2d ago")
       and the star as "Save"/"Saved"; Remove animations makes the art static
 
-## Profile character (not yet verified on the A34)
+## Profile character and Edit Character editor (not yet verified on the A34)
 
-Files: `Avatar.kt`, `AvatarStore.kt`, `AvatarArt.kt` (new), `ProfileScreen.kt`
-(restyled), `AvatarConfigTest.kt` (new). The character is saved on this phone
-only (`duudle_prefs`, key `avatar_v1_<uid>`); friends still see the emoji.
-Emulator (2026-10-22): every tab, swatch and grid updated the hero at once,
-the look survived a force-stop, "Test a pop-up" opened the overlay test
-screen, and nothing overflowed at 320dp with 1.3× font. Stats were only seen
-in their offline error state there (the emulator had no DNS).
+Files: `Avatar.kt`, `AvatarArt.kt`, `AvatarStore.kt`, `AvatarPickers.kt`,
+`CharacterEditor.kt`, `CharacterEditorScreen.kt`, `ProfileScreen.kt`,
+`MainActivity.kt` (`Screen.EDIT_CHARACTER`), tests `AvatarConfigTest.kt` and
+`CharacterEditorTest.kt`. The character is saved on this phone only
+(`duudle_prefs`, key `avatar_v1_<uid>`); friends still see the emoji. Saves
+made before the editor existed load with jeans, white sneakers, dot eyes and
+no cheeks added. Emulator (2026-10-23): every step, preset, undo/redo, the
+Unsaved work dialog, saving, a forced save failure, rotation, a 1280dp-wide
+window and 320dp with 1.3× font were run; see the report for details.
 
-Look and alignment
-- [ ] Profile opens on a big square character card (yellow background, curly
-      hair, purple hoodie, cat) with a white palette button bottom-right, then
-      @username, "Joined …" and "Only you can see your character for now."
-- [ ] The art is crisp on the A34 (no blurry or jagged outlines on the big card)
+Profile
+- [ ] Profile shows the whole character head to feet (shoes not touching the
+      card edge), then @username, "Joined …", "Only you can see your character
+      for now." and a black **Edit character** button. Tapping the card or the
+      button opens the editor
+- [ ] The art is crisp on the A34 (no blurry or jagged outlines)
 - [ ] Optional, needs an Android 8.0/8.1 (API 26/27) emulator image, which
-      isn't installed: the big card is equally sharp there. (The art is drawn
-      at the real pixel size so it should be; older Android blurred scaled
-      drawing.)
-- [ ] Head tab: each skin tone and each of the 6 hairstyles changes the big
-      card instantly; the thumbnails show the hair clearly (no item on top)
-- [ ] Body tab: each clothing colour and outfit changes the card instantly; on
-      Navy and Black the hood strings, collar and arm lines are still visible
-- [ ] Item tab: every item sits ON the hair (not floating above it, not sunk
-      into it) for at least curly, bob and bun hair
-- [ ] Glasses tab: round, square and sunglasses sit on the eyes and the arm
-      reaches the ear, with bob and long hair as well
-- [ ] Palette button: opens a row of background colours under the card, the
-      button turns black while open, picking one recolours the card
+      isn't installed: the character is equally sharp there
+- [ ] The "Make sure doodles pop up" card, "Test a pop-up" and the four stats
+      behave as in the Profile screen section above
 
-Saving
-- [ ] Pick a distinctive look, swipe Duudle away from recents, reopen it, go to
-      Me: the same look is there
-- [ ] Rotate the phone (or change dark mode) on Profile: the look and the
-      selected tab stay the same
-- [ ] After a phone restart the look is still there
+Editor: look and steps
+- [ ] Top bar: X, "Edit Character", and a grey **Save** that turns black after
+      the first change. The full character is visible in the preview on every
+      step and the preview never changes size between steps
+- [ ] The tabs Outfits, Head & Hair, Face, Tops, Bottoms, Shoes, Extras, Review
+      scroll sideways; tapping one jumps there; the progress bar and "… · Step
+      n of 8" follow
+- [ ] **Next: …** moves forward and the round back button moves back. Neither
+      saves anything (leave with X → Discard afterwards: Profile is unchanged)
+- [ ] Pick a hairstyle, go to Bottoms and pick cargo: the hairstyle is still
+      there. Pick an outfit: hair, face, skin, glasses, head item and
+      background stay the same; only clothes and shoes change
+- [ ] Thumbnails: hair/face/items/glasses show the head, tops the torso,
+      bottoms the legs, shoes the feet, outfits the whole figure (head not cut
+      off); the selected one has a black border and a tick
+- [ ] Undo, Redo and Reset (preview corners) work and grey out when unavailable
+- [ ] Review lists each category with a **Change** button that jumps there
 
-Pop-ups, stats, accessibility
-- [ ] The "Make sure doodles pop up" card still shows both rows and Fix works
-      (see the Profile screen section above); "Test a pop-up" opens the
-      overlay test screen. (Back from there goes to Home, not Profile: this
-      was already the case before.)
-- [ ] The four stats show real numbers (see the Profile screen section above)
-- [ ] Largest font: nothing on Profile scrolls sideways or overlaps. Note
-      whether "Glasses" shows in full or ends in "…" (an ellipsis is
-      acceptable at the very largest size): ________
-- [ ] TalkBack: the card reads "Your character: …" including skin and
-      background; swatches read "Skin: …", "Clothing: …", "Background: …";
-      grid cells read as radio buttons with their names
-- [ ] Remove animations ON: changing the look doesn't do the little "pop"
+Editor: saving and leaving
+- [ ] Change something, tap X: "Unsaved work" dialog. **Keep editing** keeps you
+      on the same step with the change; tapping outside does the same
+- [ ] Same with the phone's back button. **Discard** returns to Profile with
+      the old look, and reopening the editor shows the old look
+- [ ] Change something, then change it back by hand: Save greys out and X
+      closes without the dialog
+- [ ] **Save** (header, on any step) and **Save character** (Review): toast
+      "Character saved", back on Profile with the new look
+- [ ] After saving, swipe Duudle away from recents and reopen, then restart the
+      phone: the saved look is still there
+- [ ] Rotate the phone mid-edit: the draft and the step stay (undo history
+      resets, by design). Rotating **while** it says "Saving…" is near
+      impossible to time; if you manage it, the editor should come back clean
+      (not asking to discard an already-saved look)
+
+Editor: size and accessibility
+- [ ] Landscape: preview on the left, controls on the right, at least one full
+      row of options visible
+- [ ] Largest font: tabs, "Next: …" (may shorten to "Next"), grid labels and the
+      dialog buttons are readable, nothing scrolls sideways; note anything cut
+      off: ________
+- [ ] TalkBack: the step change is announced ("Face, step 3 of 8"), swatches
+      read "Skin: …", "Top colour: …" etc., cells read as radio buttons with
+      their names, disabled Undo/Redo/Reset/Save are announced as disabled
+- [ ] Remove animations ON: no "pop" when the look changes
 
 ## Already passed on the phone
 

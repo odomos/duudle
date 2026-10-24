@@ -43,7 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE, PROFILE }
+enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE, PROFILE, EDIT_CHARACTER }
 
 private data class ReplyTarget(val uid: String, val username: String?)
 
@@ -84,8 +84,10 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Without this, system back closes the app from every screen.
+                // The character editor has its own handler (unsaved-changes dialog); this is
+                // only its fallback, back to Profile.
                 BackHandler(enabled = currentScreen != Screen.HOME && currentScreen != Screen.WELCOME) {
-                    currentScreen = Screen.HOME
+                    currentScreen = if (currentScreen == Screen.EDIT_CHARACTER) Screen.PROFILE else Screen.HOME
                 }
 
                 val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -224,7 +226,17 @@ class MainActivity : ComponentActivity() {
                                 recipientUsername = null
                                 currentScreen = Screen.DRAW
                             },
-                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG }
+                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
+                            onEditCharacter = { currentScreen = Screen.EDIT_CHARACTER }
+                        )
+                        Screen.EDIT_CHARACTER -> CharacterEditorScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            currentUid = currentUid,
+                            onClose = { currentScreen = Screen.PROFILE },
+                            onSaved = {
+                                Toast.makeText(context, "Character saved", Toast.LENGTH_SHORT).show()
+                                currentScreen = Screen.PROFILE
+                            }
                         )
                         Screen.OVERLAY_DEBUG -> OverlayTestScreen(
                             modifier = Modifier.padding(innerPadding),
