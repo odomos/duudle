@@ -327,6 +327,11 @@ Profile
 - [ ] The "Make sure doodles pop up" card, "Test a pop-up" and the four stats
       behave as in the Profile screen section above
 
+To fix later (owner, 2026-10-24)
+- [ ] Every character looks like it's wearing glasses even when Glasses is
+      "No glasses". Remove that glasses look from the faces first, then make
+      glasses a clear, separate option to pick (Extras step or its own step)
+
 Editor: look and steps
 - [ ] Top bar: X, "Edit Character", and a grey **Save** that turns black after
       the first change. The full character is visible in the preview on every
@@ -371,6 +376,42 @@ Editor: size and accessibility
       read "Skin: …", "Top colour: …" etc., cells read as radio buttons with
       their names, disabled Undo/Redo/Reset/Save are announced as disabled
 - [ ] Remove animations ON: no "pop" when the look changes
+
+## In-app chat (not yet verified on any device)
+
+Files: `Chat.kt`, `ChatRepository.kt`, `ChatScreen.kt`, `ChatThemes.kt`, `ChatTest.kt`
+(new); `FriendsScreen.kt`, `MainActivity.kt` (`Screen.CHAT`, notification taps),
+`DuudleMessagingService.kt` (chat notifications), manifest (POST_NOTIFICATIONS).
+Deployed 2026-10-24: `firestore.rules` (`chats` block) and the Cloud Function
+`onChatMessageCreated`. Test with two accounts (A34 + emulator, who are friends).
+
+- [ ] Friends: each friend shows a smaller **Send doodle** and a **Chat** button
+      side by side; both labels fit on the A34
+- [ ] First message in a brand-new chat sends and shows on both phones; the small
+      clock on your bubble disappears once it's delivered
+- [ ] Messages appear live on both sides; your bubbles right, theirs left with
+      their name tag; "Today" separator; times under each group
+- [ ] Keyboard: the input stays above the keyboard and the list stays at the
+      bottom; Send is disabled when empty
+- [ ] First chat opened on Android 13+: notification permission prompt appears
+      once; deny it once and it never asks again
+- [ ] App in background, then fully closed (swiped away): a message notifies as
+      "@name" with the text; tapping opens that chat (header shows "Chat" briefly,
+      then "@name")
+- [ ] No notification while that chat is open on screen; there is one when you're
+      on another screen
+- [ ] Lock screen with "hide sensitive content": shows "New message" without text
+- [ ] Unread red dot on the friend's Chat button; it clears after opening
+- [ ] Theme button: pick each theme (Classic, Gothic Pastel, Inferno, Pookie,
+      Serpent, Spooky Cute, Cozy Pond); both phones switch, with a "@you changed
+      the theme to …" note; text stays readable in every theme
+- [ ] Mute a friend: their chat messages still appear in the chat but don't notify
+- [ ] Send 50+ messages, scroll to the top: older ones load
+- [ ] Turn on airplane mode, send a message: it shows with a clock and goes out
+      when you reconnect
+- [ ] Doodles still pop up as overlays as before (chat didn't break them)
+- [ ] Function logs (Firebase console > Functions > onChatMessageCreated) show
+      "Chat push sent successfully" and no index error
 
 ## Already passed on the phone
 

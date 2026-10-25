@@ -43,14 +43,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE, PROFILE, EDIT_CHARACTER }
+enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE, PROFILE, EDIT_CHARACTER, CHAT }
 
 private data class ReplyTarget(val uid: String, val username: String?)
+
+private data class ChatTarget(val uid: String, val username: String?)
 
 class MainActivity : ComponentActivity() {
     // Set by the overlay's "Draw" button — via onCreate on a cold start, or via
     // onNewIntent when the app is already running. The UI consumes it once.
     private var pendingReply by mutableStateOf<ReplyTarget?>(null)
+    // Same idea for tapping a chat notification.
+    private var pendingChat by mutableStateOf<ChatTarget?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +62,10 @@ class MainActivity : ComponentActivity() {
 
         // After a rotation or process restore the saved screen state wins;
         // re-reading the launch extras would yank the user back to Draw.
-        if (savedInstanceState == null) consumeReplyIntent(intent)
+        if (savedInstanceState == null) {
+            consumeReplyIntent(intent)
+            consumeChatIntent(intent)
+        }
 
         setContent {
             DuudleTheme {
@@ -74,6 +81,8 @@ class MainActivity : ComponentActivity() {
                 var recipientUid by rememberSaveable { mutableStateOf<String?>(null) }
                 var recipientUsername by rememberSaveable { mutableStateOf<String?>(null) }
                 var incomingDoodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
+                var chatUid by rememberSaveable { mutableStateOf<String?>(null) }
+                var chatUsername by rememberSaveable { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(pendingReply) {
                     val reply = pendingReply ?: return@LaunchedEffect
@@ -83,11 +92,25 @@ class MainActivity : ComponentActivity() {
                     pendingReply = null
                 }
 
+                LaunchedEffect(pendingChat) {
+                    val target = pendingChat ?: return@LaunchedEffect
+                    pendingChat = null
+                    // Not signed up on this install yet: there's no chat to open.
+                    if (currentScreen == Screen.WELCOME) return@LaunchedEffect
+                    chatUid = target.uid
+                    chatUsername = target.username
+                    currentScreen = Screen.CHAT
+                }
+
                 // Without this, system back closes the app from every screen.
                 // The character editor has its own handler (unsaved-changes dialog); this is
-                // only its fallback, back to Profile.
+                // only its fallback, back to Profile. A chat goes back to Friends.
                 BackHandler(enabled = currentScreen != Screen.HOME && currentScreen != Screen.WELCOME) {
-                    currentScreen = if (currentScreen == Screen.EDIT_CHARACTER) Screen.PROFILE else Screen.HOME
+                    currentScreen = when (currentScreen) {
+                        Screen.EDIT_CHARACTER -> Screen.PROFILE
+                        Screen.CHAT -> Screen.FRIENDS
+                        else -> Screen.HOME
+                    }
                 }
 
                 val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -170,8 +193,32 @@ class MainActivity : ComponentActivity() {
                                 currentScreen = Screen.DRAW
                             },
                             onVaultClick = { currentScreen = Screen.VAULT },
-                            onMeClick = { currentScreen = Screen.PROFILE }
+                            onMeClick = { currentScreen = Screen.PROFILE },
+                            onChatClick = { uid, username ->
+                                chatUid = uid
+                                chatUsername = username
+                                currentScreen = Screen.CHAT
+                            }
                         )
+                        Screen.CHAT -> {
+                            val friendUid = chatUid
+                            if (friendUid == null || currentUid.isBlank()) {
+                                LaunchedEffect(Unit) { currentScreen = Screen.FRIENDS }
+                            } else {
+                                // Keyed so opening another chat (e.g. from a notification) starts fresh.
+                                key(friendUid) {
+                                    ChatScreen(
+                                        modifier = Modifier.padding(innerPadding),
+                                        currentUid = currentUid,
+                                        currentUsername = currentUsername,
+                                        friendUid = friendUid,
+                                        // Null when opened from a notification: ChatScreen looks it up.
+                                        friendUsername = chatUsername,
+                                        onBack = { currentScreen = Screen.FRIENDS }
+                                    )
+                                }
+                            }
+                        }
                         Screen.VAULT -> VaultScreen(
                             modifier = Modifier.padding(innerPadding),
                             currentUid = currentUid,
@@ -252,11 +299,21 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         consumeReplyIntent(intent)
+        consumeChatIntent(intent)
     }
 
     private fun consumeReplyIntent(intent: Intent?) {
         val uid = intent?.getStringExtra("reply_to_uid") ?: return
+        // MainActivity is exported, so extras can come from anywhere: drop malformed uids.
+        if (!isAcceptableFriendUid(uid, FirebaseAuth.getInstance().currentUser?.uid)) return
         pendingReply = ReplyTarget(uid, intent.getStringExtra("reply_to_username"))
+    }
+
+    private fun consumeChatIntent(intent: Intent?) {
+        val uid = intent?.getStringExtra("open_chat_uid") ?: return
+        if (!isAcceptableFriendUid(uid, FirebaseAuth.getInstance().currentUser?.uid)) return
+        // open_chat_username is deliberately ignored: ChatScreen looks the name up in Firestore.
+        pendingChat = ChatTarget(uid, null)
     }
 }
 

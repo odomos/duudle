@@ -1,5 +1,12 @@
 package com.example.duudle
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -7,6 +14,9 @@ import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -31,9 +41,15 @@ class DuudleMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        Log.d("DuudleFCM", "Message received with data: ${remoteMessage.data}")
+        // Type and keys only: the payload can carry private chat text.
+        Log.d("DuudleFCM", "Message received: type=${remoteMessage.data["type"]} keys=${remoteMessage.data.keys}")
 
         val type = remoteMessage.data["type"]
+        // Chat pushes are ordinary notifications; everything below is the doodle overlay path.
+        if (type == "chat_message") {
+            showChatNotification(remoteMessage.data)
+            return
+        }
         val doodleId = remoteMessage.data["doodleId"]
         val senderUid = remoteMessage.data["senderId"] ?: ""
         val senderUsername = remoteMessage.data["senderUsername"] ?: "A friend"
@@ -106,10 +122,82 @@ class DuudleMessagingService : FirebaseMessagingService() {
         }
     }
 
+    /** Posts (or replaces) the notification for a chat, unless that chat is open right now. */
+    private fun showChatNotification(data: Map<String, String>) {
+        val chatId = data["chatId"]
+        val senderUid = data["senderId"]
+        if (chatId.isNullOrBlank() || senderUid.isNullOrBlank()) {
+            Log.w("DuudleFCM", "Ignoring chat message: missing chatId or senderId")
+            return
+        }
+        if (ChatPresence.openChatId == chatId) {
+            Log.d("DuudleFCM", "Chat $chatId is open, skipping notification")
+            return
+        }
+        val manager = NotificationManagerCompat.from(applicationContext)
+        if (!manager.areNotificationsEnabled() ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED)
+        ) {
+            Log.w("DuudleFCM", "Notifications are off, can't show chat message for $chatId")
+            return
+        }
+
+        val senderUsername = data["senderUsername"] ?: "A friend"
+        val text = data["text"].orEmpty()
+        // createNotificationChannel is a no-op once the channel exists.
+        getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+            NotificationChannel(CHAT_CHANNEL_ID, "Chat messages", NotificationManager.IMPORTANCE_HIGH)
+        )
+        val openIntent = Intent(applicationContext, MainActivity::class.java).apply {
+            // Same routing as the overlay's Draw button: onNewIntent if the app is running.
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("open_chat_uid", senderUid)
+            putExtra("open_chat_username", senderUsername)
+        }
+        val notificationId = chatNotificationId(chatId)
+        // A request code per chat, so each chat's PendingIntent keeps its own extras.
+        val contentIntent = PendingIntent.getActivity(
+            applicationContext,
+            notificationId,
+            openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification = NotificationCompat.Builder(applicationContext, CHAT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("@$senderUsername")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            // On a secure lock screen, show "New message" instead of who sent what.
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(applicationContext, CHAT_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("New message")
+                    .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                    .build()
+            )
+            .build()
+        try {
+            manager.notify(notificationId, notification)
+        } catch (e: SecurityException) {
+            Log.e("DuudleFCM", "Not allowed to post chat notification: ${e.message}")
+        }
+    }
+
     private companion object {
         const val FALLBACK_FETCH_TIMEOUT_SECONDS = 10L
     }
 }
+
+private const val CHAT_CHANNEL_ID = "chats"
 
 /**
  * The compact stroke format the Cloud Function embeds in pushes:

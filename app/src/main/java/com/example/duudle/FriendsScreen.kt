@@ -8,12 +8,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -31,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -74,7 +78,8 @@ fun FriendsScreen(
     onOverlayDebugClick: () -> Unit = {},
     onDesignDoodleClick: () -> Unit = {},
     onVaultClick: () -> Unit = {},
-    onMeClick: () -> Unit = {}
+    onMeClick: () -> Unit = {},
+    onChatClick: (friendUid: String, friendUsername: String) -> Unit = { _, _ -> }
 ) {
     // onOverlayDebugClick is unused since the overlay banner left this screen (the status
     // now lives on Home and Profile); kept so MainActivity's call site doesn't change.
@@ -164,6 +169,22 @@ fun FriendsScreen(
         }
     }
 
+    // Friends whose chat has a message I haven't read yet: a red dot on their Chat button.
+    var unreadChatUids by remember { mutableStateOf<Set<String>>(emptySet()) }
+    DisposableEffect(currentUid) {
+        if (currentUid.isBlank()) return@DisposableEffect onDispose { }
+        val chatsListener = ChatRepository.listenToMyChats(
+            currentUid,
+            onUpdate = { chats ->
+                unreadChatUids = chats.filter { it.hasUnreadFor(currentUid) }
+                    .mapNotNull { it.otherMember(currentUid) }
+                    .toSet()
+            },
+            onError = { }
+        )
+        onDispose { chatsListener.remove() }
+    }
+
     LaunchedEffect(friendUidsAsUserA, friendUidsAsUserB, friendshipsAReported, friendshipsBReported) {
         // Wait for both sides, or someone whose friendships are all on one side would
         // briefly look friendless.
@@ -231,6 +252,8 @@ fun FriendsScreen(
                         }
                     },
                     onSelectFriend = onSelectFriend,
+                    unreadChatUids = unreadChatUids,
+                    onChatClick = { friend -> onChatClick(friend.uid, friend.username) },
                     onAddFriend = { selectedTab = FriendsTab.ADD },
                     gaze = gaze
                 )
@@ -313,6 +336,8 @@ private fun FriendsTabContent(
     onQueryChange: (String) -> Unit,
     onToggleMute: (Friend) -> Unit,
     onSelectFriend: (Friend) -> Unit,
+    unreadChatUids: Set<String>,
+    onChatClick: (Friend) -> Unit,
     onAddFriend: () -> Unit,
     gaze: FaceGaze
 ) {
@@ -347,6 +372,8 @@ private fun FriendsTabContent(
                 searchQuery = searchQuery,
                 onToggleMute = onToggleMute,
                 onSelectFriend = onSelectFriend,
+                unreadChatUids = unreadChatUids,
+                onChatClick = onChatClick,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -359,6 +386,8 @@ private fun FriendsList(
     searchQuery: String,
     onToggleMute: (Friend) -> Unit,
     onSelectFriend: (Friend) -> Unit,
+    unreadChatUids: Set<String>,
+    onChatClick: (Friend) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Typing "@maya" finds maya too.
@@ -385,7 +414,13 @@ private fun FriendsList(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)
     ) {
         items(filtered, key = { it.uid }) { friend ->
-            FriendCard(friend = friend, onToggleMute = onToggleMute, onSelectFriend = onSelectFriend)
+            FriendCard(
+                friend = friend,
+                onToggleMute = onToggleMute,
+                onSelectFriend = onSelectFriend,
+                hasUnreadChat = friend.uid in unreadChatUids,
+                onChatClick = onChatClick
+            )
         }
     }
 }
@@ -423,7 +458,13 @@ private fun FriendsEmptyState(gaze: FaceGaze, onAddFriend: () -> Unit) {
 }
 
 @Composable
-private fun FriendCard(friend: Friend, onToggleMute: (Friend) -> Unit, onSelectFriend: (Friend) -> Unit) {
+private fun FriendCard(
+    friend: Friend,
+    onToggleMute: (Friend) -> Unit,
+    onSelectFriend: (Friend) -> Unit,
+    hasUnreadChat: Boolean,
+    onChatClick: (Friend) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -494,14 +535,79 @@ private fun FriendCard(friend: Friend, onToggleMute: (Friend) -> Unit, onSelectF
         }
 
         Spacer(Modifier.height(12.dp))
-        if (friend.muted) {
-            DuudleOutlinePill(text = "Unmute", onClick = { onToggleMute(friend) }, modifier = Modifier.fillMaxWidth())
-        } else {
-            DuudleInkPill(
-                text = "Send doodle",
-                onClick = { onSelectFriend(friend) },
-                modifier = Modifier.fillMaxWidth(),
-                icon = Icons.Filled.Edit
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (friend.muted) {
+                DuudleOutlinePill(text = "Unmute", onClick = { onToggleMute(friend) }, modifier = Modifier.weight(1f))
+            } else {
+                FriendActionPill(
+                    text = "Send doodle",
+                    onClick = { onSelectFriend(friend) },
+                    filled = true,
+                    icon = Icons.Filled.Edit,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            FriendActionPill(
+                text = "Chat",
+                onClick = { onChatClick(friend) },
+                filled = false,
+                showDot = hasUnreadChat,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+private val ActionPillShape = RoundedCornerShape(percent = 50)
+
+/**
+ * Half-width 48dp pill for the friend card's action row: Ink-filled or outlined, with
+ * tighter padding than [DuudleInkPill] so "Send doodle" fits beside "Chat". [showDot]
+ * adds a small red unread dot (and says so to TalkBack).
+ */
+@Composable
+private fun FriendActionPill(
+    text: String,
+    onClick: () -> Unit,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    showDot: Boolean = false
+) {
+    val content = if (filled) DuudleColors.Paper else DuudleColors.Ink
+    Row(
+        modifier = modifier
+            .height(48.dp)
+            .clip(ActionPillShape)
+            .then(
+                if (filled) Modifier.background(DuudleColors.Ink)
+                else Modifier.border(1.5.dp, DuudleColors.Ink.copy(alpha = 0.3f), ActionPillShape)
+            )
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { if (showDot) stateDescription = "Unread messages" }
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            text,
+            color = content,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (showDot) {
+            Spacer(Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(DuudleColors.ErrorRed)
             )
         }
     }
