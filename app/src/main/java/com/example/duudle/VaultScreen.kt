@@ -242,7 +242,8 @@ private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, isSaved: 
     val label = if (isSent) "To @${doodle.receiverUsername}" else "From @${doodle.senderUsername}"
     val time = relativeTime(doodle.createdAt)
     val description = buildString {
-        append(if (isSent) "Doodle to @${doodle.receiverUsername}" else "Doodle from @${doodle.senderUsername}")
+        val kind = if (doodle.cardId != null) "Flash card" else "Doodle"
+        append(if (isSent) "$kind to @${doodle.receiverUsername}" else "$kind from @${doodle.senderUsername}")
         if (time.isNotEmpty()) append(", ").append(time)
         if (isSaved) append(", saved")
     }
@@ -338,7 +339,10 @@ private fun VaultDoodleDetail(
             }
         )
 
-        Canvas(
+        DoodleOrCard(
+            strokes = doodle.strokes,
+            cardId = doodle.cardId,
+            placeholderName = if (isSent) null else doodle.senderUsername,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -348,20 +352,7 @@ private fun VaultDoodleDetail(
                 .shadow(elevation = 10.dp, shape = DetailCanvasShape)
                 .clip(DetailCanvasShape)
                 .background(Color.White)
-        ) {
-            doodle.strokes.forEach { stroke ->
-                val scaledPoints = stroke.points.map { Offset(it.x * size.width, it.y * size.height) }
-                for (i in 0 until scaledPoints.size - 1) {
-                    drawLine(
-                        color = stroke.color,
-                        start = scaledPoints[i],
-                        end = scaledPoints[i + 1],
-                        strokeWidth = stroke.width,
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
-        }
+        )
 
         if (time.isNotEmpty()) {
             Text(

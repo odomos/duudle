@@ -1,6 +1,5 @@
 package com.example.duudle
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -9,7 +8,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.DocumentSnapshot
@@ -26,7 +24,9 @@ data class IncomingDoodle(
     val receiverUsername: String,
     val strokes: List<DoodleStroke>, // points here are normalized 0..1 fractions, not raw pixels
     val createdAt: Long,
-    val status: String
+    val status: String,
+    // Set for a flash card (strokes are then empty). See FlashCards.kt.
+    val cardId: String? = null
 )
 
 @Suppress("UNCHECKED_CAST")
@@ -51,7 +51,10 @@ fun parseDoodleDoc(doc: DocumentSnapshot): IncomingDoodle? {
         DoodleStroke(points = points, color = Color(colorInt), width = width)
     }
 
-    return IncomingDoodle(doc.id, senderId, senderUsername, receiverId, receiverUsername, strokes, createdAt, status)
+    // get() + cast rather than getString(), which throws if the field isn't a string.
+    val cardId = cardIdFromPayload(doc.get("cardId") as? String)
+
+    return IncomingDoodle(doc.id, senderId, senderUsername, receiverId, receiverUsername, strokes, createdAt, status, cardId)
 }
 
 fun listenForIncomingDoodles(myUid: String, onUpdate: (List<IncomingDoodle>) -> Unit): ListenerRegistration {
@@ -160,14 +163,21 @@ fun IncomingDoodleScreen(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("🖍 Doodle from ${doodle.senderUsername}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(
+                if (doodle.cardId != null) "🖍 ${flashCardSentLine(doodle.senderUsername)}" else "🖍 Doodle from ${doodle.senderUsername}",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
             TextButton(
                 onClick = { setDoodleFavorite(currentUid, doodle.docId, !isSaved) },
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) { Text(if (isSaved) "★ Saved" else "☆ Save") }
         }
 
-        Canvas(
+        DoodleOrCard(
+            strokes = doodle.strokes,
+            cardId = doodle.cardId,
+            placeholderName = doodle.senderUsername,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -175,20 +185,7 @@ fun IncomingDoodleScreen(
                 .wrapContentSize()
                 .aspectRatio(1f) // square, like the sender's Draw canvas
                 .background(Color.White)
-        ) {
-            doodle.strokes.forEach { stroke ->
-                val scaledPoints = stroke.points.map { Offset(it.x * size.width, it.y * size.height) }
-                for (i in 0 until scaledPoints.size - 1) {
-                    drawLine(
-                        color = stroke.color,
-                        start = scaledPoints[i],
-                        end = scaledPoints[i + 1],
-                        strokeWidth = stroke.width,
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
-        }
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),

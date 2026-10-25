@@ -73,6 +73,7 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
     senderId: doodle.senderId || "",
     senderUsername: senderUsername,
   };
+  if (typeof doodle.cardId === "string" && doodle.cardId) data.cardId = doodle.cardId.slice(0, 32);
 
   if (strokesSize <= MAX_STROKES_BYTES) {
     data.strokes = strokesJson;

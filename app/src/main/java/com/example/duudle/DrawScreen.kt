@@ -2,6 +2,7 @@ package com.example.duudle
 
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,9 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,15 +38,23 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
+import com.example.duudle.ui.theme.DuudleColors
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 
 data class DoodleStroke(
     val points: List<Offset>,
@@ -73,6 +85,9 @@ private val palette = listOf(
 )
 
 private val LavenderBackground = Color(0xFFEDE3FA)
+private val DrawModeLabels = listOf("Draw", "Flash cards")
+private val FlashCardShape = RoundedCornerShape(20.dp)
+private const val RESTORED_SEND_GRACE_MS = 5000L
 
 @Composable
 fun DrawScreen(
@@ -108,6 +123,21 @@ fun DrawScreen(
     var showFriendPicker by remember { mutableStateOf(false) }
     var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
     var friendsLoading by remember { mutableStateOf(true) }
+
+    // Flash cards mode swaps the canvas for a grid of prebuilt cards; the drawing is kept.
+    var flashCardsMode by rememberSaveable { mutableStateOf(false) }
+    // The card being sent right now. While set, further taps are ignored (no duplicates).
+    // Saveable so a rotation mid-send doesn't re-enable the cards.
+    var sendingCardId by rememberSaveable { mutableStateOf<String?>(null) }
+    // A send still marked in flight after a rotation reports to the old screen instance, so
+    // this one never hears back (the write itself carries on in Firestore). Keep the cards
+    // blocked for a short grace period, then let go so the screen isn't stuck.
+    LaunchedEffect(Unit) {
+        if (sendingCardId != null) {
+            delay(RESTORED_SEND_GRACE_MS)
+            sendingCardId = null
+        }
+    }
 
     // Load the current user's friends once, the same way FriendsScreen does,
     // so the picker has something to show the moment Send is tapped with
@@ -161,6 +191,41 @@ fun DrawScreen(
         }
     }
 
+    fun openFriendPicker() {
+        if (friends.isEmpty() && !friendsLoading) {
+            Toast.makeText(context, "Add a friend first from the Friends tab", Toast.LENGTH_SHORT).show()
+        } else {
+            showFriendPicker = true
+        }
+    }
+
+    // Sticker-style: a tap sends the card straight away.
+    fun sendCard(card: FlashCard) {
+        if (sendingCardId != null) return
+        val toUid = activeRecipientUid
+        if (toUid == null) {
+            openFriendPicker()
+            return
+        }
+        val toName = activeRecipientUsername
+        sendingCardId = card.id
+        sendFlashCard(
+            senderId = currentUid,
+            senderUsername = currentUsername,
+            receiverId = toUid,
+            receiverUsername = toName ?: "Unknown",
+            card = card
+        ) { success, _ ->
+            sendingCardId = null
+            if (success) {
+                Toast.makeText(context, "Flash card sent to ${toName ?: "your friend"}!", Toast.LENGTH_LONG).show()
+                onBack()
+            } else {
+                Toast.makeText(context, "Couldn't send. Check your connection.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -172,209 +237,232 @@ fun DrawScreen(
                 text = activeRecipientUsername?.let { "To: $it" } ?: "Draw",
                 style = MaterialTheme.typography.titleMedium
             )
-            TextButton(
-                onClick = {
-                    when {
-                        strokes.isEmpty() -> Toast.makeText(
-                            context, "Draw something first!", Toast.LENGTH_SHORT
-                        ).show()
-                        activeRecipientUid == null -> {
-                            // The fix: open a picker right here instead of failing
-                            // silently or navigating away and losing the drawing.
-                            if (friends.isEmpty() && !friendsLoading) {
-                                Toast.makeText(
-                                    context, "Add a friend first from the Friends tab", Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                showFriendPicker = true
-                            }
-                        }
-                        canvasSize.width == 0 || canvasSize.height == 0 -> Toast.makeText(
-                            context, "Canvas not ready yet, try again", Toast.LENGTH_SHORT
-                        ).show()
-                        else -> {
-                            isSending = true
-                            sendDoodle(
-                                senderId = currentUid,
-                                senderUsername = currentUsername,
-                                receiverId = activeRecipientUid!!,
-                                receiverUsername = activeRecipientUsername ?: "Unknown",
-                                strokes = strokes,
-                                canvasWidth = canvasSize.width.toFloat(),
-                                canvasHeight = canvasSize.height.toFloat()
-                            ) { success, error ->
-                                isSending = false
-                                if (success) {
-                                    Toast.makeText(context, "Doodle sent to $activeRecipientUsername!", Toast.LENGTH_LONG).show()
-                                    onBack()
+            if (!flashCardsMode) {
+                TextButton(
+                    onClick = {
+                        when {
+                            strokes.isEmpty() -> Toast.makeText(
+                                context, "Draw something first!", Toast.LENGTH_SHORT
+                            ).show()
+                            activeRecipientUid == null -> {
+                                // The fix: open a picker right here instead of failing
+                                // silently or navigating away and losing the drawing.
+                                if (friends.isEmpty() && !friendsLoading) {
+                                    Toast.makeText(
+                                        context, "Add a friend first from the Friends tab", Toast.LENGTH_SHORT
+                                    ).show()
                                 } else {
-                                    Toast.makeText(context, "Failed to send: $error", Toast.LENGTH_LONG).show()
+                                    showFriendPicker = true
+                                }
+                            }
+                            canvasSize.width == 0 || canvasSize.height == 0 -> Toast.makeText(
+                                context, "Canvas not ready yet, try again", Toast.LENGTH_SHORT
+                            ).show()
+                            else -> {
+                                isSending = true
+                                sendDoodle(
+                                    senderId = currentUid,
+                                    senderUsername = currentUsername,
+                                    receiverId = activeRecipientUid!!,
+                                    receiverUsername = activeRecipientUsername ?: "Unknown",
+                                    strokes = strokes,
+                                    canvasWidth = canvasSize.width.toFloat(),
+                                    canvasHeight = canvasSize.height.toFloat()
+                                ) { success, error ->
+                                    isSending = false
+                                    if (success) {
+                                        Toast.makeText(context, "Doodle sent to $activeRecipientUsername!", Toast.LENGTH_LONG).show()
+                                        onBack()
+                                    } else {
+                                        Toast.makeText(context, "Failed to send: $error", Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             }
                         }
-                    }
-                },
-                enabled = !isSending
-            ) {
-                Text(if (isSending) "Sending..." else "Send")
+                    },
+                    enabled = !isSending
+                ) {
+                    Text(if (isSending) "Sending..." else "Send")
+                }
+            } else {
+                // Cards send on tap; keep the title where it was.
+                Spacer(Modifier.width(64.dp))
             }
         }
 
-        // The canvas is the largest centered 1:1 square that fits the leftover space, so the
-        // 0-1 normalized strokes keep their proportions on the square viewers. wrapContentSize()
-        // drops the fill min-constraints so aspectRatio can shrink and center the square.
-        Box(modifier = Modifier.weight(1f).fillMaxWidth().background(LavenderBackground).wrapContentSize().aspectRatio(1f)) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clipToBounds()
-                    .background(Color.White)
-                    .onSizeChanged { newSize ->
-                        // Strokes are in canvas pixels. When the canvas changes size
-                        // (e.g. rotation), map them to the new size the same way the
-                        // 0-1 normalization will, so what's shown is what gets sent.
-                        val old = canvasSize
-                        if (old.width > 0 && old.height > 0 && newSize.width > 0 && newSize.height > 0 && newSize != old) {
-                            val scaleX = newSize.width.toFloat() / old.width
-                            val scaleY = newSize.height.toFloat() / old.height
-                            for (i in strokes.indices) {
-                                val stroke = strokes[i]
-                                strokes[i] = stroke.copy(points = stroke.points.map { Offset(it.x * scaleX, it.y * scaleY) })
+        DuudleSegmentedControl(
+            options = DrawModeLabels,
+            selectedIndex = if (flashCardsMode) 1 else 0,
+            onSelect = { flashCardsMode = it == 1 },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+
+        if (flashCardsMode) {
+            FlashCardPicker(
+                recipientName = if (activeRecipientUid != null) activeRecipientUsername ?: "friend" else null,
+                sendingCardId = sendingCardId,
+                onPickFriend = { openFriendPicker() },
+                onCardClick = { sendCard(it) },
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            // The canvas is the largest centered 1:1 square that fits the leftover space, so the
+            // 0-1 normalized strokes keep their proportions on the square viewers. wrapContentSize()
+            // drops the fill min-constraints so aspectRatio can shrink and center the square.
+            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(LavenderBackground).wrapContentSize().aspectRatio(1f)) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                        .background(Color.White)
+                        .onSizeChanged { newSize ->
+                            // Strokes are in canvas pixels. When the canvas changes size
+                            // (e.g. rotation), map them to the new size the same way the
+                            // 0-1 normalization will, so what's shown is what gets sent.
+                            val old = canvasSize
+                            if (old.width > 0 && old.height > 0 && newSize.width > 0 && newSize.height > 0 && newSize != old) {
+                                val scaleX = newSize.width.toFloat() / old.width
+                                val scaleY = newSize.height.toFloat() / old.height
+                                for (i in strokes.indices) {
+                                    val stroke = strokes[i]
+                                    strokes[i] = stroke.copy(points = stroke.points.map { Offset(it.x * scaleX, it.y * scaleY) })
+                                }
+                                zoomScale = 1f
+                                zoomOffset = Offset.Zero
                             }
-                            zoomScale = 1f
-                            zoomOffset = Offset.Zero
+                            canvasSize = newSize
                         }
-                        canvasSize = newSize
-                    }
-                    .pointerInput(Unit) {
-                        // One finger draws; two fingers pinch-zoom and pan. pointerInput(Unit)
-                        // captures this lambda once, so it reads state directly rather than
-                        // the selectedColor/selectedBrush values from the first composition.
-                        awaitEachGesture {
-                            val down = awaitFirstDown()
-                            val viewSize = size.toSize()
-                            var drawing = true
-                            currentPoints = listOf(screenToCanvas(down.position, zoomScale, zoomOffset, viewSize))
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val pressed = event.changes.filter { it.pressed }
-                                if (pressed.isEmpty()) break
-                                if (pressed.size > 1) {
-                                    // A second finger turns this gesture into zoom/pan and
-                                    // drops the stroke it interrupted, so no stray line.
-                                    drawing = false
-                                    currentPoints = emptyList()
-                                    val (newScale, newOffset) = applyZoomPan(
-                                        zoomScale, zoomOffset,
-                                        event.calculateCentroid(), event.calculateZoom(), event.calculatePan(),
-                                        viewSize
+                        .pointerInput(Unit) {
+                            // One finger draws; two fingers pinch-zoom and pan. pointerInput(Unit)
+                            // captures this lambda once, so it reads state directly rather than
+                            // the selectedColor/selectedBrush values from the first composition.
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                val viewSize = size.toSize()
+                                var drawing = true
+                                currentPoints = listOf(screenToCanvas(down.position, zoomScale, zoomOffset, viewSize))
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val pressed = event.changes.filter { it.pressed }
+                                    if (pressed.isEmpty()) break
+                                    if (pressed.size > 1) {
+                                        // A second finger turns this gesture into zoom/pan and
+                                        // drops the stroke it interrupted, so no stray line.
+                                        drawing = false
+                                        currentPoints = emptyList()
+                                        val (newScale, newOffset) = applyZoomPan(
+                                            zoomScale, zoomOffset,
+                                            event.calculateCentroid(), event.calculateZoom(), event.calculatePan(),
+                                            viewSize
+                                        )
+                                        zoomScale = newScale
+                                        zoomOffset = newOffset
+                                    } else if (drawing) {
+                                        currentPoints = currentPoints +
+                                            screenToCanvas(pressed[0].position, zoomScale, zoomOffset, viewSize)
+                                    }
+                                    event.changes.forEach { it.consume() }
+                                }
+                                if (drawing && currentPoints.size > 1) {
+                                    strokes.add(
+                                        DoodleStroke(currentPoints, Color(selectedColorArgb), brushSizes[selectedBrushIndex].width)
                                     )
-                                    zoomScale = newScale
-                                    zoomOffset = newOffset
-                                } else if (drawing) {
-                                    currentPoints = currentPoints +
-                                        screenToCanvas(pressed[0].position, zoomScale, zoomOffset, viewSize)
                                 }
-                                event.changes.forEach { it.consume() }
+                                currentPoints = emptyList()
                             }
-                            if (drawing && currentPoints.size > 1) {
-                                strokes.add(
-                                    DoodleStroke(currentPoints, Color(selectedColorArgb), brushSizes[selectedBrushIndex].width)
-                                )
-                            }
-                            currentPoints = emptyList()
+                        }
+                ) {
+                    withTransform({
+                        translate(zoomOffset.x, zoomOffset.y)
+                        scale(zoomScale, zoomScale, pivot = Offset.Zero)
+                    }) {
+                        strokes.forEach { drawStroke(it) }
+                        if (currentPoints.size > 1) {
+                            drawStroke(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
                         }
                     }
-            ) {
-                withTransform({
-                    translate(zoomOffset.x, zoomOffset.y)
-                    scale(zoomScale, zoomScale, pivot = Offset.Zero)
-                }) {
-                    strokes.forEach { drawStroke(it) }
-                    if (currentPoints.size > 1) {
-                        drawStroke(DoodleStroke(currentPoints, selectedColor, selectedBrush.width))
-                    }
                 }
-            }
 
-            if (zoomScale > 1.01f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xCC333333))
-                        .clickable {
-                            zoomScale = 1f
-                            zoomOffset = Offset.Zero
-                        }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text("Reset zoom · ${"%.1f".format(zoomScale)}×", color = Color.White, fontSize = 12.sp)
-                }
-            }
-        }
-
-        // Brush size picker
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            brushSizes.forEach { brush ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable { selectedBrushIndex = brushSizes.indexOf(brush) }
-                        .border(
-                            width = if (brush == selectedBrush) 2.dp else 0.dp,
-                            color = Color.DarkGray,
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
+                if (zoomScale > 1.01f) {
                     Box(
                         modifier = Modifier
-                            .size(brush.dotSize)
-                            .clip(CircleShape)
-                            .background(Color.Black)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(brush.label, style = MaterialTheme.typography.bodySmall)
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xCC333333))
+                            .clickable {
+                                zoomScale = 1f
+                                zoomOffset = Offset.Zero
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Reset zoom · ${"%.1f".format(zoomScale)}×", color = Color.White, fontSize = 12.sp)
+                    }
                 }
             }
-        }
 
-        // Color palette — scrollable so it never overflows on smaller screens
-        LazyRow(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(palette) { color ->
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                        .border(
-                            width = if (color == selectedColor) 3.dp else 1.dp,
-                            color = if (color == selectedColor) Color.DarkGray else Color.LightGray,
-                            shape = CircleShape
+            // Brush size picker
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                brushSizes.forEach { brush ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable { selectedBrushIndex = brushSizes.indexOf(brush) }
+                            .border(
+                                width = if (brush == selectedBrush) 2.dp else 0.dp,
+                                color = Color.DarkGray,
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(brush.dotSize)
+                                .clip(CircleShape)
+                                .background(Color.Black)
                         )
-                        .clickable { selectedColorArgb = color.toArgb() }
-                )
+                        Spacer(Modifier.width(6.dp))
+                        Text(brush.label, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
-        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = { if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex) }) {
-                Text("Undo")
+            // Color palette — scrollable so it never overflows on smaller screens
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(palette) { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(
+                                width = if (color == selectedColor) 3.dp else 1.dp,
+                                color = if (color == selectedColor) Color.DarkGray else Color.LightGray,
+                                shape = CircleShape
+                            )
+                            .clickable { selectedColorArgb = color.toArgb() }
+                    )
+                }
             }
-            Button(onClick = { strokes.clear() }) {
-                Text("Clear")
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(onClick = { if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex) }) {
+                    Text("Undo")
+                }
+                Button(onClick = { strokes.clear() }) {
+                    Text("Clear")
+                }
             }
         }
     }
@@ -420,6 +508,88 @@ fun DrawScreen(
                 TextButton(onClick = { showFriendPicker = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+/**
+ * Flash cards mode: who the card goes to (or a prompt to pick a friend) above a 3-column
+ * grid of cards. [recipientName] null = no recipient yet.
+ */
+@Composable
+private fun FlashCardPicker(
+    recipientName: String?,
+    sendingCardId: String?,
+    onPickFriend: () -> Unit,
+    onCardClick: (FlashCard) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (recipientName != null) {
+            Text(
+                "Tap a card to send it to @$recipientName",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DuudleColors.Ink,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Pick a friend first",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = DuudleColors.Ink,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = onPickFriend, modifier = Modifier.heightIn(min = 48.dp)) { Text("Pick a friend") }
+            }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            gridItems(FlashCardCatalog, key = { it.id }) { card ->
+                val description = if (recipientName != null) "Send ${card.label} to @$recipientName" else "Send ${card.label}"
+                val isSendingThis = card.id == sendingCardId
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(FlashCardShape)
+                        .background(DuudleColors.Paper)
+                        .border(1.dp, DuudleColors.Hairline, FlashCardShape)
+                        .clickable(enabled = sendingCardId == null, role = Role.Button) { onCardClick(card) }
+                        .semantics {
+                            contentDescription = description
+                            if (isSendingThis) stateDescription = "Sending"
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(card.thumbRes),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    if (isSendingThis) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.6f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                color = DuudleColors.Ink,
+                                strokeWidth = 2.5.dp
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -578,6 +748,31 @@ fun sendDoodle(
         "receiverId" to receiverId,
         "receiverUsername" to receiverUsername,
         "strokes" to strokes.map { it.toFirestoreMap(canvasWidth, canvasHeight) },
+        "createdAt" to System.currentTimeMillis(),
+        "status" to "unseen"
+    )
+    FirebaseFirestore.getInstance().collection("doodles")
+        .add(doodleData)
+        .addOnSuccessListener { onResult(true, null) }
+        .addOnFailureListener { e -> onResult(false, e.message) }
+}
+
+/** A flash card is a normal doodle doc with no strokes plus its cardId (see FlashCards.kt). */
+fun sendFlashCard(
+    senderId: String,
+    senderUsername: String,
+    receiverId: String,
+    receiverUsername: String,
+    card: FlashCard,
+    onResult: (Boolean, String?) -> Unit
+) {
+    val doodleData = hashMapOf(
+        "senderId" to senderId,
+        "senderUsername" to senderUsername,
+        "receiverId" to receiverId,
+        "receiverUsername" to receiverUsername,
+        "strokes" to emptyList<Any>(),
+        "cardId" to card.id,
         "createdAt" to System.currentTimeMillis(),
         "status" to "unseen"
     )

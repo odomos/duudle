@@ -31,12 +31,15 @@ object DoodleSnooze {
         senderUid: String,
         senderUsername: String,
         strokes: List<DoodleStroke>,
-        delayMinutes: Int
+        delayMinutes: Int,
+        cardId: String? = null
     ) {
         val payload = JSONObject()
             .put("senderUid", senderUid)
             .put("senderUsername", senderUsername)
             .put("strokes", strokesToJson(strokes))
+        // Only flash cards have one; files saved before cards existed simply lack it.
+        if (cardId != null) payload.put("cardId", cardId)
         fileFor(context, doodleId).writeText(payload.toString())
 
         val triggerAt = System.currentTimeMillis() + delayMinutes * 60_000L
@@ -76,7 +79,8 @@ object DoodleSnooze {
                 doodleId = doodleId,
                 senderUid = payload.getString("senderUid"),
                 senderUsername = payload.getString("senderUsername"),
-                strokes = strokesFromJson(payload.getString("strokes"))
+                strokes = strokesFromJson(payload.getString("strokes")),
+                cardId = cardIdFromPayload(payload.optString("cardId", ""))
             )
             Log.d(TAG, "re-showed snoozed doodle=$doodleId")
         } catch (e: Exception) {

@@ -54,6 +54,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
         val senderUid = remoteMessage.data["senderId"] ?: ""
         val senderUsername = remoteMessage.data["senderUsername"] ?: "A friend"
         val strokesJson = remoteMessage.data["strokes"]
+        val cardId = cardIdFromPayload(remoteMessage.data["cardId"])
 
         if (type != "new_doodle" || doodleId == null) {
             Log.d("DuudleFCM", "Ignoring message: wrong type or missing doodleId")
@@ -65,7 +66,29 @@ class DuudleMessagingService : FirebaseMessagingService() {
             return
         }
 
-        if (strokesJson != null) {
+        if (cardId != null) {
+            // A flash card: no strokes to parse, just show the card in the same overlay.
+            Log.d("DuudleFCM", "path=card doodle=$doodleId card=$cardId")
+            mainHandler.post {
+                try {
+                    showRealDoodleOverlay(
+                        context = applicationContext,
+                        doodleId = doodleId,
+                        senderUid = senderUid,
+                        senderUsername = senderUsername,
+                        strokes = emptyList(),
+                        cardId = cardId
+                    )
+                } catch (e: Exception) {
+                    Log.e("DuudleFCM", "Failed to show overlay for flash card: ${e.message}")
+                }
+            }
+            return
+        }
+
+        // Embedded "[]" with no cardId is a flash card pushed by a Cloud Function that predates
+        // cardId; take the Firestore fallback below, which reads cardId from the doc.
+        if (strokesJson != null && !isEmptyStrokesPayload(strokesJson)) {
             Log.d("DuudleFCM", "path=embedded doodle=$doodleId bytes=${strokesJson.length}")
             // Parsing is safe on any thread, but showing the overlay is NOT —
             // it creates Android Views, which requires a thread with a running
@@ -105,7 +128,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
                 Log.w("DuudleFCM", "path=fallback failed doodle=$doodleId: missing or unparseable doc")
                 return
             }
-            Log.d("DuudleFCM", "path=fallback ok doodle=$doodleId strokes=${incoming.strokes.size}")
+            Log.d("DuudleFCM", "path=fallback ok doodle=$doodleId strokes=${incoming.strokes.size} card=${incoming.cardId}")
             mainHandler.post {
                 try {
                     showRealDoodleOverlay(
@@ -113,7 +136,8 @@ class DuudleMessagingService : FirebaseMessagingService() {
                         doodleId = incoming.docId,
                         senderUid = incoming.senderId,
                         senderUsername = senderUsername,
-                        strokes = incoming.strokes
+                        strokes = incoming.strokes,
+                        cardId = incoming.cardId
                     )
                 } catch (e: Exception) {
                     Log.e("DuudleFCM", "Failed to show overlay from fetched doodle: ${e.message}")

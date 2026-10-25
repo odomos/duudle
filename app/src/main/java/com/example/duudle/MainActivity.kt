@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -162,6 +163,7 @@ class MainActivity : ComponentActivity() {
                             onVaultClick = { currentScreen = Screen.VAULT },
                             onMeClick = { currentScreen = Screen.PROFILE },
                             newDoodleFromUsername = incomingDoodles.firstOrNull()?.senderUsername,
+                            newItemIsFlashCard = incomingDoodles.firstOrNull()?.cardId != null,
                             onViewDoodle = { currentScreen = Screen.VIEW_DOODLE }
                         )
                         // Keyed on the recipient so a reply arriving while Draw is
@@ -563,6 +565,29 @@ private class DoodleCanvasView(context: Context, private val strokes: List<Doodl
     }
 }
 
+/** The overlay's square frame for a flash card: the image, or a note if this build lacks the card. */
+private fun flashCardOverlayView(context: Context, cardId: String): View {
+    val card = flashCardById(cardId)
+    return if (card != null) {
+        ImageView(context).apply {
+            setImageResource(card.res)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundColor(Color.WHITE)
+            contentDescription = card.label
+        }
+    } else {
+        TextView(context).apply {
+            // The title line above already names the sender.
+            text = unknownFlashCardText(null)
+            setTextColor(Color.DKGRAY)
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+            setBackgroundColor(Color.WHITE)
+        }
+    }
+}
+
 private var realDoodleOverlayView: View? = null
 
 private fun dpToPx(context: Context, dp: Int): Int {
@@ -575,7 +600,9 @@ fun showRealDoodleOverlay(
     doodleId: String,
     senderUid: String,
     senderUsername: String,
-    strokes: List<DoodleStroke>
+    strokes: List<DoodleStroke>,
+    // Set for a flash card: the card image replaces the stroke canvas (see FlashCards.kt).
+    cardId: String? = null
 ) {
     removeRealDoodleOverlay(context)
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -587,13 +614,13 @@ fun showRealDoodleOverlay(
     }
 
     container.addView(TextView(context).apply {
-        text = "🖍 Doodle from $senderUsername"
+        text = if (cardId != null) "🖍 ${flashCardSentLine(senderUsername)}" else "🖍 Doodle from $senderUsername"
         setTextColor(Color.BLACK)
         textSize = 16f
         setPadding(0, 0, 0, 16)
     })
 
-    val canvasView = DoodleCanvasView(context, strokes).apply {
+    val canvasView = if (cardId != null) flashCardOverlayView(context, cardId) else DoodleCanvasView(context, strokes).apply {
         setBackgroundColor(Color.WHITE)
     }
     val canvasSize = dpToPx(context, 260)
@@ -616,7 +643,7 @@ fun showRealDoodleOverlay(
         durationRow.addView(Button(context).apply {
             text = label
             setOnClickListener {
-                DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes)
+                DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes, cardId)
                 removeRealDoodleOverlay(context)
                 Toast.makeText(context, "Snoozed for $label", Toast.LENGTH_SHORT).show()
             }

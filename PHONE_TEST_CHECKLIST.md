@@ -413,6 +413,35 @@ Deployed 2026-10-24: `firestore.rules` (`chats` block) and the Cloud Function
 - [ ] Function logs (Firebase console > Functions > onChatMessageCreated) show
       "Chat push sent successfully" and no index error
 
+## Flash cards (not yet verified on any device)
+
+Files: `FlashCards.kt`, `FlashCardsTest.kt`, `res/drawable-nodpi/flashcard_*.jpg`
+(new); `DrawScreen.kt` (Draw / Flash cards switch), `DuudleMessagingService.kt`,
+`MainActivity.kt` (overlay), `DoodleSnooze.kt`, `VaultScreen.kt`,
+`IncomingDoodleScreen.kt`, `HomeScreen.kt`, `functions/index.js` (one line, adds
+`cardId` to the push; deployed 2026-10-24). A card is a normal doodle with
+`cardId` and no strokes. Test with two friends (A34 + emulator).
+
+- [ ] Draw screen: a **Draw / Flash cards** switch at the top; Draw works exactly
+      as before; Flash cards shows 9 cards in a grid that scrolls smoothly (no
+      stutter the first time you open it)
+- [ ] With no friend picked: "Pick a friend first" + a button that opens the
+      picker. With a friend: "Tap a card to send it to @name"
+- [ ] Tap a card: a spinner on it, then "Flash card sent…" and back to Home.
+      Fast double taps send only ONE card (check the friend's Vault)
+- [ ] Friend's phone, app in background and fully closed: the card pops up as
+      the usual overlay ("@you sent you a flash card") with Snooze / Remove / Draw
+- [ ] Cards arrive quickly (the push now carries the card id)
+- [ ] Snooze 5 min on a card: it comes back as the card, not an empty doodle
+- [ ] Draw on a card overlay opens Draw addressed to the sender
+- [ ] Vault: the card shows in the grid and opens full size; star/save works
+- [ ] Home banner says "sent you a flash card!" for a card
+- [ ] Muted friend: their card doesn't pop up but is in the Vault
+- [ ] Airplane mode: tapping a card keeps the spinner until you reconnect, then
+      it sends (known: same as doodles, no offline error)
+- [ ] Normal doodles still send, pop up, snooze and show in the Vault as before
+- [ ] TalkBack: each card reads "Send <description> to @name"
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

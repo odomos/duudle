@@ -91,6 +91,8 @@ fun HomeScreen(
     onVaultClick: () -> Unit = {},
     onMeClick: () -> Unit = {},
     newDoodleFromUsername: String? = null,
+    // The newest incoming item is a flash card rather than a drawing.
+    newItemIsFlashCard: Boolean = false,
     onViewDoodle: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -119,7 +121,9 @@ fun HomeScreen(
 
             Spacer(Modifier.height(20.dp))
             Text(
-                text = if (newDoodleFromUsername != null) {
+                text = if (newDoodleFromUsername != null && newItemIsFlashCard) {
+                    "@$newDoodleFromUsername sent you a flash card!"
+                } else if (newDoodleFromUsername != null) {
                     "@$newDoodleFromUsername sent you a doodle!"
                 } else {
                     "Who’s getting a doodle today?"
