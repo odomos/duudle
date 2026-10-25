@@ -1,5 +1,6 @@
 package com.example.duudle
 
+import android.app.AlarmManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -90,6 +91,7 @@ fun ProfileScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var isBatteryUnrestricted by remember { mutableStateOf(readBatteryUnrestricted(context)) }
+    var hasExactAlarms by remember { mutableStateOf(readExactAlarmsAllowed(context)) }
 
     // Re-check when the user comes back from a Settings screen opened by "Fix".
     DisposableEffect(lifecycleOwner) {
@@ -97,6 +99,7 @@ fun ProfileScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasOverlayPermission = Settings.canDrawOverlays(context)
                 isBatteryUnrestricted = readBatteryUnrestricted(context)
+                hasExactAlarms = readExactAlarmsAllowed(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -228,8 +231,10 @@ fun ProfileScreen(
                 PhoneSetupCard(
                     hasOverlayPermission = hasOverlayPermission,
                     isBatteryUnrestricted = isBatteryUnrestricted,
+                    hasExactAlarms = hasExactAlarms,
                     onFixOverlay = { openOverlaySettings(context) },
                     onFixBattery = { openBatterySettings(context) },
+                    onFixExactAlarms = { openExactAlarmSettings(context) },
                     onTestPopUp = onOverlayDebugClick
                 )
 
@@ -364,8 +369,10 @@ private fun StatTile(label: String, value: String, accent: Color, modifier: Modi
 private fun PhoneSetupCard(
     hasOverlayPermission: Boolean,
     isBatteryUnrestricted: Boolean,
+    hasExactAlarms: Boolean,
     onFixOverlay: () -> Unit,
     onFixBattery: () -> Unit,
+    onFixExactAlarms: () -> Unit,
     onTestPopUp: () -> Unit
 ) {
     Column(
@@ -386,7 +393,12 @@ private fun PhoneSetupCard(
         Spacer(Modifier.height(8.dp))
         SetupRow(label = "Show over other apps", isOn = hasOverlayPermission, onFix = onFixOverlay)
         SetupRow(label = "Unrestricted battery", isOn = isBatteryUnrestricted, onFix = onFixBattery)
-        if (hasOverlayPermission && isBatteryUnrestricted) {
+        // Android 12+ only: without it a snoozed doodle can come back much later than chosen.
+        val exactAlarmsApply = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        if (exactAlarmsApply) {
+            SetupRow(label = "Exact snooze timing", isOn = hasExactAlarms, onFix = onFixExactAlarms)
+        }
+        if (hasOverlayPermission && isBatteryUnrestricted && (!exactAlarmsApply || hasExactAlarms)) {
             Spacer(Modifier.height(6.dp))
             Text("All set! Doodles can pop up even when Duudle is closed.", fontSize = 13.sp, color = DuudleColors.Muted)
         } else if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
@@ -487,6 +499,16 @@ private fun SetupStatusIcon(isOn: Boolean) {
 private fun readBatteryUnrestricted(context: Context): Boolean =
     (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .isIgnoringBatteryOptimizations(context.packageName)
+
+/** Below Android 12 exact alarms need no permission, so this is always true there. */
+private fun readExactAlarmsAllowed(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+        context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+
+private fun openExactAlarmSettings(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    openSettings(context, Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
+}
 
 private fun openOverlaySettings(context: Context) {
     openSettings(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))

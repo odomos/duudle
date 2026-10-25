@@ -1,5 +1,6 @@
 package com.example.duudle
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,6 +33,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -41,7 +44,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.duudle.ui.theme.DuudleColors
 import com.example.duudle.ui.theme.DuudleDisplayFont
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -72,8 +80,19 @@ fun VaultScreen(
     var loaded by remember { mutableStateOf(false) }
     var selectedDoodle by remember { mutableStateOf<IncomingDoodle?>(null) }
     var savedOnly by rememberSaveable { mutableStateOf(false) }
+    var snoozedOnly by rememberSaveable { mutableStateOf(false) }
     val favoriteIds = rememberFavoriteDoodleIds(currentUid)
-    val shown = if (savedOnly) doodles.filter { it.docId in favoriteIds } else doodles
+    val snoozed = rememberSnoozedDoodles()
+    val snoozedCount = doodles.count { it.docId in snoozed }
+    // The Snoozed tab only exists while something is snoozed; when the last one fires or
+    // is cancelled the Vault falls back to All.
+    val showingSnoozed = snoozedOnly && snoozedCount > 0
+    val shown = when {
+        showingSnoozed -> doodles.filter { it.docId in snoozed }
+        savedOnly -> doodles.filter { it.docId in favoriteIds }
+        else -> doodles
+    }
+    val context = LocalContext.current
     val gaze = rememberFaceGaze()
 
     DisposableEffect(currentUid) {
@@ -100,6 +119,11 @@ fun VaultScreen(
             doodle = doodle,
             currentUid = currentUid,
             isSaved = doodle.docId in favoriteIds,
+            snooze = snoozed[doodle.docId],
+            onCancelSnooze = {
+                DoodleSnooze.cancel(context, doodle.docId)
+                Toast.makeText(context, "Snooze cancelled", Toast.LENGTH_SHORT).show()
+            },
             onToggleSaved = { setDoodleFavorite(currentUid, doodle.docId, doodle.docId !in favoriteIds) },
             onBack = { selectedDoodle = null },
             onReply = { uid, username ->
@@ -113,12 +137,20 @@ fun VaultScreen(
             HorizontalDivider(color = DuudleColors.Hairline)
             Spacer(Modifier.height(14.dp))
             DuudleSegmentedControl(
-                options = listOf(
+                options = listOfNotNull(
                     if (loaded) "All (${doodles.size})" else "All",
-                    if (loaded) "Saved (${doodles.count { it.docId in favoriteIds }})" else "Saved"
+                    if (loaded) "Saved (${doodles.count { it.docId in favoriteIds }})" else "Saved",
+                    if (snoozedCount > 0) "Snoozed ($snoozedCount)" else null
                 ),
-                selectedIndex = if (savedOnly) 1 else 0,
-                onSelect = { savedOnly = it == 1 },
+                selectedIndex = when {
+                    showingSnoozed -> 2
+                    savedOnly -> 1
+                    else -> 0
+                },
+                onSelect = {
+                    savedOnly = it == 1
+                    snoozedOnly = it == 2
+                },
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
             Spacer(Modifier.height(14.dp))
@@ -133,7 +165,7 @@ fun VaultScreen(
                         color = DuudleColors.Ink,
                         strokeWidth = 2.5.dp
                     )
-                    shown.isEmpty() && savedOnly -> SavedEmptyState(gaze = gaze)
+                    shown.isEmpty() && savedOnly && !showingSnoozed -> SavedEmptyState(gaze = gaze)
                     shown.isEmpty() -> VaultEmptyState(gaze = gaze, onDrawClick = onDesignDoodleClick)
                     else -> LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
@@ -147,6 +179,7 @@ fun VaultScreen(
                                 doodle = d,
                                 currentUid = currentUid,
                                 isSaved = d.docId in favoriteIds,
+                                isSnoozed = d.docId in snoozed,
                                 onClick = { selectedDoodle = d }
                             )
                         }
@@ -236,7 +269,13 @@ private fun SavedEmptyState(gaze: FaceGaze) {
 }
 
 @Composable
-private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, isSaved: Boolean, onClick: () -> Unit) {
+private fun VaultThumbnail(
+    doodle: IncomingDoodle,
+    currentUid: String,
+    isSaved: Boolean,
+    isSnoozed: Boolean,
+    onClick: () -> Unit
+) {
     val isSent = doodle.senderId == currentUid
     val otherUid = if (isSent) doodle.receiverId else doodle.senderId
     val label = if (isSent) "To @${doodle.receiverUsername}" else "From @${doodle.senderUsername}"
@@ -246,6 +285,7 @@ private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, isSaved: 
         append(if (isSent) "$kind to @${doodle.receiverUsername}" else "$kind from @${doodle.senderUsername}")
         if (time.isNotEmpty()) append(", ").append(time)
         if (isSaved) append(", saved")
+        if (isSnoozed) append(", snoozed")
     }
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -267,25 +307,22 @@ private fun VaultThumbnail(doodle: IncomingDoodle, currentUid: String, isSaved: 
     ) {
         // The card itself is announced via [description]; its parts stay silent.
         Column(modifier = Modifier.clearAndSetSemantics { }) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(ThumbCanvasShape)
-                    .background(Color.White)
-                    .border(1.dp, DuudleColors.Hairline, ThumbCanvasShape)
-            ) {
-                doodle.strokes.forEach { stroke ->
-                    val scaledPoints = stroke.points.map { Offset(it.x * size.width, it.y * size.height) }
-                    for (i in 0 until scaledPoints.size - 1) {
-                        drawLine(
-                            color = stroke.color,
-                            start = scaledPoints[i],
-                            end = scaledPoints[i + 1],
-                            strokeWidth = stroke.width * 0.6f,
-                            cap = StrokeCap.Round
-                        )
-                    }
+            Box {
+                DoodleOrCard(
+                    strokes = doodle.strokes,
+                    cardId = doodle.cardId,
+                    strokeWidthScale = 0.6f,
+                    placeholderName = if (isSent) null else doodle.senderUsername,
+                    thumbnail = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(ThumbCanvasShape)
+                        .background(Color.White)
+                        .border(1.dp, DuudleColors.Hairline, ThumbCanvasShape)
+                )
+                if (isSnoozed) {
+                    SnoozeClockBadge(modifier = Modifier.align(Alignment.TopStart).padding(6.dp))
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -318,6 +355,8 @@ private fun VaultDoodleDetail(
     doodle: IncomingDoodle,
     currentUid: String,
     isSaved: Boolean,
+    snooze: SnoozedDoodle?,
+    onCancelSnooze: () -> Unit,
     onToggleSaved: () -> Unit,
     onBack: () -> Unit,
     onReply: (uid: String, username: String) -> Unit
@@ -364,6 +403,28 @@ private fun VaultDoodleDetail(
             )
         }
 
+        if (snooze != null) {
+            val context = LocalContext.current
+            val at = snooze.triggerAt?.let {
+                android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(it))
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                if (at != null) "Pops up again at $at" else "Pops up again soon",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = DuudleColors.Ink,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(10.dp))
+            DuudleOutlinePill(
+                text = "Cancel snooze",
+                onClick = onCancelSnooze,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+            )
+        }
+
         if (!isSent) {
             DuudleInkPill(
                 text = "Draw a reply",
@@ -376,6 +437,47 @@ private fun VaultDoodleDetail(
         } else {
             Spacer(Modifier.height(20.dp))
         }
+    }
+}
+
+/**
+ * Snoozed doodles keyed by doodle id, read from the snooze files. Re-read whenever a
+ * snooze changes and on resume, since an alarm can fire while the app is in the background.
+ */
+@Composable
+private fun rememberSnoozedDoodles(): Map<String, SnoozedDoodle> {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val version by DoodleSnooze.changes.collectAsState()
+    var resumes by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumes++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val snoozed by produceState(emptyMap<String, SnoozedDoodle>(), version, resumes) {
+        value = withContext(Dispatchers.IO) { DoodleSnooze.list(context).associateBy { it.doodleId } }
+    }
+    return snoozed
+}
+
+/** Small Ink badge with a clock on a snoozed doodle's thumbnail. Decorative: the card says "snoozed". */
+@Composable
+private fun SnoozeClockBadge(modifier: Modifier = Modifier) {
+    Canvas(
+        modifier = modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .background(DuudleColors.Ink)
+    ) {
+        val c = center
+        val r = size.minDimension * 0.3f
+        val w = size.minDimension * 0.08f
+        drawCircle(DuudleColors.Paper, r, c, style = Stroke(width = w))
+        drawLine(DuudleColors.Paper, c, Offset(c.x, c.y - r * 0.65f), w, StrokeCap.Round)
+        drawLine(DuudleColors.Paper, c, Offset(c.x + r * 0.5f, c.y), w, StrokeCap.Round)
     }
 }
 

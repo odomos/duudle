@@ -442,6 +442,30 @@ Files: `FlashCards.kt`, `FlashCardsTest.kt`, `res/drawable-nodpi/flashcard_*.jpg
 - [ ] Normal doodles still send, pop up, snooze and show in the Vault as before
 - [ ] TalkBack: each card reads "Send <description> to @name"
 
+## Snooze fix + cancel snooze (not yet verified on the A34)
+
+Files: `DoodleSnooze.kt` (saves the pop-up time, re-arms after reboot/update/app
+open), manifest (`SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, reboot/update
+receiver), `ProfileScreen.kt` ("Exact snooze timing" row), `VaultScreen.kt`
+(Snoozed tab, clock badge, Cancel snooze), `MainActivity.kt`, `DoodleSnoozeTest.kt`.
+Cause of the bug: on Android 14 snooze couldn't use exact alarms (so Samsung/Doze
+delayed it), and a reboot or app update wiped pending snoozes for good.
+
+- [ ] Profile > "Make sure doodles pop up": a new **Exact snooze timing** row.
+      Tap Fix, allow "Alarms & reminders" for Duudle, come back: it shows On
+- [ ] Snooze a doodle 5 min: toast "Snoozed until <time>"; screen off, phone
+      idle: it pops up on time (note how late, if at all): ________
+- [ ] Snooze 15 min, then **restart the phone**: it still pops up at its time
+- [ ] Snooze, then install a new build over the app: it still pops up
+- [ ] A snooze that came due while the phone was off pops up right after boot
+      or when you open Duudle
+- [ ] Vault: the snoozed doodle has a clock badge and a **Snoozed (1)** tab;
+      opening it shows "Pops up again at <time>" and **Cancel snooze**
+- [ ] Cancel snooze: toast "Snooze cancelled", it never pops up, it stays in the
+      Vault, and the Snoozed tab disappears
+- [ ] Snooze a flash card: it comes back as the card
+- [ ] No double pop-up when you open the app right as a snooze comes due
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

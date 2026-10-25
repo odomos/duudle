@@ -60,6 +60,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Safety net: a force-stop wipes alarms and sends no broadcast, so re-arm any
+        // snoozed doodles (or show overdue ones) whenever the app starts. Idempotent.
+        DoodleSnooze.rescheduleAll(this)
 
         // After a rotation or process restore the saved screen state wins;
         // re-reading the launch extras would yank the user back to Draw.
@@ -643,9 +646,11 @@ fun showRealDoodleOverlay(
         durationRow.addView(Button(context).apply {
             text = label
             setOnClickListener {
-                DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes, cardId)
+                val triggerAt = DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes, cardId)
                 removeRealDoodleOverlay(context)
-                Toast.makeText(context, "Snoozed for $label", Toast.LENGTH_SHORT).show()
+                // The phone's own time format (12/24h), e.g. "Snoozed until 4:35 PM".
+                val until = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(triggerAt))
+                Toast.makeText(context, "Snoozed until $until", Toast.LENGTH_SHORT).show()
             }
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
     }
