@@ -26,3 +26,7 @@ node_modules/
 !.claude/skills/project-partner/
 .agents/
 skills-lock.json
+
+# Firebase emulator logs (local runs of firestore-tests)
+firestore-debug.log
+firebase-debug.log

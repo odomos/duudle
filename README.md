@@ -347,6 +347,20 @@ On the owner's Windows laptop, use Android Studio's JDK first:
   the avatar format and editor logic, chat helpers, flash cards and snooze timing.
 - **Cloud Function syntax check:** `node --check functions/index.js` (there's no function
   test suite).
+- **Firestore security-rules tests** (`firestore-tests/`, local emulator only, offline
+  project id `demo-duudle`, so they can never touch the live project). Needs Node and Java;
+  install once with `npm --prefix firestore-tests ci`, then:
+
+```bash
+firebase emulators:exec --only firestore --project demo-duudle "npm --prefix firestore-tests test"
+```
+
+  `test` is the regression suite and must pass. `test:targets` lists what the rules
+  *should* deny after the Phase 1 lockdown, and fails until then (each failure is a known
+  hole from the audit). On Windows, `emulators:exec` can leave the emulator's Java process
+  running on port 8080; stop it before the next run.
+- **CI** (`.github/workflows/ci.yml`) runs the Android build + unit tests, the rules suites
+  and the function syntax check on every push and pull request.
 - **Deploy** (from the laptop; there is no staging project, so this is live):
 
 ```bash
