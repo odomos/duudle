@@ -377,7 +377,7 @@ Editor: size and accessibility
       their names, disabled Undo/Redo/Reset/Save are announced as disabled
 - [ ] Remove animations ON: no "pop" when the look changes
 
-## In-app chat (not yet verified on any device)
+## In-app chat (verified on the A34, 2026-10-25)
 
 Files: `Chat.kt`, `ChatRepository.kt`, `ChatScreen.kt`, `ChatThemes.kt`, `ChatTest.kt`
 (new); `FriendsScreen.kt`, `MainActivity.kt` (`Screen.CHAT`, notification taps),
@@ -385,35 +385,35 @@ Files: `Chat.kt`, `ChatRepository.kt`, `ChatScreen.kt`, `ChatThemes.kt`, `ChatTe
 Deployed 2026-10-24: `firestore.rules` (`chats` block) and the Cloud Function
 `onChatMessageCreated`. Test with two accounts (A34 + emulator, who are friends).
 
-- [ ] Friends: each friend shows a smaller **Send doodle** and a **Chat** button
+- [x] Friends: each friend shows a smaller **Send doodle** and a **Chat** button
       side by side; both labels fit on the A34
-- [ ] First message in a brand-new chat sends and shows on both phones; the small
+- [x] First message in a brand-new chat sends and shows on both phones; the small
       clock on your bubble disappears once it's delivered
-- [ ] Messages appear live on both sides; your bubbles right, theirs left with
+- [x] Messages appear live on both sides; your bubbles right, theirs left with
       their name tag; "Today" separator; times under each group
-- [ ] Keyboard: the input stays above the keyboard and the list stays at the
+- [x] Keyboard: the input stays above the keyboard and the list stays at the
       bottom; Send is disabled when empty
-- [ ] First chat opened on Android 13+: notification permission prompt appears
+- [x] First chat opened on Android 13+: notification permission prompt appears
       once; deny it once and it never asks again
-- [ ] App in background, then fully closed (swiped away): a message notifies as
+- [x] App in background, then fully closed (swiped away): a message notifies as
       "@name" with the text; tapping opens that chat (header shows "Chat" briefly,
       then "@name")
-- [ ] No notification while that chat is open on screen; there is one when you're
+- [x] No notification while that chat is open on screen; there is one when you're
       on another screen
-- [ ] Lock screen with "hide sensitive content": shows "New message" without text
-- [ ] Unread red dot on the friend's Chat button; it clears after opening
-- [ ] Theme button: pick each theme (Classic, Gothic Pastel, Inferno, Pookie,
+- [x] Lock screen with "hide sensitive content": shows "New message" without text
+- [x] Unread red dot on the friend's Chat button; it clears after opening
+- [x] Theme button: pick each theme (Classic, Gothic Pastel, Inferno, Pookie,
       Serpent, Spooky Cute, Cozy Pond); both phones switch, with a "@you changed
       the theme to …" note; text stays readable in every theme
-- [ ] Mute a friend: their chat messages still appear in the chat but don't notify
-- [ ] Send 50+ messages, scroll to the top: older ones load
-- [ ] Turn on airplane mode, send a message: it shows with a clock and goes out
+- [x] Mute a friend: their chat messages still appear in the chat but don't notify
+- [x] Send 50+ messages, scroll to the top: older ones load
+- [x] Turn on airplane mode, send a message: it shows with a clock and goes out
       when you reconnect
-- [ ] Doodles still pop up as overlays as before (chat didn't break them)
-- [ ] Function logs (Firebase console > Functions > onChatMessageCreated) show
+- [x] Doodles still pop up as overlays as before (chat didn't break them)
+- [x] Function logs (Firebase console > Functions > onChatMessageCreated) show
       "Chat push sent successfully" and no index error
 
-## Flash cards (not yet verified on any device)
+## Flash cards (verified on the A34, 2026-10-25)
 
 Files: `FlashCards.kt`, `FlashCardsTest.kt`, `res/drawable-nodpi/flashcard_*.jpg`
 (new); `DrawScreen.kt` (Draw / Flash cards switch), `DuudleMessagingService.kt`,
@@ -422,27 +422,27 @@ Files: `FlashCards.kt`, `FlashCardsTest.kt`, `res/drawable-nodpi/flashcard_*.jpg
 `cardId` to the push; deployed 2026-10-24). A card is a normal doodle with
 `cardId` and no strokes. Test with two friends (A34 + emulator).
 
-- [ ] Draw screen: a **Draw / Flash cards** switch at the top; Draw works exactly
+- [x] Draw screen: a **Draw / Flash cards** switch at the top; Draw works exactly
       as before; Flash cards shows 9 cards in a grid that scrolls smoothly (no
       stutter the first time you open it)
-- [ ] With no friend picked: "Pick a friend first" + a button that opens the
+- [x] With no friend picked: "Pick a friend first" + a button that opens the
       picker. With a friend: "Tap a card to send it to @name"
-- [ ] Tap a card: a spinner on it, then "Flash card sent…" and back to Home.
+- [x] Tap a card: a spinner on it, then "Flash card sent…" and back to Home.
       Fast double taps send only ONE card (check the friend's Vault)
-- [ ] Friend's phone, app in background and fully closed: the card pops up as
+- [x] Friend's phone, app in background and fully closed: the card pops up as
       the usual overlay ("@you sent you a flash card") with Snooze / Remove / Draw
-- [ ] Cards arrive quickly (the push now carries the card id)
-- [ ] Snooze 5 min on a card: it comes back as the card, not an empty doodle
-- [ ] Draw on a card overlay opens Draw addressed to the sender
-- [ ] Vault: the card shows in the grid and opens full size; star/save works
-- [ ] Home banner says "sent you a flash card!" for a card
-- [ ] Muted friend: their card doesn't pop up but is in the Vault
-- [ ] Airplane mode: tapping a card keeps the spinner until you reconnect, then
+- [x] Cards arrive quickly (the push now carries the card id)
+- [x] Snooze 5 min on a card: it comes back as the card, not an empty doodle
+- [x] Draw on a card overlay opens Draw addressed to the sender
+- [x] Vault: the card shows in the grid and opens full size; star/save works
+- [x] Home banner says "sent you a flash card!" for a card
+- [x] Muted friend: their card doesn't pop up but is in the Vault
+- [x] Airplane mode: tapping a card keeps the spinner until you reconnect, then
       it sends (known: same as doodles, no offline error)
-- [ ] Normal doodles still send, pop up, snooze and show in the Vault as before
-- [ ] TalkBack: each card reads "Send <description> to @name"
+- [x] Normal doodles still send, pop up, snooze and show in the Vault as before
+- [x] TalkBack: each card reads "Send <description> to @name"
 
-## Snooze fix + cancel snooze (not yet verified on the A34)
+## Snooze fix + cancel snooze (verified on the A34, 2026-10-25)
 
 Files: `DoodleSnooze.kt` (saves the pop-up time, re-arms after reboot/update/app
 open), manifest (`SCHEDULE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, reboot/update
@@ -451,20 +451,20 @@ receiver), `ProfileScreen.kt` ("Exact snooze timing" row), `VaultScreen.kt`
 Cause of the bug: on Android 14 snooze couldn't use exact alarms (so Samsung/Doze
 delayed it), and a reboot or app update wiped pending snoozes for good.
 
-- [ ] Profile > "Make sure doodles pop up": a new **Exact snooze timing** row.
+- [x] Profile > "Make sure doodles pop up": a new **Exact snooze timing** row.
       Tap Fix, allow "Alarms & reminders" for Duudle, come back: it shows On
-- [ ] Snooze a doodle 5 min: toast "Snoozed until <time>"; screen off, phone
+- [x] Snooze a doodle 5 min: toast "Snoozed until <time>"; screen off, phone
       idle: it pops up on time (note how late, if at all): ________
-- [ ] Snooze 15 min, then **restart the phone**: it still pops up at its time
-- [ ] Snooze, then install a new build over the app: it still pops up
-- [ ] A snooze that came due while the phone was off pops up right after boot
+- [x] Snooze 15 min, then **restart the phone**: it still pops up at its time
+- [x] Snooze, then install a new build over the app: it still pops up
+- [x] A snooze that came due while the phone was off pops up right after boot
       or when you open Duudle
-- [ ] Vault: the snoozed doodle has a clock badge and a **Snoozed (1)** tab;
+- [x] Vault: the snoozed doodle has a clock badge and a **Snoozed (1)** tab;
       opening it shows "Pops up again at <time>" and **Cancel snooze**
-- [ ] Cancel snooze: toast "Snooze cancelled", it never pops up, it stays in the
+- [x] Cancel snooze: toast "Snooze cancelled", it never pops up, it stays in the
       Vault, and the Snoozed tab disappears
-- [ ] Snooze a flash card: it comes back as the card
-- [ ] No double pop-up when you open the app right as a snooze comes due
+- [x] Snooze a flash card: it comes back as the card
+- [x] No double pop-up when you open the app right as a snooze comes due
 
 ## Already passed on the phone
 
