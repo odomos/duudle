@@ -70,6 +70,14 @@ class DuudleMessagingService : FirebaseMessagingService() {
             return
         }
 
+        // Pop-ups are paused (the user tapped Snooze): hold it for the Vault's Snoozed tab
+        // instead of showing it. No overlay permission or Firestore fetch is needed for this.
+        if (DoodleSnooze.isPausedNow(applicationContext)) {
+            Log.d("DuudleFCM", "path=held doodle=$doodleId (pop-ups paused)")
+            DoodleSnooze.hold(applicationContext, doodleId, senderUid, senderUsername, strokesJson, cardId)
+            return
+        }
+
         if (!Settings.canDrawOverlays(applicationContext)) {
             Log.w("DuudleFCM", "No overlay permission — cannot show doodle overlay")
             return

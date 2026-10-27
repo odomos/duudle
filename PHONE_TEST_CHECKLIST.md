@@ -500,6 +500,28 @@ rules problem, but the app should time out with a message instead of spinning.
       with "Couldn't connect. Check your internet (try Wi-Fi) and try again."; on Wi-Fi it then works
 - [ ] A name that's taken still shows "That username is taken" (not the timeout message)
 
+## Snooze = pause pop-ups (staging: owner confirmed working, 2026-10-27)
+
+New behaviour (owner-approved 2026-10-27): Snooze pauses ALL doodle and flash-card
+pop-ups for 5 min, 15 min or 1 hour. Anything arriving meanwhile goes to Vault > Snoozed
+with no pop-up. When the pause ends there are no pop-ups, just one notification
+("3 doodles arrived while pop-ups were paused") that opens Vault > Snoozed. Chat is not
+affected. Files: `DoodleSnooze.kt`, `DuudleMessagingService.kt`, `MainActivity.kt`,
+`VaultScreen.kt`, `DoodleSnoozeTest.kt` (16 tests). Test with Duudle Staging, A = receiver.
+
+- [x] B sends a doodle; on A's pop-up tap Snooze 5 min: toast "Pop-ups paused until <time>"
+- [x] B sends 2 more (one a flash card): nothing pops up on A; Vault > Snoozed shows all 3
+      with a clock badge and the "Pop-ups paused until <time>" banner
+- [x] Screen off until the time is up: no pop-ups, one notification "3 doodles arrived while
+      pop-ups were paused"; tapping it opens Vault > Snoozed
+- [ ] Opening a held doodle shows "Arrived while pop-ups were paused" and it leaves the tab
+- [x] After the pause, B's next doodle pops up normally
+- [ ] Snooze 15 min, then Vault > Snoozed > **Resume pop-ups**: toast "Pop-ups resumed", no
+      notification, the next doodle pops up
+- [ ] Chat messages still notify while pop-ups are paused
+- [ ] Snooze 5 min, B sends one, restart A before the time is up: the notification still
+      arrives (on time, or right after boot / app open if the phone was off at the end)
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

@@ -74,7 +74,10 @@ fun VaultScreen(
     onFriendsClick: () -> Unit = {},
     onDesignDoodleClick: () -> Unit = {},
     onMeClick: () -> Unit = {},
-    onReply: (uid: String, username: String) -> Unit = { _, _ -> }
+    onReply: (uid: String, username: String) -> Unit = { _, _ -> },
+    // Set when the "doodles arrived while pop-ups were paused" notification was tapped.
+    openSnoozedTab: Boolean = false,
+    onSnoozedTabOpened: () -> Unit = {}
 ) {
     var doodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
@@ -82,11 +85,17 @@ fun VaultScreen(
     var savedOnly by rememberSaveable { mutableStateOf(false) }
     var snoozedOnly by rememberSaveable { mutableStateOf(false) }
     val favoriteIds = rememberFavoriteDoodleIds(currentUid)
-    val snoozed = rememberSnoozedDoodles()
+    val snoozeBox = rememberSnoozeBox()
+    val snoozed = snoozeBox.held
+    val pausedUntil = snoozeBox.pausedUntil
     val snoozedCount = doodles.count { it.docId in snoozed }
-    // The Snoozed tab only exists while something is snoozed; when the last one fires or
-    // is cancelled the Vault falls back to All.
-    val showingSnoozed = snoozedOnly && snoozedCount > 0
+    // The Snoozed tab exists while doodles are held or pop-ups are paused; otherwise the
+    // Vault falls back to All.
+    val snoozedTabVisible = snoozedCount > 0 || pausedUntil != null
+    val showingSnoozed = snoozedOnly && snoozedTabVisible
+    // Opening a held doodle takes it out of the held list, so remember that it was held
+    // for the detail view's note.
+    var openedHeld by remember { mutableStateOf(false) }
     val shown = when {
         showingSnoozed -> doodles.filter { it.docId in snoozed }
         savedOnly -> doodles.filter { it.docId in favoriteIds }
@@ -94,6 +103,17 @@ fun VaultScreen(
     }
     val context = LocalContext.current
     val gaze = rememberFaceGaze()
+
+    LaunchedEffect(openSnoozedTab) {
+        if (!openSnoozedTab) return@LaunchedEffect
+        selectedDoodle = null
+        savedOnly = false
+        snoozedOnly = true
+        onSnoozedTabOpened()
+    }
+    LaunchedEffect(showingSnoozed) {
+        if (showingSnoozed) DoodleSnooze.clearWaitingNotification(context)
+    }
 
     DisposableEffect(currentUid) {
         if (currentUid.isBlank()) return@DisposableEffect onDispose {}
@@ -119,10 +139,10 @@ fun VaultScreen(
             doodle = doodle,
             currentUid = currentUid,
             isSaved = doodle.docId in favoriteIds,
-            snooze = snoozed[doodle.docId],
-            onCancelSnooze = {
-                DoodleSnooze.cancel(context, doodle.docId)
-                Toast.makeText(context, "Snooze cancelled", Toast.LENGTH_SHORT).show()
+            heldNote = when {
+                !openedHeld -> null
+                pausedUntil != null -> "Pop-ups paused until ${clockTime(context, pausedUntil)}"
+                else -> "Arrived while pop-ups were paused"
             },
             onToggleSaved = { setDoodleFavorite(currentUid, doodle.docId, doodle.docId !in favoriteIds) },
             onBack = { selectedDoodle = null },
@@ -140,7 +160,7 @@ fun VaultScreen(
                 options = listOfNotNull(
                     if (loaded) "All (${doodles.size})" else "All",
                     if (loaded) "Saved (${doodles.count { it.docId in favoriteIds }})" else "Saved",
-                    if (snoozedCount > 0) "Snoozed ($snoozedCount)" else null
+                    if (snoozedTabVisible) "Snoozed ($snoozedCount)" else null
                 ),
                 selectedIndex = when {
                     showingSnoozed -> 2
@@ -155,6 +175,17 @@ fun VaultScreen(
             )
             Spacer(Modifier.height(14.dp))
 
+            if (showingSnoozed && pausedUntil != null) {
+                PausedBanner(
+                    until = clockTime(context, pausedUntil),
+                    onResume = {
+                        DoodleSnooze.resume(context)
+                        Toast.makeText(context, "Pop-ups resumed", Toast.LENGTH_SHORT).show()
+                    }
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
             Box(modifier = Modifier.weight(1f)) {
                 when {
                     !loaded -> CircularProgressIndicator(
@@ -164,6 +195,14 @@ fun VaultScreen(
                             .size(28.dp),
                         color = DuudleColors.Ink,
                         strokeWidth = 2.5.dp
+                    )
+                    // Only reachable while paused: the tab hides when nothing is held and no pause is on.
+                    shown.isEmpty() && showingSnoozed -> Text(
+                        "Nothing has arrived yet",
+                        fontSize = 15.sp,
+                        color = DuudleColors.Muted,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(top = 32.dp)
                     )
                     shown.isEmpty() && savedOnly && !showingSnoozed -> SavedEmptyState(gaze = gaze)
                     shown.isEmpty() -> VaultEmptyState(gaze = gaze, onDrawClick = onDesignDoodleClick)
@@ -180,7 +219,11 @@ fun VaultScreen(
                                 currentUid = currentUid,
                                 isSaved = d.docId in favoriteIds,
                                 isSnoozed = d.docId in snoozed,
-                                onClick = { selectedDoodle = d }
+                                onClick = {
+                                    openedHeld = d.docId in snoozed
+                                    if (openedHeld) DoodleSnooze.cancel(context, d.docId)
+                                    selectedDoodle = d
+                                }
                             )
                         }
                     }
@@ -355,8 +398,8 @@ private fun VaultDoodleDetail(
     doodle: IncomingDoodle,
     currentUid: String,
     isSaved: Boolean,
-    snooze: SnoozedDoodle?,
-    onCancelSnooze: () -> Unit,
+    /** "Pop-ups paused until ..." / "Arrived while pop-ups were paused" for a held doodle. */
+    heldNote: String?,
     onToggleSaved: () -> Unit,
     onBack: () -> Unit,
     onReply: (uid: String, username: String) -> Unit
@@ -403,25 +446,15 @@ private fun VaultDoodleDetail(
             )
         }
 
-        if (snooze != null) {
-            val context = LocalContext.current
-            val at = snooze.triggerAt?.let {
-                android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(it))
-            }
+        if (heldNote != null) {
             Spacer(Modifier.height(10.dp))
             Text(
-                if (at != null) "Pops up again at $at" else "Pops up again soon",
+                heldNote,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = DuudleColors.Ink,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(10.dp))
-            DuudleOutlinePill(
-                text = "Cancel snooze",
-                onClick = onCancelSnooze,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
             )
         }
 
@@ -440,12 +473,15 @@ private fun VaultDoodleDetail(
     }
 }
 
+/** Held doodles by id, and when pop-ups come back (null = not paused). */
+private data class SnoozeBox(val held: Map<String, SnoozedDoodle> = emptyMap(), val pausedUntil: Long? = null)
+
 /**
- * Snoozed doodles keyed by doodle id, read from the snooze files. Re-read whenever a
- * snooze changes and on resume, since an alarm can fire while the app is in the background.
+ * Re-read whenever the held list or pause changes, on resume (the pause can end while the
+ * app is in the background), and when the pause's end time passes.
  */
 @Composable
-private fun rememberSnoozedDoodles(): Map<String, SnoozedDoodle> {
+private fun rememberSnoozeBox(): SnoozeBox {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val version by DoodleSnooze.changes.collectAsState()
@@ -457,10 +493,48 @@ private fun rememberSnoozedDoodles(): Map<String, SnoozedDoodle> {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val snoozed by produceState(emptyMap<String, SnoozedDoodle>(), version, resumes) {
-        value = withContext(Dispatchers.IO) { DoodleSnooze.list(context).associateBy { it.doodleId } }
+    var pauseExpired by remember { mutableIntStateOf(0) }
+    val box by produceState(SnoozeBox(), version, resumes, pauseExpired) {
+        value = withContext(Dispatchers.IO) {
+            SnoozeBox(DoodleSnooze.list(context).associateBy { it.doodleId }, DoodleSnooze.pausedUntil(context))
+        }
     }
-    return snoozed
+    // The end alarm can be late (inexact) or missing; don't keep showing a past end time.
+    LaunchedEffect(box.pausedUntil) {
+        val until = box.pausedUntil ?: return@LaunchedEffect
+        delay((until - System.currentTimeMillis()).coerceAtLeast(0L) + 500L)
+        pauseExpired++
+    }
+    return box
+}
+
+/** The phone's own clock format (12/24h), e.g. "4:35 PM". */
+private fun clockTime(context: android.content.Context, millis: Long): String =
+    android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(millis))
+
+/** Top of the Snoozed tab while paused: when pop-ups come back, and a way to resume now. */
+@Composable
+private fun PausedBanner(until: String, onResume: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(DuudleColors.Paper)
+            .border(1.dp, DuudleColors.Hairline, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "Pop-ups paused until $until",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = DuudleColors.Ink,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        DuudleOutlinePill(text = "Resume pop-ups", onClick = onResume, modifier = Modifier.fillMaxWidth())
+    }
 }
 
 /** Small Ink badge with a clock on a snoozed doodle's thumbnail. Decorative: the card says "snoozed". */

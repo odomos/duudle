@@ -58,6 +58,8 @@ class MainActivity : ComponentActivity() {
     private var pendingReply by mutableStateOf<ReplyTarget?>(null)
     // Same idea for tapping a chat notification.
     private var pendingChat by mutableStateOf<ChatTarget?>(null)
+    // Tapping the "doodles arrived while pop-ups were paused" notification.
+    private var pendingVaultSnoozed by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,6 +73,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             consumeReplyIntent(intent)
             consumeChatIntent(intent)
+            consumeVaultSnoozedIntent(intent)
         }
 
         setContent {
@@ -108,6 +111,17 @@ class MainActivity : ComponentActivity() {
                     chatUid = target.uid
                     chatUsername = target.username
                     currentScreen = Screen.CHAT
+                }
+
+                // Set when the paused-doodles notification is tapped; VaultScreen clears it
+                // once it has switched to the Snoozed tab.
+                var openVaultOnSnoozed by remember { mutableStateOf(false) }
+                LaunchedEffect(pendingVaultSnoozed) {
+                    if (!pendingVaultSnoozed) return@LaunchedEffect
+                    pendingVaultSnoozed = false
+                    if (currentScreen == Screen.WELCOME) return@LaunchedEffect
+                    openVaultOnSnoozed = true
+                    currentScreen = Screen.VAULT
                 }
 
                 // Without this, system back closes the app from every screen.
@@ -254,7 +268,9 @@ class MainActivity : ComponentActivity() {
                                 recipientUid = uid
                                 recipientUsername = username
                                 currentScreen = Screen.DRAW
-                            }
+                            },
+                            openSnoozedTab = openVaultOnSnoozed,
+                            onSnoozedTabOpened = { openVaultOnSnoozed = false }
                         )
                         Screen.VIEW_DOODLE -> {
                             val doodle = incomingDoodles.firstOrNull()
@@ -320,6 +336,11 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         consumeReplyIntent(intent)
         consumeChatIntent(intent)
+        consumeVaultSnoozedIntent(intent)
+    }
+
+    private fun consumeVaultSnoozedIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(DoodleSnooze.EXTRA_OPEN_VAULT_SNOOZED, false) == true) pendingVaultSnoozed = true
     }
 
     private fun consumeReplyIntent(intent: Intent?) {
@@ -673,9 +694,10 @@ fun showRealDoodleOverlay(
             setOnClickListener {
                 val triggerAt = DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes, cardId)
                 removeRealDoodleOverlay(context)
-                // The phone's own time format (12/24h), e.g. "Snoozed until 4:35 PM".
+                // Snooze pauses every pop-up until then. The phone's own time format (12/24h),
+                // e.g. "Pop-ups paused until 4:35 PM".
                 val until = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(triggerAt))
-                Toast.makeText(context, "Snoozed until $until", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Pop-ups paused until $until", Toast.LENGTH_SHORT).show()
             }
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
     }

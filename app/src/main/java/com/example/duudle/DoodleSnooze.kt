@@ -1,16 +1,20 @@
 package com.example.duudle
 
+import android.Manifest
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.provider.Settings
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,32 +23,60 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * Snooze for the doodle overlay. The doodle is saved to a local file and an
- * alarm re-shows it later through the normal overlay path, so it works with
- * the app killed and needs no network when it fires.
+ * Snooze = "pause pop-ups". Tapping Snooze on an overlay pauses ALL doodle and flash-card
+ * pop-ups until [quiet until][pausedUntil]. The tapped doodle, and every doodle that arrives
+ * while paused, is *held*: saved as a small file in the snooze folder instead of popping up.
+ * Held doodles show in the Vault's Snoozed tab until the user opens them there (or removes
+ * or replies to them from an overlay).
  *
- * Alarms don't survive a reboot or an app update, but the files do: [rescheduleAll]
- * (run by [SnoozeRescheduleReceiver] and on app start) re-arms each file's alarm, or
- * shows it straight away if its time has passed.
+ * When the pause ends (one alarm) nothing pops up. If anything was held during that pause,
+ * one ordinary notification says so and opens the Snoozed tab.
+ *
+ * Pause state lives in duudle_prefs: "pause_quiet_until" (0 = no pause whose end is still
+ * to be handled) and "pause_started_at". Alarms are lost on reboot, force-stop and (we
+ * assume) app updates, so [rescheduleAll] re-arms the end alarm, or handles a missed end.
  */
 object DoodleSnooze {
     private const val TAG = "DuudleSnooze"
     internal const val EXTRA_DOODLE_ID = "doodle_id"
+    internal const val ACTION_PAUSE_END = "com.example.duudle.action.PAUSE_END"
+    /** MainActivity extra: open the Vault on the Snoozed tab. */
+    const val EXTRA_OPEN_VAULT_SNOOZED = "open_vault_snoozed"
+
+    private const val PREFS = "duudle_prefs"
+    private const val KEY_QUIET_UNTIL = "pause_quiet_until"
+    private const val KEY_STARTED_AT = "pause_started_at"
+
+    private const val WAITING_CHANNEL_ID = "doodles_waiting"
+    private const val WAITING_NOTIFICATION_ID = 0x0D00D1E
+    private const val WAITING_REQUEST_CODE = 0x0D00D1E
 
     private val version = MutableStateFlow(0)
 
-    /** Bumped whenever a snooze is added, cancelled or fired, so screens can re-read [list]. */
+    /** Bumped whenever the held list or the pause changes, so screens can re-read them. */
     val changes: StateFlow<Int> = version.asStateFlow()
 
     private fun bump() = version.update { it + 1 }
+
+    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private fun snoozeDir(context: Context): File = File(context.filesDir, "snoozed").apply { mkdirs() }
 
     private fun fileFor(context: Context, doodleId: String): File = File(snoozeDir(context), "$doodleId.json")
 
+    // ----- Pause -----
+
+    /** When pop-ups come back, or null if they aren't paused right now. */
+    fun pausedUntil(context: Context): Long? {
+        val quietUntil = prefs(context).getLong(KEY_QUIET_UNTIL, 0L)
+        return if (isPaused(System.currentTimeMillis(), quietUntil)) quietUntil else null
+    }
+
+    fun isPausedNow(context: Context): Boolean = pausedUntil(context) != null
+
     /**
-     * Snoozing the same doodle again replaces its earlier alarm and payload.
-     * Returns when it'll pop up again (epoch ms).
+     * Overlay "Snooze N min": pause pop-ups (or extend the pause) and hold the tapped doodle.
+     * Returns when pop-ups come back (epoch ms).
      */
     fun snooze(
         context: Context,
@@ -55,133 +87,226 @@ object DoodleSnooze {
         delayMinutes: Int,
         cardId: String? = null
     ): Long {
-        val triggerAt = System.currentTimeMillis() + delayMinutes * 60_000L
+        // Pause first, so the doodle's heldAt is never before the pause started.
+        val quietUntil = pause(context, delayMinutes)
+        hold(context, doodleId, senderUid, senderUsername, strokesToJson(strokes), cardId)
+        Log.d(TAG, "paused pop-ups for ${delayMinutes}m, held doodle=$doodleId")
+        return quietUntil
+    }
+
+    private fun pause(context: Context, minutes: Int): Long {
+        val prefs = prefs(context)
+        val now = System.currentTimeMillis()
+        val existing = prefs.getLong(KEY_QUIET_UNTIL, 0L)
+        val quietUntil = extendPause(existing, now, minutes)
+        val startedAt = pauseStartFor(existing, prefs.getLong(KEY_STARTED_AT, 0L), now)
+        prefs.edit().putLong(KEY_QUIET_UNTIL, quietUntil).putLong(KEY_STARTED_AT, startedAt).commit()
+        armPauseEnd(context, quietUntil)
+        bump()
+        return quietUntil
+    }
+
+    /** "Resume pop-ups": end the pause now. No notification: the user is looking at the box. */
+    fun resume(context: Context) {
+        prefs(context).edit().putLong(KEY_QUIET_UNTIL, 0L).putLong(KEY_STARTED_AT, 0L).commit()
+        context.getSystemService(AlarmManager::class.java).cancel(pauseEndIntent(context))
+        bump()
+        Log.d(TAG, "pop-ups resumed")
+    }
+
+    /**
+     * A doodle push that arrived while paused: keep it in the held list instead of showing
+     * it. [strokesJson] is the push's compact strokes (or null); the Vault shows the doodle
+     * from Firestore, so nothing is fetched here and no overlay permission is needed.
+     */
+    fun hold(
+        context: Context,
+        doodleId: String,
+        senderUid: String,
+        senderUsername: String,
+        strokesJson: String?,
+        cardId: String?
+    ) {
         val payload = SnoozePayload(
             doodleId = doodleId,
             senderUid = senderUid,
             senderUsername = senderUsername,
-            strokesJson = strokesToJson(strokes),
-            triggerAt = triggerAt,
+            strokesJson = strokesJson ?: "[]",
+            heldAt = System.currentTimeMillis(),
             cardId = cardId
         )
         fileFor(context, doodleId).writeText(JSONObject(payload.toMap()).toString())
-        arm(context, doodleId, triggerAt)
         bump()
-        Log.d(TAG, "snoozed doodle=$doodleId for ${delayMinutes}m")
-        return triggerAt
     }
 
-    private fun arm(context: Context, doodleId: String, triggerAt: Long) {
+    private fun armPauseEnd(context: Context, quietUntil: Long) {
         val alarmManager = context.getSystemService(AlarmManager::class.java)
-        val alarm = pendingIntent(context, doodleId)
+        val alarm = pauseEndIntent(context)
         // Exact alarms need a special permission on Android 12+ (off by default on 14+;
         // Profile's setup card links to it). Without it, setAndAllowWhileIdle still fires
         // during Doze, just less precisely.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, alarm)
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, quietUntil, alarm)
         } else {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, alarm)
-        }
-    }
-
-    /** Drops a pending snooze, e.g. when the doodle is removed or replied to. */
-    fun cancel(context: Context, doodleId: String) {
-        context.getSystemService(AlarmManager::class.java).cancel(pendingIntent(context, doodleId))
-        if (fileFor(context, doodleId).delete()) Log.d(TAG, "cancelled snooze doodle=$doodleId")
-        bump()
-    }
-
-    /** Runs when the alarm fires: re-show the overlay once, then forget the doodle. */
-    internal fun fire(context: Context, doodleId: String) {
-        val file = fileFor(context, doodleId)
-        if (!file.exists()) {
-            Log.d(TAG, "snooze fired but doodle=$doodleId was already removed")
-            return
-        }
-        try {
-            if (!Settings.canDrawOverlays(context)) {
-                Log.w(TAG, "snooze fired but overlay permission is gone, dropping doodle=$doodleId")
-                return
-            }
-            val payload = readPayload(file) ?: throw IllegalStateException("unreadable snooze file")
-            showRealDoodleOverlay(
-                context = context,
-                doodleId = doodleId,
-                senderUid = payload.senderUid,
-                senderUsername = payload.senderUsername,
-                strokes = strokesFromJson(payload.strokesJson),
-                cardId = payload.cardId
-            )
-            Log.d(TAG, "re-showed snoozed doodle=$doodleId")
-        } catch (e: Exception) {
-            Log.e(TAG, "failed to re-show snoozed doodle=$doodleId: ${e.message}")
-        } finally {
-            file.delete()
-            bump()
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, quietUntil, alarm)
         }
     }
 
     /**
-     * Re-arms every saved snooze after alarms were wiped (reboot, app update, force-stop),
-     * or shows it now if it's due. Safe to run any number of times: an alarm for the same
-     * doodle replaces the previous one rather than adding a second.
+     * The pause-end alarm fired (or [rescheduleAll] found a missed end). Nothing pops up;
+     * if doodles were held during the pause, one notification says so. Handled once:
+     * quiet-until is cleared before posting.
      */
-    fun rescheduleAll(context: Context) {
+    internal fun onPauseEnd(context: Context) {
+        val prefs = prefs(context)
+        val quietUntil = prefs.getLong(KEY_QUIET_UNTIL, 0L)
+        when (pauseEndAction(System.currentTimeMillis(), quietUntil)) {
+            PauseEndAction.NONE -> return // resumed early, or already handled
+            PauseEndAction.REARM -> {
+                // The pause was extended after this alarm was set.
+                armPauseEnd(context, quietUntil)
+                return
+            }
+            PauseEndAction.END -> Unit
+        }
+        val startedAt = prefs.getLong(KEY_STARTED_AT, 0L)
+        val heldInPause = heldDuringPause(list(context).map { it.heldAt }, startedAt)
+        val notify = shouldNotifyPauseEnd(heldInPause, endHandled = false)
+        prefs.edit().putLong(KEY_QUIET_UNTIL, 0L).putLong(KEY_STARTED_AT, 0L).commit()
+        bump()
+        Log.d(TAG, "pause ended, held during it=$heldInPause")
+        if (notify) postWaitingNotification(context, heldInPause)
+    }
+
+    private fun postWaitingNotification(context: Context, count: Int) {
         val appContext = context.applicationContext
-        val files = try {
-            snoozeDir(appContext).listFiles { f -> f.name.endsWith(".json") }.orEmpty()
-        } catch (e: Exception) {
-            Log.e(TAG, "couldn't list snoozes: ${e.message}")
+        val manager = NotificationManagerCompat.from(appContext)
+        if (!manager.areNotificationsEnabled() ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED)
+        ) {
+            // The doodles stay in the Snoozed tab either way.
+            Log.w(TAG, "notifications are off, not posting the waiting-doodles notice")
             return
         }
-        val now = System.currentTimeMillis()
-        val mainHandler = Handler(Looper.getMainLooper())
-        for (file in files) {
-            val payload = readPayload(file)
-            if (payload == null) {
-                // It could never be shown, and it would sit in the folder forever.
-                Log.w(TAG, "dropping unreadable snooze file ${file.name}")
-                file.delete()
-                continue
-            }
-            val doodleId = payload.doodleId
-            when (snoozeAction(payload.triggerAt, now)) {
-                SnoozeAction.REARM -> {
-                    arm(appContext, doodleId, payload.triggerAt!!)
-                    Log.d(TAG, "re-armed doodle=$doodleId")
-                }
-                SnoozeAction.FIRE_NOW -> {
-                    appContext.getSystemService(AlarmManager::class.java).cancel(pendingIntent(appContext, doodleId))
-                    Log.d(TAG, "snooze for doodle=$doodleId is due, showing now")
-                    // Overlay windows must be created on the main thread.
-                    mainHandler.post { fire(appContext, doodleId) }
-                }
-            }
+        appContext.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+            NotificationChannel(WAITING_CHANNEL_ID, "Paused doodles", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val openIntent = Intent(appContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_OPEN_VAULT_SNOOZED, true)
+        }
+        val contentIntent = PendingIntent.getActivity(
+            appContext, WAITING_REQUEST_CODE, openIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val text = pausedDoodlesText(count)
+        val notification = NotificationCompat.Builder(appContext, WAITING_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Duudle")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            // Lock-screen-private, like chat notifications.
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                NotificationCompat.Builder(appContext, WAITING_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentTitle("Doodles waiting")
+                    .build()
+            )
+            .build()
+        try {
+            manager.notify(WAITING_NOTIFICATION_ID, notification)
+        } catch (e: SecurityException) {
+            Log.e(TAG, "not allowed to post the waiting-doodles notice: ${e.message}")
         }
     }
 
-    /** Everything currently snoozed. Unreadable files are skipped; never throws. */
+    /** The user is looking at the Snoozed tab: the "doodles waiting" notice has done its job. */
+    fun clearWaitingNotification(context: Context) {
+        NotificationManagerCompat.from(context).cancel(WAITING_NOTIFICATION_ID)
+    }
+
+    // ----- Held list -----
+
+    /**
+     * Takes a doodle out of the held list: opened in the Vault, or removed/replied to from
+     * an overlay. Also clears any per-doodle alarm left by the old snooze model.
+     */
+    fun cancel(context: Context, doodleId: String) {
+        context.getSystemService(AlarmManager::class.java).cancel(legacyDoodleIntent(context, doodleId))
+        if (fileFor(context, doodleId).delete()) Log.d(TAG, "released held doodle=$doodleId")
+        bump()
+    }
+
+    /** Everything held. Unreadable files are skipped; never throws. */
     fun list(context: Context): List<SnoozedDoodle> = try {
         snoozeDir(context).listFiles { f -> f.name.endsWith(".json") }.orEmpty().mapNotNull { file ->
-            readPayload(file)?.let { SnoozedDoodle(it.doodleId, it.senderUsername, it.triggerAt, it.cardId) }
+            readPayload(file)?.let { SnoozedDoodle(it.doodleId, it.senderUsername, it.heldAt, it.cardId) }
         }
     } catch (e: Exception) {
-        Log.e(TAG, "couldn't list snoozes: ${e.message}")
+        Log.e(TAG, "couldn't list held doodles: ${e.message}")
         emptyList()
+    }
+
+    /**
+     * Runs on boot, app update, exact-alarm permission change and every app start.
+     * Idempotent: re-arms the pause-end alarm if a pause is still on, or handles a pause
+     * that ended while its alarm was lost (posting the notice once). Files from the old
+     * per-doodle snooze simply become held doodles; their old alarms are cancelled.
+     */
+    fun rescheduleAll(context: Context) {
+        val appContext = context.applicationContext
+        try {
+            val alarmManager = appContext.getSystemService(AlarmManager::class.java)
+            snoozeDir(appContext).listFiles { f -> f.name.endsWith(".json") }.orEmpty().forEach { file ->
+                val payload = readPayload(file)
+                if (payload == null) {
+                    // Can't be listed or shown; it would sit in the folder forever.
+                    Log.w(TAG, "dropping unreadable snooze file ${file.name}")
+                    file.delete()
+                } else {
+                    alarmManager.cancel(legacyDoodleIntent(appContext, payload.doodleId))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "couldn't tidy snooze files: ${e.message}")
+        }
+        val quietUntil = prefs(appContext).getLong(KEY_QUIET_UNTIL, 0L)
+        when (pauseEndAction(System.currentTimeMillis(), quietUntil)) {
+            PauseEndAction.NONE -> Unit
+            PauseEndAction.REARM -> armPauseEnd(appContext, quietUntil)
+            PauseEndAction.END -> onPauseEnd(appContext)
+        }
+        bump()
     }
 
     private fun readPayload(file: File): SnoozePayload? = try {
         val json = JSONObject(file.readText())
         val map = json.keys().asSequence().associateWith { json.opt(it) }
-        snoozePayloadFromMap(map, fallbackDoodleId = file.name.removeSuffix(".json"))
+        val payload = snoozePayloadFromMap(map, fallbackDoodleId = file.name.removeSuffix(".json"))
+        // Files from the old per-doodle snooze have no heldAt: use when the file was written.
+        if (payload != null && payload.heldAt == null) payload.copy(heldAt = file.lastModified()) else payload
     } catch (e: Exception) {
         Log.e(TAG, "unreadable snooze file ${file.name}: ${e.message}")
         null
     }
 
-    private fun pendingIntent(context: Context, doodleId: String): PendingIntent {
+    private fun pauseEndIntent(context: Context): PendingIntent {
         val intent = Intent(context, SnoozeAlarmReceiver::class.java)
-            .setData(Uri.parse("duudle://snooze/$doodleId")) // one distinct alarm per doodle
+            .setAction(ACTION_PAUSE_END)
+            .setData(Uri.parse("duudle://pause-end"))
+        return PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    /** Matches the per-doodle alarm the old snooze set, so it can be cancelled. */
+    private fun legacyDoodleIntent(context: Context, doodleId: String): PendingIntent {
+        val intent = Intent(context, SnoozeAlarmReceiver::class.java)
+            .setData(Uri.parse("duudle://snooze/$doodleId"))
             .putExtra(EXTRA_DOODLE_ID, doodleId)
         return PendingIntent.getBroadcast(
             context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -189,21 +314,21 @@ object DoodleSnooze {
     }
 }
 
-// ----- Pure helpers (no Android types) so the file format and timing rules are unit tested. -----
+// ----- Pure helpers (no Android types), unit tested in DoodleSnoozeTest. -----
 
-/** A snoozed doodle as shown in the Vault. [triggerAt] is null for files from older builds. */
-data class SnoozedDoodle(val doodleId: String, val senderUsername: String, val triggerAt: Long?, val cardId: String?)
+/** A held doodle as the Vault shows it. */
+data class SnoozedDoodle(val doodleId: String, val senderUsername: String, val heldAt: Long?, val cardId: String?)
 
 /**
- * The snooze file's contents. Files written before this build have no doodleId (it's the
- * file name), no triggerAt and no cardId.
+ * A held doodle's file. Files from the old per-doodle snooze have no doodleId (it's the
+ * file name) and no heldAt, and may have a triggerAt, which is now ignored.
  */
 data class SnoozePayload(
     val doodleId: String,
     val senderUid: String,
     val senderUsername: String,
     val strokesJson: String,
-    val triggerAt: Long?,
+    val heldAt: Long?,
     val cardId: String?
 ) {
     fun toMap(): Map<String, Any> = buildMap {
@@ -211,12 +336,12 @@ data class SnoozePayload(
         put("senderUid", senderUid)
         put("senderUsername", senderUsername)
         put("strokes", strokesJson)
-        triggerAt?.let { put("triggerAt", it) }
+        heldAt?.let { put("heldAt", it) }
         cardId?.let { put("cardId", it) }
     }
 }
 
-/** Null if a field the overlay needs is missing. */
+/** Null if the file is missing a field every format has. */
 fun snoozePayloadFromMap(map: Map<String, Any?>, fallbackDoodleId: String): SnoozePayload? {
     val senderUid = map["senderUid"] as? String ?: return null
     val senderUsername = map["senderUsername"] as? String ?: return null
@@ -228,29 +353,59 @@ fun snoozePayloadFromMap(map: Map<String, Any?>, fallbackDoodleId: String): Snoo
         senderUid = senderUid,
         senderUsername = senderUsername,
         strokesJson = strokes,
-        triggerAt = (map["triggerAt"] as? Number)?.toLong(),
+        heldAt = (map["heldAt"] as? Number)?.toLong(),
         cardId = cardIdFromPayload(map["cardId"] as? String)
     )
 }
 
-enum class SnoozeAction { FIRE_NOW, REARM }
+/** [quietUntil] 0 means no pause. */
+fun isPaused(now: Long, quietUntil: Long): Boolean = quietUntil > 0L && now < quietUntil
 
-/** Snoozes due within this long are shown at once rather than re-armed. */
-const val SNOOZE_FIRE_NOW_WINDOW_MS = 5_000L
+/** Snoozing again while paused keeps the later of the two end times. */
+fun extendPause(existing: Long, now: Long, minutes: Int): Long = maxOf(existing, now + minutes * 60_000L)
 
-/** What [DoodleSnooze.rescheduleAll] does with a file: no triggerAt means an older build's file. */
-fun snoozeAction(triggerAt: Long?, now: Long): SnoozeAction =
-    if (triggerAt == null || triggerAt - now <= SNOOZE_FIRE_NOW_WINDOW_MS) SnoozeAction.FIRE_NOW else SnoozeAction.REARM
+/**
+ * When the pause being set started. A new pause starts now; extending one (or one whose
+ * end was missed and not yet handled) keeps the original start, so its doodles still count.
+ */
+fun pauseStartFor(existingQuietUntil: Long, existingStartedAt: Long, now: Long): Long =
+    if (existingQuietUntil == 0L) now else existingStartedAt
+
+/** How many held doodles came in during the pause that started at [pauseStartedAt]. */
+fun heldDuringPause(heldAts: List<Long?>, pauseStartedAt: Long): Int =
+    heldAts.count { it != null && it >= pauseStartedAt }
+
+fun shouldNotifyPauseEnd(heldInPause: Int, endHandled: Boolean): Boolean = heldInPause > 0 && !endHandled
+
+fun pausedDoodlesText(count: Int): String =
+    if (count == 1) "1 doodle arrived while pop-ups were paused"
+    else "$count doodles arrived while pop-ups were paused"
+
+enum class PauseEndAction { NONE, REARM, END }
+
+/** An end alarm within this long of quiet-until counts as on time. */
+const val PAUSE_END_WINDOW_MS = 5_000L
+
+/** NONE: no pause to end. REARM: still paused (alarm early, or re-arming after a reboot). END: handle the end. */
+fun pauseEndAction(now: Long, quietUntil: Long): PauseEndAction = when {
+    quietUntil == 0L -> PauseEndAction.NONE
+    quietUntil - now > PAUSE_END_WINDOW_MS -> PauseEndAction.REARM
+    else -> PauseEndAction.END
+}
 
 class SnoozeAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        // onReceive runs on the main thread, which overlay windows require.
-        val doodleId = intent.getStringExtra(DoodleSnooze.EXTRA_DOODLE_ID) ?: return
-        DoodleSnooze.fire(context.applicationContext, doodleId)
+        if (intent.action == DoodleSnooze.ACTION_PAUSE_END) {
+            DoodleSnooze.onPauseEnd(context.applicationContext)
+        } else {
+            // A per-doodle alarm left by the old snooze: those doodles are held now, so it
+            // no longer pops anything up.
+            Log.d("DuudleSnooze", "ignoring an old per-doodle snooze alarm")
+        }
     }
 }
 
-/** Alarms are wiped by a reboot or app update; put the snoozes back. */
+/** Alarms are wiped by a reboot (and possibly an app update); put the pause-end alarm back. */
 class SnoozeRescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         // Exported for the system broadcasts below; anything else is ignored.
@@ -258,7 +413,7 @@ class SnoozeRescheduleReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> {
-                Log.d("DuudleSnooze", "re-arming snoozes after ${intent.action}")
+                Log.d("DuudleSnooze", "re-arming the pause after ${intent.action}")
                 DoodleSnooze.rescheduleAll(context)
             }
         }
