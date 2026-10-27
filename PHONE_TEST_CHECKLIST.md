@@ -547,8 +547,26 @@ reports as dead. Tested: 80 rules tests, 15 function tests, 128 unit tests.
 - [x] Live app, A34 (`arnav111`) to emulator (`emulator2`): doodle arrived (function log
       10:02:53Z "Push sent successfully tokenSource=private") and chat arrived (10:12:42Z;
       the first try stayed pending on mobile data, sent fine on Wi-Fi)
-- [ ] Install the new app on the A34, open it, then emulator to A34: a doodle and a chat
-      arrive; no "Failed to save FCM token" in logs (the A34 still runs the previous app)
+- [x] New app installed on the A34 (data kept) and opened 10:36Z: `arnav111` now has a
+      private token and no public one
+- [x] Emulator (`emulator2`) to A34 (`arnav111`), live app: a doodle and a chat arrive
+
+## Phase 3 quick policy fixes (owner-verified on the A34 + emulator, 2026-10-27)
+
+What changed: no battery-optimization exemption request (Play restricts it); a
+notification instead of a lost doodle when "Display over other apps" is off; the overlay
+test screen exists only in debug/staging builds. 131 unit tests pass.
+
+- [x] Emulator, Duudle Staging, overlay permission off: a doodle from the A34 showed the
+      notification "@arnav36 sent you a doodle" instead of a pop-up (log: "No overlay
+      permission, showing a notification instead"); permission turned back on afterwards
+- [x] Tapping that notification opens the app (owner, emulator, 2026-10-27)
+- [x] A34: Profile > "Unrestricted battery" > Fix opens Duudle's App info page with the
+      "Tap Battery, then choose Unrestricted" hint, and setting it turns the row to "On"
+- [x] A34, overlay permission on: doodles still pop up as before (no notification)
+- [ ] With notifications also off: nothing crashes, the doodle is still in the Vault
+- [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
+      "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
 ## Already passed on the phone
 

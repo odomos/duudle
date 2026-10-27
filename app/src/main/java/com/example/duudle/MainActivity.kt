@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
     private var pendingChat by mutableStateOf<ChatTarget?>(null)
     // Tapping the "doodles arrived while pop-ups were paused" notification.
     private var pendingVaultSnoozed by mutableStateOf(false)
+    // Tapping a doodle notification (shown instead of the overlay when it isn't allowed).
+    private var pendingVault by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +77,7 @@ class MainActivity : ComponentActivity() {
             consumeReplyIntent(intent)
             consumeChatIntent(intent)
             consumeVaultSnoozedIntent(intent)
+            consumeVaultIntent(intent)
         }
 
         setContent {
@@ -123,6 +126,28 @@ class MainActivity : ComponentActivity() {
                     if (currentScreen == Screen.WELCOME) return@LaunchedEffect
                     openVaultOnSnoozed = true
                     currentScreen = Screen.VAULT
+                }
+                LaunchedEffect(pendingVault) {
+                    if (!pendingVault) return@LaunchedEffect
+                    pendingVault = false
+                    if (currentScreen == Screen.WELCOME) return@LaunchedEffect
+                    currentScreen = Screen.VAULT
+                }
+
+                // The overlay test screen (fake pushes, raw permission states) is a debug
+                // tool: release builds send "Overlay off" to Profile's setup card instead,
+                // and "Test a pop-up" there just shows the sample pop-up.
+                val openOverlayHelp = {
+                    currentScreen = if (BuildConfig.DEBUG) Screen.OVERLAY_DEBUG else Screen.PROFILE
+                }
+                val testPopUp = {
+                    if (BuildConfig.DEBUG) {
+                        currentScreen = Screen.OVERLAY_DEBUG
+                    } else if (Settings.canDrawOverlays(context)) {
+                        showTestOverlay(context)
+                    } else {
+                        Toast.makeText(context, "Turn on \"Show over other apps\" first", Toast.LENGTH_LONG).show()
+                    }
                 }
 
                 // Without this, system back closes the app from every screen.
@@ -194,7 +219,7 @@ class MainActivity : ComponentActivity() {
                                 currentScreen = Screen.DRAW
                             },
                             onFriendsClick = { currentScreen = Screen.FRIENDS },
-                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
+                            onOverlayDebugClick = openOverlayHelp,
                             onVaultClick = { currentScreen = Screen.VAULT },
                             onMeClick = { currentScreen = Screen.PROFILE },
                             newDoodleFromUsername = incomingDoodles.firstOrNull()?.senderUsername,
@@ -223,7 +248,7 @@ class MainActivity : ComponentActivity() {
                                 recipientUsername = friend.username
                                 currentScreen = Screen.DRAW
                             },
-                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
+                            onOverlayDebugClick = openOverlayHelp,
                             onDesignDoodleClick = {
                                 recipientUid = null
                                 recipientUsername = null
@@ -312,7 +337,7 @@ class MainActivity : ComponentActivity() {
                                 recipientUsername = null
                                 currentScreen = Screen.DRAW
                             },
-                            onOverlayDebugClick = { currentScreen = Screen.OVERLAY_DEBUG },
+                            onOverlayDebugClick = testPopUp,
                             onEditCharacter = { currentScreen = Screen.EDIT_CHARACTER }
                         )
                         Screen.EDIT_CHARACTER -> CharacterEditorScreen(
@@ -324,10 +349,14 @@ class MainActivity : ComponentActivity() {
                                 currentScreen = Screen.PROFILE
                             }
                         )
-                        Screen.OVERLAY_DEBUG -> OverlayTestScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            onBack = { currentScreen = Screen.HOME }
-                        )
+                        Screen.OVERLAY_DEBUG -> if (BuildConfig.DEBUG) {
+                            OverlayTestScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                onBack = { currentScreen = Screen.HOME }
+                            )
+                        } else {
+                            LaunchedEffect(Unit) { currentScreen = Screen.HOME }
+                        }
                     }
                 }
             }
@@ -340,6 +369,11 @@ class MainActivity : ComponentActivity() {
         consumeReplyIntent(intent)
         consumeChatIntent(intent)
         consumeVaultSnoozedIntent(intent)
+        consumeVaultIntent(intent)
+    }
+
+    private fun consumeVaultIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(DoodleNotification.EXTRA_OPEN_VAULT, false) == true) pendingVault = true
     }
 
     private fun consumeVaultSnoozedIntent(intent: Intent?) {
@@ -523,12 +557,7 @@ fun OverlayTestScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
             text = if (isBatteryUnrestricted) "✅ Battery unrestricted" else "❌ Battery optimization may block background delivery",
             style = MaterialTheme.typography.titleMedium
         )
-        Button(onClick = {
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.parse("package:${context.packageName}")
-            }
-            context.startActivity(intent)
-        }) {
+        Button(onClick = { openBatterySettings(context) }) {
             Text("Allow Background Activity")
         }
         TextButton(onClick = { showBatteryGuide = true }) {
@@ -558,7 +587,7 @@ fun OverlayTestScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
             title = { Text("Manual Battery Setup") },
             text = {
                 Column {
-                    Text("If the button above didn't show a popup, your phone manages battery settings its own way. Here's how to do it manually:")
+                    Text("If the button above didn't open Duudle's settings, your phone manages battery settings its own way. Here's how to do it manually:")
                     Spacer(Modifier.height(8.dp))
                     Text("1. Open your phone's Settings app")
                     Text("2. Go to Apps")

@@ -211,6 +211,7 @@ Official guidance: [Cloud Firestore best practices](https://firebase.google.com/
 - [ ] Explain overlay value before directing a user to “Display over other apps”; request permission only after a clear user action.
 - [ ] Provide settings to disable overlays and easy dismissal.
 - [ ] Handle missing/revoked permission with no crash, no infinite permission nagging, and a fallback such as a notification or in-app Vault.
+  - **Implemented, tests passed, verified on the emulator (staging)** _(Phase 3, F13, 2026-10-27)_: without "Display over other apps" a doodle or flash card shows a normal notification ("@name sent you a doodle", one per sender, lock-screen private) that opens the Vault (`DoodleNotification.kt`, 3 unit tests). Owner-verified on the A34 + emulator 2026-10-27; in the app on the owner's devices.
 - [ ] Verify the overlay does not impersonate system UI, trap input, block essential app controls or behave deceptively.
 - [ ] Test both target and minimum supported device environments, including Android 8+, current Android versions, notification permission, Doze, battery optimization, reboot, app update, rotation, split screen and OEM restrictions.
 - [ ] Verify all window operations run on the main thread, windows are removed on dismissal/error and no Activity/context/window leaks occur.
@@ -302,6 +303,8 @@ Reference: [Google Play target API level requirements](https://support.google.co
 - [ ] Submit and test the account deletion web URL and in-app deletion flow; complete data-deletion questions.
 - [ ] Ensure app screenshots, description and claims represent the app accurately, including the fact that overlays require user-granted permission.
 - [ ] Review permission declarations and any Play Console forms relevant to special permissions. Explain use of overlay permission clearly and ensure it is central to the user-requested feature, user-controlled and non-deceptive.
+  - **Implemented, tests passed** _(Phase 3, F12, 2026-10-27)_: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` removed (Play restricts it; Duudle's pushes are high-priority FCM). The battery Fix button opens App info with "Tap Battery, then choose Unrestricted". Checked absent from the merged debug and release manifests.
+  - **Implemented, tests passed** _(Phase 3, F22, 2026-10-27)_: the overlay test screen (Simulate Push, raw permission states) is debug/staging-only via `BuildConfig.DEBUG`; release builds route "Overlay off" to Profile and "Test a pop-up" shows the sample pop-up. Release behaviour unverified on a device until a signed release build exists (Phase 8).
 - [ ] Replace unlicensed/watermarked assets; confirm intellectual property rights for all store and in-app content.
 - [ ] Provide reviewer access/test instructions and valid credentials if review features require login. If the anonymous path remains available, document a reliable way for reviewers to reach all relevant features.
 

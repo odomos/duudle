@@ -46,6 +46,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG keeps the overlay test screen out of release builds.
+        buildConfig = true
     }
 }
 

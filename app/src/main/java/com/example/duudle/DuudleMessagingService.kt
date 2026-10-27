@@ -80,7 +80,8 @@ class DuudleMessagingService : FirebaseMessagingService() {
         }
 
         if (!Settings.canDrawOverlays(applicationContext)) {
-            Log.w("DuudleFCM", "No overlay permission — cannot show doodle overlay")
+            Log.w("DuudleFCM", "No overlay permission, showing a notification instead")
+            DoodleNotification.show(applicationContext, senderUid, senderUsername, isFlashCard = cardId != null)
             return
         }
 

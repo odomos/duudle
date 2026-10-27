@@ -514,11 +514,14 @@ private fun openOverlaySettings(context: Context) {
     openSettings(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
 }
 
-private fun openBatterySettings(context: Context) {
-    openSettings(
-        context,
-        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
-    )
+/**
+ * Opens Duudle's app-info page, where Battery > Unrestricted lives. Not the one-tap
+ * "ignore battery optimizations" dialog: Google Play restricts that permission to apps
+ * whose core feature can't work through high-priority FCM, and Duudle's pushes are FCM.
+ */
+fun openBatterySettings(context: Context) {
+    openSettings(context, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+    Toast.makeText(context, "Tap Battery, then choose Unrestricted", Toast.LENGTH_LONG).show()
 }
 
 /** Some phones don't expose these screens; fall back to the app's own settings page. */
