@@ -38,6 +38,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.duudle.ui.theme.DuudleTheme
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.Dispatchers
@@ -141,6 +142,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(currentUid) {
                     if (currentUid.isNotBlank() && currentUsername.isNotBlank()) {
                         backfillUsernameLower(currentUid, currentUsername)
+                        // Moves this phone's push token to the private document (Phase 2).
+                        syncPushToken(context, currentUid)
                     }
                 }
 
@@ -421,12 +424,45 @@ fun backfillUsernameLower(uid: String, username: String) {
     }
 }
 
-fun saveFcmToken(uid: String, token: String) {
-    FirebaseFirestore.getInstance().collection("users").document(uid)
-        .update("fcmToken", token)
+/**
+ * Saves this phone's push token where only its owner (and the Cloud Functions) can read
+ * it, users/{uid}/private/push, then removes any old public copy from the profile, which
+ * every signed-in user can read (accounts from before Phase 2 have one).
+ */
+fun saveFcmToken(uid: String, token: String, onSaved: () -> Unit = {}) {
+    val userRef = FirebaseFirestore.getInstance().collection("users").document(uid)
+    userRef.collection("private").document("push")
+        .set(mapOf("fcmToken" to token, "updatedAt" to FieldValue.serverTimestamp()))
+        .addOnSuccessListener {
+            // Only count the move as done once the public copy is gone too; if this
+            // fails, the next launch tries again.
+            userRef.update("fcmToken", FieldValue.delete())
+                .addOnSuccessListener { onSaved() }
+                .addOnFailureListener { e ->
+                    android.util.Log.e("DuudleFCM", "Couldn't remove the old public token: ${e.message}")
+                }
+        }
         .addOnFailureListener { e ->
             android.util.Log.e("DuudleFCM", "Failed to save FCM token: ${e.message}")
         }
+}
+
+private const val PUSH_TOKEN_SYNCED_KEY = "push_token_synced"
+
+/**
+ * Makes sure the current token is in the private document, once per account and token.
+ * onNewToken only fires when the token changes, so this is what moves phones that were
+ * already set up before Phase 2. Only a fingerprint of the token is stored locally.
+ */
+fun syncPushToken(context: Context, uid: String) {
+    val prefs = context.getSharedPreferences("duudle_prefs", Context.MODE_PRIVATE)
+    FirebaseMessaging.getInstance().token
+        .addOnSuccessListener { token ->
+            val marker = pushTokenSyncMarker(uid, token)
+            if (prefs.getString(PUSH_TOKEN_SYNCED_KEY, null) == marker) return@addOnSuccessListener
+            saveFcmToken(uid, token) { prefs.edit().putString(PUSH_TOKEN_SYNCED_KEY, marker).apply() }
+        }
+        .addOnFailureListener { e -> android.util.Log.e("DuudleFCM", "Couldn't read the FCM token: ${e.message}") }
 }
 
 class OverlayWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {

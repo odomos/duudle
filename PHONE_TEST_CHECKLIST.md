@@ -526,6 +526,22 @@ affected. Files: `DoodleSnooze.kt`, `DuudleMessagingService.kt`, `MainActivity.k
 - [ ] Snooze 5 min, B sends one, restart A before the time is up: the notification still
       arrives (on time, or right after boot / app open if the phone was off at the end)
 
+## Phase 2 private push tokens (staging: owner-verified pushes arrive, 2026-10-27)
+
+What changed: the push token moved from the public profile to an owner-only
+`users/{uid}/private/push` document; each phone moves its own token on launch; the
+functions read the private token (old public one as a fallback) and forget tokens FCM
+reports as dead. Tested: 80 rules tests, 15 function tests, 128 unit tests.
+
+- [x] Duudle Staging, both devices: a doodle and a chat message each way still arrive
+      (first staging run failed: a Phase 2 edit removed `initializeApp()` from functions/index.js,
+      so every push crashed; fixed, plus a smoke test that loads index.js)
+- [ ] Function logs (Firebase console > duudle-staging > Functions > logs) show
+      `tokenSource: "private"` for those pushes
+- [ ] Clear Duudle Staging's data on one device and sign up again: that account
+      receives pushes (fresh sign-up saves its token privately)
+- [ ] After going live: the same on the normal app; no "Failed to save FCM token" in logs
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

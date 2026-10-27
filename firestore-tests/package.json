@@ -3,10 +3,8 @@
   "private": true,
   "description": "Firestore security-rules tests. Run against the local emulator only (project demo-duudle).",
   "scripts": {
-    "test": "mocha --timeout 15000 test/current-rules.test.js test/lockdown-targets.test.js",
-    "test:targets": "mocha --timeout 15000 test/token-privacy-targets.test.js",
-    "emulator:test": "firebase emulators:exec --only firestore --project demo-duudle \"npm test\"",
-    "emulator:targets": "firebase emulators:exec --only firestore --project demo-duudle \"npm run test:targets\""
+    "test": "mocha --timeout 15000 test/current-rules.test.js test/lockdown-targets.test.js test/token-privacy-targets.test.js",
+    "emulator:test": "firebase emulators:exec --only firestore --project demo-duudle \"npm test\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",

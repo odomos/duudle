@@ -44,13 +44,8 @@ jobs:
           distribution: temurin
           java-version: "21"
       - run: npm ci
-      - name: Rules suite incl. Phase 1 lockdown (must pass)
+      - name: Rules suite incl. Phase 1 lockdown and Phase 2 token privacy (must pass)
         run: npx --yes firebase-tools@15.30.0 emulators:exec --only firestore --project demo-duudle "npm test"
-      # Audit finding F9 (push token on the public profile): expected to fail until Phase 2.
-      # Kept visible but non-blocking; Phase 2 makes it pass and merges it into the suite above.
-      - name: Phase 2 target - token privacy (expected to fail until Phase 2)
-        continue-on-error: true
-        run: npx --yes firebase-tools@15.30.0 emulators:exec --only firestore --project demo-duudle "npm run test:targets"
 
   functions:
     name: Cloud Functions syntax + unit tests

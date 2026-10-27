@@ -75,12 +75,16 @@ Reference: [Firebase Security Rules unit tests](https://firebase.google.com/docs
 **Finding from architecture:** the documented `users/{uid}` document includes `fcmToken`; user documents are described as readable by any signed-in user. Confirm this against the deployed rules immediately.
 
 - [ ] Stop storing the token in a publicly readable profile document.
+  - **Tests passed, deployed to staging, NOT in production** _(Phase 2, 2026-10-27)_. **Known gap (review M3):** profiles from before Phase 2 keep a readable public token until that phone runs the new app, or until a one-off admin cleanup (copy to private, then delete the public field, dry run + backup first) that needs owner approval as a live-data change.
   - **Stopgap implemented, tests passed, staging only** _(Phase 1 security review, 2026-10-26)_: pushes now carry `receiverId` and the app drops pushes for another account (`PushGuard.kt`, 4 unit tests), so a token planted on someone else's profile can't redirect pops-ups; rules require the token to be a string. The token itself is still public until Phase 2 moves it.
 - [ ] Move to an owner-only device record (for example `users/{uid}/devices/{deviceId}`) or another private structure; ensure only the owner and trusted Admin SDK functions can access it.
+  - **Tests passed, deployed to staging, NOT in production** _(Phase 2, 2026-10-27)_: token now in owner-only `users/{uid}/private/push` `{fcmToken, updatedAt}` (server time, string <= 4096). Profiles can no longer gain a token, only drop one. The app migrates itself on launch (`syncPushToken`); both functions read private first, legacy field as fallback. 80 rules tests incl. collection-group denial. Single device per account for now (anonymous accounts are per device; multi-device comes with account linking).
 - [ ] Support multiple devices/tokens if the same account can be linked across devices.
 - [ ] Update token on `FirebaseMessagingService.onNewToken`; safely retire old tokens and remove invalid/unregistered tokens after send errors.
+  - **Tests passed, deployed to staging, NOT in production** _(Phase 2, 2026-10-27)_: `onNewToken` saves privately; on FCM `registration-token-not-registered` / `invalid-registration-token` the functions delete the token only if it's unchanged since read (lastUpdateTime precondition, so a fresh token is never removed; race tested, 15 function tests).
 - [ ] Ensure account deletion and sign-out clean up relevant registrations.
 - [ ] Add rule tests proving User A cannot read User B's token or private device record.
+  - **Tests passed, deployed to staging, NOT in production** _(Phase 2, 2026-10-27)_: `firestore-tests/test/token-privacy-targets.test.js` (read, list, collection-group, write, delete by others all denied).
 - [ ] Never log raw FCM tokens in analytics, crash reports or ordinary logs.
   - **Implemented** _(Phase 1, 2026-10-26)_: the raw-token log line in `DuudleMessagingService.onNewToken` is removed. Not yet released.
 

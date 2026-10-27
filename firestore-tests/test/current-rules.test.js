@@ -4,7 +4,7 @@
 const { assertFails, assertSucceeds } = require("@firebase/rules-unit-testing");
 const {
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs,
-  query, where, orderBy, limit, writeBatch, serverTimestamp, getCountFromServer,
+  query, where, orderBy, limit, writeBatch, serverTimestamp, getCountFromServer, deleteField,
 } = require("firebase/firestore");
 const { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
 
@@ -38,13 +38,15 @@ describe("Current rules: must keep passing", function () {
       await assertSucceeds(setDoc(doc(as(ALICE), "users/alice"),
         { username: "Alice", usernameLower: "alice", uid: ALICE }));
     });
-    it("owner can refresh their push token (until it moves in Phase 2)", async () => {
-      await seed(env, (db) => setDoc(doc(db, "users/alice"), { uid: ALICE, username: "Alice", usernameLower: "alice" }));
-      await assertSucceeds(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: "new-token" }));
+    it("owner can save their push token in the private document (server time)", async () => {
+      await assertSucceeds(setDoc(doc(as(ALICE), "users/alice/private/push"),
+        { fcmToken: "new-token", updatedAt: serverTimestamp() }));
+      await assertSucceeds(getDoc(doc(as(ALICE), "users/alice/private/push")));
     });
-    it("a profile written by an older app version (extra field) can still refresh its token", async () => {
-      await seed(env, (db) => setDoc(doc(db, "users/alice"), { uid: ALICE, username: "Al", usernameLower: "al", legacyField: 1 }));
-      await assertSucceeds(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: "new-token" }));
+    it("a pre-Phase-2 profile can remove its old public token, even with an extra field", async () => {
+      await seed(env, (db) => setDoc(doc(db, "users/alice"),
+        { uid: ALICE, username: "Al", usernameLower: "al", fcmToken: "old-token", legacyField: 1 }));
+      await assertSucceeds(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: deleteField() }));
     });
     it("an older profile can add its search key even if its name predates the rule", async () => {
       await seed(env, (db) => setDoc(doc(db, "users/alice"), { uid: ALICE, username: "Old Name!" }));

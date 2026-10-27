@@ -46,10 +46,11 @@ class DuudleMessagingService : FirebaseMessagingService() {
         Log.d("DuudleFCM", "Message received: type=${remoteMessage.data["type"]} keys=${remoteMessage.data.keys}")
 
         val type = remoteMessage.data["type"]
-        // Push tokens are still readable by other users until Phase 2, so someone could put
-        // this phone's token on their own profile and redirect their pushes here. The
-        // functions name the intended account; drop anything meant for a different one.
-        // (Pushes from older functions have no receiverId and are still shown.)
+        // Keep this check permanently. A user can put any token in their own private
+        // push document (rules can't tell which device a token belongs to), so pushes for
+        // their account could be routed to someone else's phone. The functions name the
+        // intended account; drop anything meant for a different one.
+        // (Pushes from functions older than Phase 1 have no receiverId and are still shown.)
         if (!isPushForThisAccount(remoteMessage.data["receiverId"], FirebaseAuth.getInstance().currentUser?.uid)) {
             Log.w("DuudleFCM", "Dropped a push addressed to a different account")
             return

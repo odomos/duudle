@@ -1,11 +1,23 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {initializeApp} = require("firebase-admin/app");
-const {getFirestore} = require("firebase-admin/firestore");
+const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 const {getMessaging} = require("firebase-admin/messaging");
 const logger = require("firebase-functions/logger");
 const {decideDoodlePush, displayName} = require("./doodlePush");
+const {isDeadTokenError, readPushToken, forgetDeadToken} = require("./pushTokens");
 
+// Must run before any getFirestore()/getMessaging() call (the handlers below use them).
 initializeApp();
+
+/** Forgets a dead token (see pushTokens.forgetDeadToken) and logs what was removed. */
+async function cleanUpDeadToken(userRef, token, logContext) {
+  try {
+    const removed = await forgetDeadToken(userRef, token, FieldValue.delete());
+    logger.info("Dead push token handled", {...logContext, removedPrivate: removed.private, removedLegacy: removed.legacy});
+  } catch (error) {
+    logger.error("Couldn't remove a dead push token", {...logContext, error: error.message});
+  }
+}
 
 function serializeStrokes(strokes) {
   // Round coordinates to keep the payload small and fast to deliver
@@ -58,7 +70,14 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   // Muting only silences the push (and so the overlay). The doodle doc itself
   // is still written, so it stays in the receiver's Vault and unmuting loses
   // nothing. The sender is never told.
-  const fcmToken = userDoc.exists ? userDoc.data().fcmToken : undefined;
+  let pushToken;
+  try {
+    pushToken = await readPushToken(receiverRef, userDoc);
+  } catch (error) {
+    logger.error("Doodle push token lookup failed", {doodleId, receiverId, error: error.message});
+    return;
+  }
+  const fcmToken = pushToken.token;
   const decision = decideDoodlePush({
     senderId,
     receiverId,
@@ -85,8 +104,8 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   const data = {
     type: "new_doodle",
     doodleId: doodleId,
-    // The app drops pushes whose receiverId isn't the signed-in account (tokens are
-    // still public until Phase 2, so a token could be planted on another profile).
+    // The app drops pushes whose receiverId isn't the signed-in account (defence in
+    // depth: tokens were public before Phase 2 and may linger on old profiles).
     receiverId: receiverId,
     senderId: senderId,
     senderUsername: senderUsername,
@@ -109,9 +128,10 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
 
   try {
     const response = await getMessaging().send(message);
-    logger.info("Push sent successfully", {doodleId, receiverId, embedded: strokesSize <= MAX_STROKES_BYTES, strokesSize, pointCount, response});
+    logger.info("Push sent successfully", {doodleId, receiverId, tokenSource: pushToken.source, embedded: strokesSize <= MAX_STROKES_BYTES, strokesSize, pointCount, response});
   } catch (error) {
-    logger.error("Failed to send push", {doodleId, receiverId, error: error.message});
+    logger.error("Failed to send push", {doodleId, receiverId, error: error.message, code: error.code});
+    if (isDeadTokenError(error)) await cleanUpDeadToken(receiverRef, fcmToken, {doodleId, receiverId});
   }
 });
 
@@ -180,7 +200,14 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
     return;
   }
 
-  const fcmToken = recipientDoc.data().fcmToken;
+  let pushToken;
+  try {
+    pushToken = await readPushToken(recipientRef, recipientDoc);
+  } catch (error) {
+    logger.error("Chat push token lookup failed", {chatId, messageId, error: error.message});
+    return;
+  }
+  const fcmToken = pushToken.token;
   if (!fcmToken) {
     logger.warn("Recipient has no fcmToken saved", {recipientId});
     return;
@@ -209,6 +236,7 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
     const response = await getMessaging().send(push);
     logger.info("Chat push sent successfully", {chatId, messageId, recipientId, response});
   } catch (error) {
-    logger.error("Failed to send chat push", {chatId, messageId, recipientId, error: error.message});
+    logger.error("Failed to send chat push", {chatId, messageId, recipientId, error: error.message, code: error.code});
+    if (isDeadTokenError(error)) await cleanUpDeadToken(recipientRef, fcmToken, {chatId, messageId, recipientId});
   }
 });

@@ -27,16 +27,15 @@ service cloud.firestore {
       allow read: if signedIn();
 
       // Owner only, known fields only. Username fields are validated whenever they're
-      // written, so token refreshes on older accounts keep working.
-      // fcmToken is still allowed here until it moves to a private document (Phase 2).
+      // written. The push token is NOT allowed here: everyone can read this document,
+      // so it lives in the owner-only private/push document below.
       allow create: if signedIn() && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid', 'username', 'usernameLower', 'fcmToken'])
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'usernameLower'])
         && request.resource.data.uid == userId
         && validUsername(request.resource.data.username)
-        && request.resource.data.usernameLower == request.resource.data.username.lower()
-        && (!('fcmToken' in request.resource.data) || validToken(request.resource.data.fcmToken));
+        && request.resource.data.usernameLower == request.resource.data.username.lower();
       // Update limits which fields may CHANGE (not the whole doc), so a profile written
-      // by an older app version with an extra field can still refresh its token.
+      // by an older app version with an extra field can still be updated.
       allow update: if signedIn() && request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['uid', 'username', 'usernameLower', 'fcmToken'])
@@ -48,9 +47,22 @@ service cloud.firestore {
           || validUsername(request.resource.data.username))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['username', 'usernameLower'])
           || request.resource.data.usernameLower == request.resource.data.username.lower())
+        // Profiles from before Phase 2 still carry a public fcmToken; the owner's app may
+        // remove it (the app does so once it has saved the private copy), never set it.
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fcmToken'])
-          || validToken(request.resource.data.fcmToken));
+          || !('fcmToken' in request.resource.data));
       allow delete: if false;
+
+      // This device's push token. Owner only; the Cloud Functions read it with admin
+      // rights. The only document here is "push".
+      match /private/{docId} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+        allow create, update: if signedIn() && request.auth.uid == userId
+          && docId == 'push'
+          && request.resource.data.keys().hasOnly(['fcmToken', 'updatedAt'])
+          && validToken(request.resource.data.fcmToken)
+          && request.resource.data.updatedAt == request.time;
+      }
 
       // Who I've muted. Owner-only, so a muted friend can never find out.
       // The Cloud Function reads this with admin privileges.

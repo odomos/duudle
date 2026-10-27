@@ -19,4 +19,13 @@ class PushGuardTest {
         assertTrue(isPushForThisAccount(null, "me"))
         assertTrue(isPushForThisAccount(null, null))
     }
+
+    @Test
+    fun syncMarkerChangesWithAccountOrTokenAndHidesTheToken() {
+        val m = pushTokenSyncMarker("alice", "secret-token")
+        assertTrue(m == pushTokenSyncMarker("alice", "secret-token"))
+        assertFalse(m == pushTokenSyncMarker("bob", "secret-token"))
+        assertFalse(m == pushTokenSyncMarker("alice", "new-token"))
+        assertFalse(m.contains("secret-token"))
+    }
 }

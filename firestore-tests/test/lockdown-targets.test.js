@@ -146,7 +146,7 @@ describe("Phase 1 lockdown: must deny", function () {
       await assertFails(setDoc(doc(as(ALICE), "users/alice"),
         { uid: ALICE, username: "Alice", usernameLower: "bob" }));
     });
-    it("the push token must be a string", async () => {
+    it("the profile can't hold a push token of any kind (Phase 2 moved it to private/push)", async () => {
       await assertFails(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: { not: "a string" } }));
     });
     it("the uid field must be the owner's uid", async () => {
