@@ -60,4 +60,14 @@ async function seed(env, fn) {
   await env.withSecurityRulesDisabled(async (ctx) => fn(ctx.firestore()));
 }
 
-module.exports = { createEnv, seed, doodleDoc, requestDoc, ALICE, BOB, CAROL };
+/** Profiles for alice, bob and carol, username = uid (what doodleDoc/requestDoc copy). */
+async function seedUsers(env) {
+  const { doc, setDoc } = require("firebase/firestore");
+  await seed(env, async (db) => {
+    for (const uid of [ALICE, BOB, CAROL]) {
+      await setDoc(doc(db, `users/${uid}`), { uid, username: uid, usernameLower: uid });
+    }
+  });
+}
+
+module.exports = { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL };

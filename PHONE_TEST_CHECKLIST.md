@@ -466,6 +466,40 @@ delayed it), and a reboot or app update wiped pending snoozes for good.
 - [x] Snooze a flash card: it comes back as the card
 - [x] No double pop-up when you open the app right as a snooze comes due
 
+## Phase 1 security lockdown (staging: owner-tested on A34 + emulator, 2026-10-27)
+
+What changed: `firestore.rules` now lets only the two people involved see a doodle,
+friend request or friendship; doodles are sent only as yourself and can only be
+marked removed by the receiver; Accept is one batch with the request id; usernames
+are 3-20 letters, numbers, `_` or `.`; the doodle push only pops up between friends
+and shows the sender's real username. Tested on the emulator (59 rules tests, 6
+function tests, 114 unit tests). **Deployed to `duudle-staging` only, not live.**
+
+Test with the **"Duudle Staging"** app (installs next to the normal Duudle and uses the
+staging project, so test accounts and data are separate) on two devices:
+- [x] Sign up: a name with a space or 2 letters shows "Use 3-20 letters, numbers, _ or .",
+      Get Started stays disabled; a valid name works
+- [x] Search the other account, send a friend request, it appears under Requests on
+      the other device; Decline removes it
+- [x] Send again, **Accept**: both devices list each other as friends
+- [x] Send a doodle and a flash card: it pops up on the friend's device with the right name
+- [x] Remove / Draw reply / Snooze on the overlay still work (Snooze worked as then designed, one doodle at a time; owner wants a pause-all Snooze instead, being rebuilt); the Vault shows sent and
+      received items on both devices; Profile stats load (not "—")
+- [x] Chat between the two still works
+- [ ] A doodle sent while the other phone is signed in to a different account doesn't
+      pop up there (pushes now name the intended account)
+- [ ] Accepting the same request twice isn't possible; each friendship appears once
+- [ ] Only after all of the above pass: approve deploying the rules and functions to
+      the live project, and install the matching normal Duudle build on your phones
+
+Note (2026-10-27): on the A34's mobile data, sign-up hung on "Setting up..." because
+IPv6 to Google was broken on the network (IPv4 fine); Wi-Fi fixed it. Not an app or
+rules problem, but the app should time out with a message instead of spinning.
+- [ ] Sign-up timeout: on a connection that can't reach Firebase (e.g. the A34's mobile data
+      when IPv6 is broken, or airplane mode), "Setting up..." gives up after about 20 seconds
+      with "Couldn't connect. Check your internet (try Wi-Fi) and try again."; on Wi-Fi it then works
+- [ ] A name that's taken still shows "That username is taken" (not the timeout message)
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

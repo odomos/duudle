@@ -27,6 +27,15 @@ android {
                 "proguard-rules.pro"
             )
         }
+        // A debug build that installs next to the real app ("Duudle Staging") and talks to
+        // the duudle-staging Firebase project (app/src/staging/google-services.json), so
+        // rules and functions can be tried on a phone before they go live.
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            matchingFallbacks += listOf("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

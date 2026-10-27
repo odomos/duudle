@@ -46,18 +46,27 @@ A blank checkbox below does not mean the feature definitely does not exist in co
   - **Tests passed** _(Phase 0, 2026-10-26)_: mapped in the audit (findings F1, F2, F9, F11, F24). The repo rules equal the deployed rules (last deployed from this repo on 2026-10-24).
 - [ ] Make sensitive operations least-privilege and deny-by-default.
 - [ ] Friend requests: require `fromUid == request.auth.uid`; reject self-requests, invalid recipients and invalid status changes; only recipient may accept/decline a request addressed to them; handle duplicate requests.
+  - **Tests passed (emulator), deployed to staging, NOT in production** _(Phase 1, 2026-10-26)_: sender must be the caller, no self-requests, `status` must be `pending`, field allow-list, only the two people can read or delete, no updates. Not yet: server-side duplicate prevention (the app checks before sending).
 - [ ] Friendships: do not allow a client to invent either participant or create a friendship without a valid accepted request. Use rules or a trusted callable function for the transition and multi-document consistency.
+  - **Tests passed (emulator), deployed to staging, NOT in production** _(Phase 1, 2026-10-26)_: created only by the accepting user, naming a real pending request the other person sent them (checked with `get()`), in one batch with deleting it, so it can't be replayed. Only members can read or delete. `FriendsScreen.acceptFriendRequest` now uses the batch.
 - [ ] Doodles/cards: require sender identity to match the authenticated caller, validate receiver and payload, bound stroke/card sizes, enforce permitted status changes and relationship/block rules.
+  - **Tests passed (emulator), deployed to staging, NOT in production** _(Phase 1, 2026-10-26)_: sender = caller, receiver must be someone else, field allow-list, at most 500 strokes, card id must match `card[0-9][0-9]`, created as `unseen`, receiver may only set `status` to `removed`, no deletes, only sender and receiver can read. `onDoodleCreated` now checks friendship and uses the sender's stored username (6 unit tests). Not yet: block (Phase 4), and friendship isn't checked in rules (random friendship ids), so a stranger's doodle can still land in your Vault, but it never pops up.
 - [ ] Chat: verify both participants and fixed membership; sender identity must equal caller; clients must not add themselves to arbitrary chats or edit immutable fields; preserve message size/type validation and self-only read receipts.
 - [ ] Profiles: constrain each user's mutable fields; validate username format and uniqueness flow; prevent server-controlled fields from being client-edited.
+  - **Tests passed (emulator), deployed to staging, NOT in production** _(Phase 1, 2026-10-26)_: owner only, allowed fields only, usernames 3-20 of `A-Z a-z 0-9 _ .` with `usernameLower == username.lower()` (same rule in `WelcomeScreen`, 4 unit tests), no profile deletes. Not yet: server-enforced uniqueness (needs a usernames reservation doc and a backfill: live-data change, Phase 1b). `fcmToken` is still allowed here until Phase 2.
 - [ ] Private subcollections (mutes, favorites, blocks, device tokens) must be readable/writable only by their owner or trusted server paths as designed.
 - [ ] Write Firebase Emulator Suite / `@firebase/rules-unit-testing` tests for allow and deny cases. Test anonymous authenticated users separately from unauthenticated requests.
   - **In progress** _(Phase 0, 2026-10-26)_: `firestore-tests/` added. Regression suite `npm test`: **25/25 passing** on the emulator (signed-out vs signed-in, owner-only subcollections, chat rules, and the real app flows that must survive the lockdown). Target suite `npm run test:targets`: **0/25 passing, 25 failing as expected**: each failure proves an operation today's rules wrongly allow. Becomes the Phase 1 acceptance gate.
 - [ ] Include tests for forged UIDs, changed sender/receiver, forged friendship, unauthorized read, invalid field additions, oversize content, replayed state changes, blocked users and non-member chat access.
   - **In progress** _(Phase 0, 2026-10-26)_: written for forged UIDs, sender/receiver changes, forged friendships, unauthorized reads, extra fields, oversize drawings and non-member chat access. Not yet: blocked users (block doesn't exist yet) and replayed state changes.
 - [ ] Deploy rule changes to staging first; review a diff and test results before production.
+  - **In progress** _(Phase 1, 2026-10-26)_: rules deployed to `duudle-staging`; a `staging` build type ("Duudle Staging", `com.example.duudle.staging`) talks only to staging. Production deploy waits for the staging phone test and owner approval.
 
 **Acceptance gate:** no public launch while a normal authenticated client can forge relationships, send as another UID, read private records, or alter a field it does not own.
+
+**Phase 1 security review (2026-10-26), fixed before any production deploy:** one request makes exactly one friendship (`existsAfter`: the request must be deleted in the same batch); doodle `senderUsername` and request `fromUsername` must equal the caller's stored username (no sending under someone else's name); legacy profiles can still add their search key; `onDoodleCreated` handles lookup errors. Mutation-checked: removing either new protection makes exactly its own test fail. Gate: **69/69 rules tests, 118/118 unit tests, 6/6 function tests**. Deployed to `duudle-staging` only.
+
+**Release order (from the review):** ship the new app first (it works with the old rules too), then deploy the functions, then the rules. The old app's Accept is denied by the new rules (tested). Pushes from older functions are still accepted by the new app.
 
 Reference: [Firebase Security Rules unit tests](https://firebase.google.com/docs/rules/unit-tests), [Firebase guide to insecure rules](https://firebase.google.com/docs/firestore/security/insecure-rules).
 
@@ -66,12 +75,14 @@ Reference: [Firebase Security Rules unit tests](https://firebase.google.com/docs
 **Finding from architecture:** the documented `users/{uid}` document includes `fcmToken`; user documents are described as readable by any signed-in user. Confirm this against the deployed rules immediately.
 
 - [ ] Stop storing the token in a publicly readable profile document.
+  - **Stopgap implemented, tests passed, staging only** _(Phase 1 security review, 2026-10-26)_: pushes now carry `receiverId` and the app drops pushes for another account (`PushGuard.kt`, 4 unit tests), so a token planted on someone else's profile can't redirect pops-ups; rules require the token to be a string. The token itself is still public until Phase 2 moves it.
 - [ ] Move to an owner-only device record (for example `users/{uid}/devices/{deviceId}`) or another private structure; ensure only the owner and trusted Admin SDK functions can access it.
 - [ ] Support multiple devices/tokens if the same account can be linked across devices.
 - [ ] Update token on `FirebaseMessagingService.onNewToken`; safely retire old tokens and remove invalid/unregistered tokens after send errors.
 - [ ] Ensure account deletion and sign-out clean up relevant registrations.
 - [ ] Add rule tests proving User A cannot read User B's token or private device record.
 - [ ] Never log raw FCM tokens in analytics, crash reports or ordinary logs.
+  - **Implemented** _(Phase 1, 2026-10-26)_: the raw-token log line in `DuudleMessagingService.onNewToken` is removed. Not yet released.
 
 ### 2.3 UGC policy: terms, reporting, blocking and moderation
 
@@ -145,6 +156,7 @@ The README reports 110 JVM unit tests and manual verification on a Samsung Galax
 - [ ] Add Firestore emulator tests for all rules and sensitive operations.
   - **In progress** _(Phase 0, 2026-10-26)_: see 2.1; also runs in CI.
 - [ ] Add Cloud Functions lint/unit tests, using emulator/test fixtures where possible.
+  - **In progress** _(Phase 1, 2026-10-26)_: `functions/test/doodlePush.test.js`: 6 tests on the doodle push decision (`npm --prefix functions test`, also in CI). No lint yet.
 - [ ] Test duplicate trigger execution, missing/deleted users, missing/invalid tokens, block/mute relationships, malformed fields and FCM send failures.
 - [ ] Add integration scenarios for account creation, sending/receiving doodles, chat, report/block, delete account and notification deep links.
 - [ ] Preserve an updated phone test checklist and record device model, Android version, build, result and known issue.

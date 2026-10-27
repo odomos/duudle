@@ -828,16 +828,19 @@ fun acceptFriendRequest(requestDocId: String, myUid: String, friendUid: String, 
         return
     }
     val db = FirebaseFirestore.getInstance()
+    // requestId lets the rules check this friendship comes from a real request sent to
+    // me. One batch, so the request is used up in the same write and can't be replayed.
     val friendshipData = hashMapOf(
         "userA" to myUid,
         "userB" to friendUid,
-        "createdAt" to System.currentTimeMillis()
+        "createdAt" to System.currentTimeMillis(),
+        "requestId" to requestDocId
     )
-    db.collection("friendships").add(friendshipData)
-        .addOnSuccessListener {
-            db.collection("friend_requests").document(requestDocId).delete()
-            onDone(true)
-        }
+    db.batch()
+        .set(db.collection("friendships").document(), friendshipData)
+        .delete(db.collection("friend_requests").document(requestDocId))
+        .commit()
+        .addOnSuccessListener { onDone(true) }
         .addOnFailureListener { onDone(false) }
 }
 

@@ -285,6 +285,8 @@ Full text: [`firestore.rules`](firestore.rules). Every rule requires `request.au
 | `chats/{chatId}/messages/*` | Either member | Create only: by a member, as themselves, at server time, `kind` text or theme, 1–1000 chars, no extra fields. No edits or deletes |
 | `connection_test/*` | Any signed-in user | Any signed-in user |
 
+**Pending (Phase 1, 2026-10-26):** the repo's `firestore.rules` now locks these down (only the two people involved can read; doodles sent only as yourself; friendships only from a real accepted request; usernames validated). That version is deployed to the `duudle-staging` project only. This table describes the **live** rules until the production deploy is approved.
+
 **Known gap:** `friend_requests`, `friendships` and `doodles` are open to any signed-in user.
 A determined user could forge a friendship or a doodle's sender name. The chat function
 re-checks friendship server-side, but tightening these three collections is an open item that
@@ -374,6 +376,7 @@ firebase deploy --only functions
 If the functions deploy times out during discovery, set `FUNCTIONS_DISCOVERY_TIMEOUT=120`.
 Deploy a single function with e.g. `--only functions:onChatMessageCreated`.
 
+- **Staging build:** `./gradlew assembleStaging` builds **Duudle Staging** (`com.example.duudle.staging`), which installs next to the normal app and uses the `duudle-staging` Firebase project (`app/src/staging/google-services.json`). Deploy there with an explicit project, e.g. `firebase deploy --only firestore:rules,functions --project duudle-staging`; `.firebaserc`'s default is still the live project.
 - **Cloud sessions** get the Android SDK from `scripts/cloud-setup.sh`; they have no emulator,
   phone or Firebase credentials.
 

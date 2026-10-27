@@ -44,16 +44,16 @@ jobs:
           distribution: temurin
           java-version: "21"
       - run: npm ci
-      - name: Regression suite (must pass)
+      - name: Rules suite incl. Phase 1 lockdown (must pass)
         run: npx --yes firebase-tools@15.30.0 emulators:exec --only firestore --project demo-duudle "npm test"
-      # Audit findings F1/F2/F9/F11/F24: expected to fail until the Phase 1 lockdown.
-      # Kept visible but non-blocking; Phase 1 makes it pass and merges it into the suite above.
-      - name: Lockdown targets (expected to fail until Phase 1)
+      # Audit finding F9 (push token on the public profile): expected to fail until Phase 2.
+      # Kept visible but non-blocking; Phase 2 makes it pass and merges it into the suite above.
+      - name: Phase 2 target - token privacy (expected to fail until Phase 2)
         continue-on-error: true
         run: npx --yes firebase-tools@15.30.0 emulators:exec --only firestore --project demo-duudle "npm run test:targets"
 
   functions:
-    name: Cloud Functions syntax
+    name: Cloud Functions syntax + unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,3 +61,4 @@ jobs:
         with:
           node-version: "22"
       - run: node --check functions/index.js
+      - run: npm --prefix functions test

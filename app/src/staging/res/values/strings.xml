@@ -1,0 +1,4 @@
+<resources>
+    <!-- Staging build: talks to the duudle-staging Firebase project, never to live data. -->
+    <string name="app_name">Duudle Staging</string>
+</resources>

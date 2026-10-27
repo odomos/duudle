@@ -41,6 +41,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
@@ -82,6 +84,8 @@ class MainActivity : ComponentActivity() {
                 }
                 var isSigningIn by remember { mutableStateOf(false) }
                 var signInError by remember { mutableStateOf<String?>(null) }
+                val signInAttempts = remember { SignInAttempts() }
+                val signInScope = rememberCoroutineScope()
                 var recipientUid by rememberSaveable { mutableStateOf<String?>(null) }
                 var recipientUsername by rememberSaveable { mutableStateOf<String?>(null) }
                 var incomingDoodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
@@ -143,7 +147,18 @@ class MainActivity : ComponentActivity() {
                             onGetStarted = { username ->
                                 isSigningIn = true
                                 signInError = null
+                                val attempt = signInAttempts.start()
+                                // Firebase can wait indefinitely on a bad network; give the
+                                // user their button back with a reason instead of spinning.
+                                signInScope.launch {
+                                    delay(SIGN_IN_TIMEOUT_MS)
+                                    if (signInAttempts.timeOut(attempt)) {
+                                        isSigningIn = false
+                                        signInError = SIGN_IN_TIMEOUT_MESSAGE
+                                    }
+                                }
                                 signInAndSaveUsername(username) { success, error ->
+                                    if (!signInAttempts.accept(attempt, success)) return@signInAndSaveUsername
                                     isSigningIn = false
                                     if (success) {
                                         prefs.edit().putString("username", username).apply()
@@ -339,6 +354,16 @@ fun signInAndSaveUsername(username: String, onResult: (Boolean, String?) -> Unit
 }
 
 fun usernameKey(username: String): String = username.trim().lowercase()
+
+const val USERNAME_MAX_LENGTH = 20
+const val USERNAME_RULE_HINT = "Use 3-20 letters, numbers, _ or ."
+private val USERNAME_PATTERN = Regex("[A-Za-z0-9_.]{3,$USERNAME_MAX_LENGTH}")
+
+/**
+ * Same rule as validUsername() in firestore.rules. ASCII only, so this app's lower-casing
+ * (usernameKey) and the rules' lower() always agree on the search key.
+ */
+fun isValidUsername(name: String): Boolean = USERNAME_PATTERN.matches(name)
 
 private fun saveUsername(uid: String, username: String, onResult: (Boolean, String?) -> Unit) {
     val db = FirebaseFirestore.getInstance()

@@ -4,9 +4,9 @@
 const { assertFails, assertSucceeds } = require("@firebase/rules-unit-testing");
 const {
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs,
-  query, where, orderBy, limit, writeBatch, serverTimestamp,
+  query, where, orderBy, limit, writeBatch, serverTimestamp, getCountFromServer,
 } = require("firebase/firestore");
-const { createEnv, seed, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
+const { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
 
 describe("Current rules: must keep passing", function () {
   let env;
@@ -38,6 +38,18 @@ describe("Current rules: must keep passing", function () {
       await assertSucceeds(setDoc(doc(as(ALICE), "users/alice"),
         { username: "Alice", usernameLower: "alice", uid: ALICE }));
     });
+    it("owner can refresh their push token (until it moves in Phase 2)", async () => {
+      await seed(env, (db) => setDoc(doc(db, "users/alice"), { uid: ALICE, username: "Alice", usernameLower: "alice" }));
+      await assertSucceeds(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: "new-token" }));
+    });
+    it("a profile written by an older app version (extra field) can still refresh its token", async () => {
+      await seed(env, (db) => setDoc(doc(db, "users/alice"), { uid: ALICE, username: "Al", usernameLower: "al", legacyField: 1 }));
+      await assertSucceeds(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: "new-token" }));
+    });
+    it("an older profile can add its search key even if its name predates the rule", async () => {
+      await seed(env, (db) => setDoc(doc(db, "users/alice"), { uid: ALICE, username: "Old Name!" }));
+      await assertSucceeds(updateDoc(doc(as(ALICE), "users/alice"), { usernameLower: "old name!" }));
+    });
     it("nobody can write someone else's profile", async () => {
       await assertFails(setDoc(doc(as(CAROL), "users/alice"), { username: "hacked" }));
     });
@@ -67,6 +79,7 @@ describe("Current rules: must keep passing", function () {
   });
 
   describe("doodles: real app flows that must survive the lockdown", () => {
+    beforeEach(async () => { await seedUsers(env); });
     it("sender can create a doodle as themselves", async () => {
       await assertSucceeds(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, BOB)));
     });
@@ -87,6 +100,7 @@ describe("Current rules: must keep passing", function () {
   });
 
   describe("friends: real app flows that must survive the lockdown", () => {
+    beforeEach(async () => { await seedUsers(env); });
     it("a user can send a request as themselves and see their incoming requests", async () => {
       await assertSucceeds(addDoc(collection(as(ALICE), "friend_requests"), requestDoc(ALICE, BOB)));
       await assertSucceeds(getDocs(query(collection(as(BOB), "friend_requests"),
@@ -96,9 +110,40 @@ describe("Current rules: must keep passing", function () {
       await seed(env, (db) => setDoc(doc(db, "friend_requests/r1"), requestDoc(ALICE, BOB)));
       await assertSucceeds(deleteDoc(doc(as(BOB), "friend_requests/r1")));
     });
+    it("the recipient can accept: one batch creates the friendship and deletes the request", async () => {
+      await seed(env, (db) => setDoc(doc(db, "friend_requests/r1"), requestDoc(ALICE, BOB)));
+      const db = as(BOB);
+      const b = writeBatch(db);
+      b.set(doc(collection(db, "friendships")), { userA: BOB, userB: ALICE, createdAt: Date.now(), requestId: "r1" });
+      b.delete(doc(db, "friend_requests/r1"));
+      await assertSucceeds(b.commit());
+    });
     it("a member can list their own friendships", async () => {
       await assertSucceeds(getDocs(query(collection(as(ALICE), "friendships"), where("userA", "==", ALICE))));
       await assertSucceeds(getDocs(query(collection(as(ALICE), "friendships"), where("userB", "==", ALICE))));
+    });
+  });
+
+  describe("other queries the app makes", () => {
+    beforeEach(async () => { await seedUsers(env); });
+    it("Profile stats: count sent and received doodles (ProfileScreen)", async () => {
+      await assertSucceeds(getCountFromServer(query(collection(as(ALICE), "doodles"), where("senderId", "==", ALICE))));
+      await assertSucceeds(getCountFromServer(query(collection(as(ALICE), "doodles"), where("receiverId", "==", ALICE))));
+      await assertSucceeds(getCountFromServer(collection(as(ALICE), "users/alice/favorites")));
+    });
+    it("'already friends?' check, both directions (FriendsScreen)", async () => {
+      await assertSucceeds(getDocs(query(collection(as(ALICE), "friendships"),
+        where("userA", "==", ALICE), where("userB", "==", BOB))));
+      await assertSucceeds(getDocs(query(collection(as(ALICE), "friendships"),
+        where("userA", "==", BOB), where("userB", "==", ALICE))));
+    });
+    it("'request already sent?' check (FriendsScreen)", async () => {
+      await assertSucceeds(getDocs(query(collection(as(ALICE), "friend_requests"),
+        where("fromUid", "==", ALICE), where("toUid", "==", BOB), where("status", "==", "pending"))));
+    });
+    it("receiver can open a doodle by id (push fallback fetch)", async () => {
+      await seed(env, (db) => setDoc(doc(db, "doodles/d9"), doodleDoc(ALICE, BOB)));
+      await assertSucceeds(getDoc(doc(as(BOB), "doodles/d9")));
     });
   });
 

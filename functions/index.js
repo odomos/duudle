@@ -3,6 +3,7 @@ const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const {getMessaging} = require("firebase-admin/messaging");
 const logger = require("firebase-functions/logger");
+const {decideDoodlePush, displayName} = require("./doodlePush");
 
 initializeApp();
 
@@ -28,38 +29,52 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
 
   const doodle = snapshot.data();
   const doodleId = event.params.doodleId;
-  const receiverId = doodle.receiverId;
-  const senderUsername = doodle.senderUsername || "A friend";
+  const receiverId = typeof doodle.receiverId === "string" ? doodle.receiverId : "";
+  const senderId = typeof doodle.senderId === "string" ? doodle.senderId : "";
 
-  if (!receiverId) {
-    logger.warn("Doodle has no receiverId, exiting", {doodleId});
+  if (!receiverId || !senderId || receiverId === senderId) {
+    logger.warn("Doodle has no valid sender/receiver, exiting", {doodleId});
     return;
   }
 
-  const receiverRef = getFirestore().collection("users").doc(receiverId);
-  const [userDoc, muteDoc] = await Promise.all([
-    receiverRef.get(),
-    doodle.senderId ? receiverRef.collection("mutes").doc(doodle.senderId).get() : null,
-  ]);
+  const db = getFirestore();
+  const receiverRef = db.collection("users").doc(receiverId);
+  const friendships = db.collection("friendships");
+  let userDoc; let muteDoc; let senderDoc; let asA; let asB;
+  try {
+    [userDoc, muteDoc, senderDoc, asA, asB] = await Promise.all([
+      receiverRef.get(),
+      receiverRef.collection("mutes").doc(senderId).get(),
+      db.collection("users").doc(senderId).get(),
+      friendships.where("userA", "==", senderId).where("userB", "==", receiverId).limit(1).get(),
+      friendships.where("userA", "==", receiverId).where("userB", "==", senderId).limit(1).get(),
+    ]);
+  } catch (error) {
+    // No retries are configured, so log enough to find the lost push.
+    logger.error("Doodle push lookups failed", {doodleId, receiverId, error: error.message});
+    return;
+  }
 
   // Muting only silences the push (and so the overlay). The doodle doc itself
   // is still written, so it stays in the receiver's Vault and unmuting loses
   // nothing. The sender is never told.
-  if (muteDoc && muteDoc.exists) {
-    logger.info("Receiver muted sender, skipping push", {doodleId, receiverId});
+  const fcmToken = userDoc.exists ? userDoc.data().fcmToken : undefined;
+  const decision = decideDoodlePush({
+    senderId,
+    receiverId,
+    areFriends: !asA.empty || !asB.empty,
+    muted: muteDoc.exists,
+    receiverExists: userDoc.exists,
+    fcmToken,
+  });
+  if (!decision.send) {
+    logger.info("Skipping doodle push", {doodleId, receiverId, reason: decision.reason});
     return;
   }
 
-  if (!userDoc.exists) {
-    logger.warn("Receiver user document not found", {receiverId});
-    return;
-  }
-
-  const fcmToken = userDoc.data().fcmToken;
-  if (!fcmToken) {
-    logger.warn("Receiver has no fcmToken saved", {receiverId});
-    return;
-  }
+  // The overlay names the sender from their own profile, not from the doodle doc,
+  // which the sender wrote and could have labelled with anyone's name.
+  const senderUsername = displayName(senderDoc.exists ? senderDoc.data().username : undefined);
 
   const strokesJson = serializeStrokes(doodle.strokes);
   // FCM data messages cap at 4KB total; leave ~500 bytes for the other fields.
@@ -70,7 +85,10 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   const data = {
     type: "new_doodle",
     doodleId: doodleId,
-    senderId: doodle.senderId || "",
+    // The app drops pushes whose receiverId isn't the signed-in account (tokens are
+    // still public until Phase 2, so a token could be planted on another profile).
+    receiverId: receiverId,
+    senderId: senderId,
     senderUsername: senderUsername,
   };
   if (typeof doodle.cardId === "string" && doodle.cardId) data.cardId = doodle.cardId.slice(0, 32);
@@ -177,6 +195,7 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
     data: {
       type: "chat_message",
       chatId: chatId,
+      receiverId: recipientId,
       senderId: senderId,
       senderUsername: senderUsername,
       text: text,

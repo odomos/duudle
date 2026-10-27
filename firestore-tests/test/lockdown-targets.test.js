@@ -1,14 +1,14 @@
-// Target suite: what the rules SHOULD deny after the Phase 1 lockdown (audit findings
-// F1, F2, F9, F11, F24). Against today's rules these are EXPECTED TO FAIL: each
+// Phase 1 lockdown suite (audit findings F1, F2, F11, F24): what the rules must deny.
+// Written in Phase 0 while every case still failed against the old rules. Against today's rules these are EXPECTED TO FAIL: each
 // failure is evidence of a live access-control hole. Once Phase 1 lands, this file
 // must pass and gets merged into the regression suite.
 const { assertFails } = require("@firebase/rules-unit-testing");
 const {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, writeBatch,
 } = require("firebase/firestore");
-const { createEnv, seed, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
+const { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
 
-describe("Lockdown targets (expected to FAIL until Phase 1)", function () {
+describe("Phase 1 lockdown: must deny", function () {
   let env;
   const as = (uid) => env.authenticatedContext(uid).firestore();
 
@@ -16,6 +16,7 @@ describe("Lockdown targets (expected to FAIL until Phase 1)", function () {
   after(async () => { await env.cleanup(); });
   beforeEach(async () => {
     await env.clearFirestore();
+    await seedUsers(env);
     await seed(env, async (db) => {
       await setDoc(doc(db, "doodles/d1"), doodleDoc(ALICE, BOB));
       await setDoc(doc(db, "friend_requests/r1"), requestDoc(ALICE, BOB));
@@ -60,6 +61,15 @@ describe("Lockdown targets (expected to FAIL until Phase 1)", function () {
       const strokes = Array.from({ length: 501 }, () => ({ points: [{ x: 0, y: 0 }], color: 0, width: 4 }));
       await assertFails(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, BOB, { strokes })));
     });
+    it("can't send a doodle under someone else's name", async () => {
+      await assertFails(addDoc(collection(as(CAROL), "doodles"), doodleDoc(CAROL, BOB, { senderUsername: "alice" })));
+    });
+    it("the receiver can only set status to 'removed'", async () => {
+      await assertFails(updateDoc(doc(as(BOB), "doodles/d1"), { status: "seen" }));
+    });
+    it("the sender can't mark their own doodle removed", async () => {
+      await assertFails(updateDoc(doc(as(ALICE), "doodles/d1"), { status: "removed" }));
+    });
     it("can't send a doodle to yourself", async () => {
       await assertFails(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, ALICE)));
     });
@@ -84,6 +94,35 @@ describe("Lockdown targets (expected to FAIL until Phase 1)", function () {
     it("nobody can make themselves someone's friend without an accepted request", async () => {
       await assertFails(addDoc(collection(as(CAROL), "friendships"), { userA: CAROL, userB: ALICE, createdAt: 1 }));
     });
+    it("a request can't be used by anyone but its recipient", async () => {
+      await assertFails(addDoc(collection(as(CAROL), "friendships"),
+        { userA: CAROL, userB: ALICE, createdAt: 1, requestId: "r1" }));
+    });
+    it("a used (deleted) request can't be replayed into a second friendship", async () => {
+      await seed(env, (db) => deleteDoc(doc(db, "friend_requests/r1")));
+      await assertFails(addDoc(collection(as(BOB), "friendships"),
+        { userA: BOB, userB: ALICE, createdAt: 1, requestId: "r1" }));
+    });
+    it("can't send a friend request under someone else's name", async () => {
+      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB, { fromUsername: "alice" })));
+    });
+    it("a request can't carry extra fields or start as anything but pending", async () => {
+      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB, { status: "accepted" })));
+      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB, { isAdmin: true })));
+    });
+    it("the sender of a request can't accept it themselves", async () => {
+      const db = as(ALICE); const b = writeBatch(db);
+      b.set(doc(collection(db, "friendships")), { userA: ALICE, userB: BOB, createdAt: 1, requestId: "r1" });
+      b.delete(doc(db, "friend_requests/r1"));
+      await assertFails(b.commit());
+    });
+    it("one request can't make a second friendship (it must be used up in the same batch)", async () => {
+      await assertFails(addDoc(collection(as(BOB), "friendships"),
+        { userA: BOB, userB: ALICE, createdAt: 1, requestId: "r1" }));
+    });
+    it("the old app's accept (no requestId) is denied, so the new app must ship first", async () => {
+      await assertFails(addDoc(collection(as(BOB), "friendships"), { userA: BOB, userB: ALICE, createdAt: 1 }));
+    });
     it("a stranger can't delete someone else's friendship", async () => {
       await assertFails(deleteDoc(doc(as(CAROL), "friendships/f1")));
     });
@@ -92,18 +131,23 @@ describe("Lockdown targets (expected to FAIL until Phase 1)", function () {
     });
   });
 
-  describe("F9 and F11: user profiles", () => {
-    it("the push token isn't stored on the public profile", async () => {
-      await assertFails(setDoc(doc(as(ALICE), "users/alice"),
-        { uid: ALICE, username: "Alice", usernameLower: "alice", fcmToken: "token-value" }));
-    });
+  describe("F11: user profiles", () => {
     it("rejects an absurdly long username", async () => {
       await assertFails(setDoc(doc(as(ALICE), "users/alice"),
         { uid: ALICE, username: "a".repeat(500), usernameLower: "a".repeat(500) }));
     });
+    it("rejects usernames with spaces, symbols or non-ASCII letters", async () => {
+      for (const name of ["my name", "bob!", "héllo"]) {
+        await assertFails(setDoc(doc(as(ALICE), "users/alice"),
+          { uid: ALICE, username: name, usernameLower: name.toLowerCase() }));
+      }
+    });
     it("usernameLower must match the username (no impersonation by search key)", async () => {
       await assertFails(setDoc(doc(as(ALICE), "users/alice"),
         { uid: ALICE, username: "Alice", usernameLower: "bob" }));
+    });
+    it("the push token must be a string", async () => {
+      await assertFails(updateDoc(doc(as(ALICE), "users/alice"), { fcmToken: { not: "a string" } }));
     });
     it("the uid field must be the owner's uid", async () => {
       await assertFails(setDoc(doc(as(ALICE), "users/alice"),

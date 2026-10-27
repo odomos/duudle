@@ -32,7 +32,8 @@ class DuudleMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d("DuudleFCM", "New FCM token generated: $token")
+        // Never log the token itself: it addresses this device.
+        Log.d("DuudleFCM", "New FCM token generated")
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid != null) {
             saveFcmToken(uid, token)
@@ -45,6 +46,14 @@ class DuudleMessagingService : FirebaseMessagingService() {
         Log.d("DuudleFCM", "Message received: type=${remoteMessage.data["type"]} keys=${remoteMessage.data.keys}")
 
         val type = remoteMessage.data["type"]
+        // Push tokens are still readable by other users until Phase 2, so someone could put
+        // this phone's token on their own profile and redirect their pushes here. The
+        // functions name the intended account; drop anything meant for a different one.
+        // (Pushes from older functions have no receiverId and are still shown.)
+        if (!isPushForThisAccount(remoteMessage.data["receiverId"], FirebaseAuth.getInstance().currentUser?.uid)) {
+            Log.w("DuudleFCM", "Dropped a push addressed to a different account")
+            return
+        }
         // Chat pushes are ordinary notifications; everything below is the doodle overlay path.
         if (type == "chat_message") {
             showChatNotification(remoteMessage.data)

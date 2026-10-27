@@ -103,7 +103,9 @@ fun WelcomeScreen(
     val gaze = rememberFaceGaze()
     val clock = rememberFaceClock()
     val navBarBottom = WindowInsets.navigationBars.getBottom(LocalDensity.current).toFloat()
-    val submit = { if (username.isNotBlank()) onGetStarted(username.trim()) }
+    val trimmed = username.trim()
+    val usernameOk = isValidUsername(trimmed)
+    val submit = { if (usernameOk) onGetStarted(trimmed) }
 
     Column(
         modifier = modifier
@@ -171,16 +173,19 @@ fun WelcomeScreen(
             Spacer(Modifier.height(18.dp))
             UsernamePill(
                 value = username,
-                onValueChange = { username = it },
+                // Rules cap names at 20; stop typing there rather than failing on submit.
+                onValueChange = { username = it.take(USERNAME_MAX_LENGTH) },
                 onDone = {
                     focusManager.clearFocus()
-                    if (!isLoading && username.isNotBlank()) submit()
+                    if (!isLoading && usernameOk) submit()
                 }
             )
             Spacer(Modifier.height(14.dp))
-            if (errorMessage != null) {
+            // Typing hint first (once something's typed), then any sign-up error.
+            val shownError = if (trimmed.isNotEmpty() && !usernameOk) USERNAME_RULE_HINT else errorMessage
+            if (shownError != null) {
                 Text(
-                    errorMessage,
+                    shownError,
                     color = DuudleColors.ErrorRed,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center
@@ -189,8 +194,8 @@ fun WelcomeScreen(
             }
             BlackPillButton(
                 text = if (isLoading) "Setting up..." else "Get Started",
-                enabled = !isLoading && username.isNotBlank(),
-                dimmed = !isLoading && username.isBlank(),
+                enabled = !isLoading && usernameOk,
+                dimmed = !isLoading && !usernameOk,
                 onClick = submit
             )
         }
