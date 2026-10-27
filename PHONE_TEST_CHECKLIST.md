@@ -489,8 +489,9 @@ staging project, so test accounts and data are separate) on two devices:
 - [ ] A doodle sent while the other phone is signed in to a different account doesn't
       pop up there (pushes now name the intended account)
 - [ ] Accepting the same request twice isn't possible; each friendship appears once
-- [ ] Only after all of the above pass: approve deploying the rules and functions to
-      the live project, and install the matching normal Duudle build on your phones
+- [x] Approved and released to the live project 2026-10-27 (app on A34 + emulator first,
+      then functions, then rules). Post-deploy: Friends, Vault (All 27, Saved 2) and Profile
+      loaded on the live app with 0 permission errors
 
 Note (2026-10-27): on the A34's mobile data, sign-up hung on "Setting up..." because
 IPv6 to Google was broken on the network (IPv4 fine); Wi-Fi fixed it. Not an app or
@@ -499,6 +500,9 @@ rules problem, but the app should time out with a message instead of spinning.
       when IPv6 is broken, or airplane mode), "Setting up..." gives up after about 20 seconds
       with "Couldn't connect. Check your internet (try Wi-Fi) and try again."; on Wi-Fi it then works
 - [ ] A name that's taken still shows "That username is taken" (not the timeout message)
+- [ ] Live (normal Duudle): send a doodle and a flash card A34 <-> emulator; both pop up with
+      the right name; Vault and Profile stats load
+- [ ] Live: chat both ways still works
 
 ## Snooze = pause pop-ups (staging: owner confirmed working, 2026-10-27)
 

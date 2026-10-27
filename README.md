@@ -278,19 +278,21 @@ Full text: [`firestore.rules`](firestore.rules). Every rule requires `request.au
 
 | Collection | Read | Write |
 |---|---|---|
-| `users/{uid}` | Any signed-in user (needed for search) | Owner only |
+| `users/{uid}` | Any signed-in user (needed for search) | Owner only; known fields only; username 3-20 of `A-Z a-z 0-9 _ .` with a matching lower-case search key; push token must be a string. No deletes |
 | `users/{uid}/mutes/*`, `users/{uid}/favorites/*` | Owner only | Owner only |
-| `friend_requests/*`, `friendships/*`, `doodles/*` | Any signed-in user | Any signed-in user |
+| `friend_requests/*` | Only the sender and recipient | Create as yourself, under your stored username, to someone else, `pending`; either party can delete; no edits |
+| `friendships/*` | Only the two friends | Created only by the person accepting, naming a real pending request sent to them, deleted in the same batch (one request = one friendship); either friend can delete; no edits |
+| `doodles/*` | Only the sender and receiver | Create as yourself, under your stored username, to someone else, `unseen`, at most 500 strokes or a known card id; the receiver may only set `status` to `removed`; no deletes |
 | `chats/{chatId}` | Members only (or, before the doc exists, one of the two uids in the id) | Create by one of the two sorted members with a matching id. Update by a member: members can't change, only known fields, preview must name the writer as sender at server time, and only your own `lastRead` entry. No deletes |
-| `chats/{chatId}/messages/*` | Either member | Create only: by a member, as themselves, at server time, `kind` text or theme, 1–1000 chars, no extra fields. No edits or deletes |
-| `connection_test/*` | Any signed-in user | Any signed-in user |
+| `chats/{chatId}/messages/*` | Either member | Create only: by a member, as themselves, at server time, `kind` text or theme, 1-1000 chars, no extra fields. No edits or deletes |
 
-**Pending (Phase 1, 2026-10-26):** the repo's `firestore.rules` now locks these down (only the two people involved can read; doodles sent only as yourself; friendships only from a real accepted request; usernames validated). That version is deployed to the `duudle-staging` project only. This table describes the **live** rules until the production deploy is approved.
+Live since 2026-10-27 (Phase 1). Tested by 69 emulator rules tests (`firestore-tests/`).
 
-**Known gap:** `friend_requests`, `friendships` and `doodles` are open to any signed-in user.
-A determined user could forge a friendship or a doodle's sender name. The chat function
-re-checks friendship server-side, but tightening these three collections is an open item that
-needs a rules change and deploy.
+**Remaining gaps:** friendship isn't checked in the rules (random friendship ids), so a
+stranger's doodle can still land in your Vault list, but the push function checks
+friendship, so it never pops up. Push tokens are still on the readable profile (Phase 2
+moves them; pushes now carry `receiverId` and the app ignores pushes for another account).
+Usernames aren't yet guaranteed unique.
 
 ---
 
