@@ -290,8 +290,9 @@ Live since 2026-10-27 (Phase 1). Tested by 69 emulator rules tests (`firestore-t
 
 **Remaining gaps:** friendship isn't checked in the rules (random friendship ids), so a
 stranger's doodle can still land in your Vault list, but the push function checks
-friendship, so it never pops up. Push tokens: Phase 2 (in staging, not yet live) moves them to an owner-only
-`users/{uid}/private/push` document; pushes also carry `receiverId` and the app ignores pushes for
+friendship, so it never pops up. Push tokens: since Phase 2 (live 2026-10-27) they're in an owner-only
+`users/{uid}/private/push` document (old profiles keep a public copy until that phone runs
+the new app or a one-off cleanup runs); pushes also carry `receiverId` and the app ignores pushes for
 another account.
 Usernames aren't yet guaranteed unique.
 

@@ -2,7 +2,21 @@
 
 > **Purpose:** One end-to-end reference for how Duudle works, how data moves through it, the current documented design, the risks identified from `README.md` and `ARCHITECTURE.md`, and the recommended production-ready direction.
 >
-> **Status note:** This document is based on those two project documents, not a source-code or live Firebase audit. Items labelled **Current (documented)** describe the written architecture. Items labelled **Recommended** are changes to implement or verify. Do not treat a recommendation as already shipped.
+> **Status note (updated 2026-10-27):** This document was first written from `README.md` and `ARCHITECTURE.md` alone. It has since been reconciled with the source code, `firestore.rules`, the Cloud Functions and the deployed state through Phase 2 of the engineering audit. **Current (implemented)** means it is in the code, with evidence. **Recommended** means it is not built yet. Older **Current (documented)** wording stays where nothing changed. Do not treat a recommendation as already shipped.
+
+### Implementation status (verified 2026-10-27)
+
+| Area | Status | Evidence |
+|---|---|---|
+| Firestore emulator rules tests + CI (Phase 0) | Implemented | `firestore-tests/` (80 tests passing locally); `.github/workflows/ci.yml` (not yet confirmed green on GitHub) |
+| Staging environment | Implemented | Firebase project `duudle-staging` (Firestore Standard, nam5, Anonymous + Google sign-in, Blaze); `staging` build type "Duudle Staging" (`com.example.duudle.staging`) |
+| Firestore access lockdown (Phase 1) | **Released to production 2026-10-27** | Commit e5d7776; staging-tested on the A34 + emulator; after deploy, Friends, Vault and Profile loaded on the live app with 0 permission errors |
+| Doodle pushes only between friends; sender name taken from their profile | **Released to production 2026-10-27** | `functions/doodlePush.js` + Node tests |
+| `receiverId` push guard in the app | In the app on the owner's devices | `PushGuard.kt` + unit tests |
+| 20-second sign-up timeout | In the app on the owner's devices | `SignInAttempts.kt` + unit tests |
+| Snooze = pause all pop-ups | In the app on the owner's devices (local only) | Commit e191138; owner-verified |
+| Private push tokens (Phase 2) | **Released to production 2026-10-27** | Commit d0a7a63; live doodle push logged `tokenSource=private` (10:02:53Z); live chat push delivered to the migrated emulator account. The A34 still runs the previous app (public-token fallback) |
+| Reports, Block, Terms, account linking/deletion, App Check, rate limits, Crashlytics, release signing | Not started | See `roadmap.md` (Phases 3-8) |
 
 ## 1. System at a glance
 
@@ -58,7 +72,7 @@ flowchart LR
     FCM --> MSG
 ```
 
-### Technology currently documented
+### Technology (current, implemented)
 
 | Layer | Current documented implementation | Responsibility |
 |---|---|---|
@@ -67,7 +81,7 @@ flowchart LR
 | Database | Cloud Firestore with `firestore.rules` | Profiles, friendships, friend requests, doodles, chats/messages, mutes and favorites |
 | Event processing | Cloud Functions 2nd gen, Node.js 24, `us-central1` | Reacts to newly created doodles and chat messages |
 | Push | Firebase Cloud Messaging | Sends device messages for incoming doodles/cards and chat |
-| Device storage | SharedPreferences and app files | Local username/avatar cache and snoozed doodles |
+| Device storage | SharedPreferences and app files | Local username/avatar cache, Snooze pause state and held doodles, a push-token sync marker (a hash, not the token) |
 | Platform APIs | `WindowManager`, `TYPE_APPLICATION_OVERLAY`, `AlarmManager`, `NotificationManager`, receivers | Overlay UI, snooze/reschedule, and notifications |
 
 **Do not add a custom server, Kubernetes, or another database just for anticipated scale.** First close the security gaps, measure real use and costs, and then add a service only when a demonstrated requirement needs it.
@@ -76,7 +90,7 @@ flowchart LR
 
 ### 2.1 Current component layout
 
-The written architecture describes a single `MainActivity` that selects screens using a `Screen` enum and `when`, without a navigation library or ViewModels. State is held in Compose (`remember`/`rememberSaveable`) and some activity-level fields. Snapshot listeners use `DisposableEffect` and are removed when their composables leave composition.
+**Current (implemented, checked in code):** a single `MainActivity` selects screens using a `Screen` enum and `when`, without a navigation library or ViewModels. State is held in Compose (`remember`/`rememberSaveable`) and some activity-level fields. Snapshot listeners use `DisposableEffect` and are removed when their composables leave composition. Pure, unit-tested logic sits outside Compose (128 JVM unit tests): `Avatar.kt`, `CharacterEditor.kt`, `Chat.kt`, `FlashCards.kt`, `DoodleSnooze.kt` (pause rules), `PushGuard.kt`, `SignInAttempts.kt`. The overlay window is still built inside `MainActivity.kt` (`showRealDoodleOverlay`); the `OverlayController` extraction in 2.2 is not done.
 
 ```mermaid
 flowchart TB
@@ -128,19 +142,52 @@ sequenceDiagram
   App->>DB: Save/refresh FCM token
 ```
 
-The current account is anonymous and effectively tied to the installed app data. Removing the app or clearing its data can strand the account because no recovery/linking path is documented. Anonymous authentication identifies a caller; it does **not** establish that the caller owns a claimed sender/receiver field or is allowed to change a friendship.
+The current account is anonymous and effectively tied to the installed app data. Removing the app or clearing its data can strand the account because no recovery/linking path exists yet. Anonymous authentication identifies a caller; it does **not** establish that the caller owns a claimed sender/receiver field or is allowed to change a friendship. The rules now enforce that (3.3).
+
+**Current (implemented):**
+- Usernames are 3-20 characters of `A-Z a-z 0-9 _ .`, checked in `WelcomeScreen` and in the rules, with `usernameLower == username.lower()`. Uniqueness is still checked only by the app. A reservation document plus a backfill is planned and needs owner approval.
+- Sign-up gives up after 20 seconds with "Couldn't connect…" instead of spinning forever. This was seen on a mobile network whose IPv6 route to Google was broken. A late success still signs in; a late failure is ignored.
+- Google sign-in is enabled on `duudle-staging` for future account linking. The app doesn't use it yet.
 
 ### 3.2 Recommended identity and authorization model
 
 - Add account linking/recovery (for example, link the anonymous Firebase user to a supported sign-in provider) without changing the current `uid`; handle collisions/credential-in-use carefully and test migration.
 - Build account deletion as a controlled server-side workflow that deletes or anonymizes associated data according to a documented retention policy. Make repeat requests safe.
 - Keep a minimal, queryable public profile separate from private device/credential-related data.
-- **High-priority privacy review:** the documented design stores `fcmToken` on `users/{uid}` while user documents can be read by any signed-in user. If the deployed rules match the document, other authenticated users may be able to read device push tokens. Move tokens into an owner-only device/token subcollection or another private location and let trusted server code read them with Admin SDK. Revoke/rotate tokens and clean up stale ones.
-- Refresh and manage multiple device tokens per account; `onNewToken` must update the right device record, and sign-out/deletion should remove or invalidate the corresponding registration.
+- **Push-token privacy: a confirmed issue, fixed in Phase 2 (released to production 2026-10-27).**
+  - Before Phase 2, production stored `fcmToken` on the `users/{uid}` profile, which any signed-in user can read. The audit's emulator tests confirmed this.
+  - Phase 2 moves the token to owner-only `users/{uid}/private/push` `{fcmToken, updatedAt}`, with `updatedAt` set to server time and the token limited to a string of at most 4096 characters. A profile may no longer gain a token, only drop one.
+  - On launch, the app moves its own token (`syncPushToken`), then deletes the public copy.
+  - Both Cloud Functions read the private token first and fall back to the old field for phones that haven't updated. They forget tokens that FCM reports as dead. A token is removed only if its document is unchanged since it was read (a `lastUpdateTime` precondition), so a freshly written token is never deleted.
+  - **Remaining:** a profile whose phone never runs the new app keeps a readable public token until a one-off cleanup: copy the token to the private document, then delete the public one. This is a live-data change, so it needs owner approval, plus a dry run, a staging run and a backup first.
+- **Defence in depth (implemented; keep permanently):** every push carries `receiverId`, and the app drops any push meant for a different account. The rules can't stop a user writing someone else's token into their own private document, which is why this guard matters.
+- There is one token per account today, because anonymous accounts are per device. Multiple devices per account arrive with account linking, and sign-out or deletion must then remove that device's `private/push` document. No sign-out flow exists yet.
 
-### 3.3 Security rules: current gap and target
+### 3.3 Security rules: current state and target
 
-The architecture document explicitly records that signed-in users can write `friend_requests`, `friendships`, and `doodles` too broadly. This can allow a determined user to forge relationship or sender fields. A signed-in check alone is not sufficient.
+**Current (implemented; released to production 2026-10-27; 80 emulator tests):**
+- `doodles`:
+  - read: sender and receiver only;
+  - create: only as yourself, under your stored username, to someone else, with status `unseen` and at most 500 strokes or a card id matching `card[0-9]{2}`;
+  - update: the receiver may only set `status` to `removed`;
+  - delete: never.
+- `friend_requests`:
+  - read and delete: the two parties only;
+  - create: only as yourself, under your stored username, to someone else, with status `pending`;
+  - edits: never.
+- `friendships`:
+  - read and delete: the two friends only;
+  - create: only by the accepting user, naming a real pending request the other person sent them. That request must be deleted in the same batch (`existsAfter`), so one request makes exactly one friendship.
+  - edits: never.
+- `users/{uid}`: any signed-in user can read it, because search needs that. Only the owner can write, and only known fields; usernames are validated. Since Phase 2 (live), a profile can no longer gain a token.
+- `connection_test` is removed. Chats and messages are unchanged; they were already member-only.
+- Participant checks are written as `a == uid || b == uid` so that Firestore can prove the app's list queries are allowed.
+
+**Remaining gaps:**
+- The doodle and chat rules don't check friendship, because friendship document ids are random. A stranger's doodle can still land in your Vault list, but it never pops up, because the push function checks friendship. Planned fix: deterministic friendship ids, built together with Block (Phase 4).
+- Not built yet: server-side prevention of duplicate requests, username uniqueness, rate limits.
+
+Original finding (kept for history): signed-in users could write `friend_requests`, `friendships` and `doodles` too broadly, which let a user forge relationship or sender fields. The emulator suite reproduced each hole before it was fixed.
 
 **Target security contract**
 
@@ -193,15 +240,15 @@ flowchart TD
 
 | Data | Current documented location / purpose | Access expectation to verify or implement |
 |---|---|---|
-| Public profile | `users/{uid}`: `uid`, username fields and currently a token field | Authenticated public profile fields only; keep secrets and device tokens private |
-| Friend requests | `friend_requests` with `fromUid`, `toUid`, status and timestamp | Only participants may perform the correct transition |
-| Friendships | `friendships`, participant fields and creation time | Must reflect a valid accepted relationship; not freely writable |
-| Doodles / flash cards | `doodles` with sender, receiver, strokes or `cardId`, status, created time | Authorized sender creation; receiver-specific reads/actions; bounded payload |
+| Public profile | `users/{uid}`: `uid`, `username`, `usernameLower` (live profiles may still hold a legacy `fcmToken`) | **Implemented (live):** owner-only writes and validated usernames; adding a token is forbidden (Phase 2) |
+| Friend requests | `friend_requests` with `fromUid`, `fromUsername`, `toUid`, status and timestamp | **Implemented (live):** participants only; sent only as yourself |
+| Friendships | `friendships` with `userA`, `userB`, `createdAt`, and `requestId` on new ones | **Implemented (live):** created only from a real pending request, once |
+| Doodles / flash cards | `doodles` with sender, receiver, strokes or `cardId`, status, created time | **Implemented (live):** sender and receiver only; size-bounded; the receiver may only mark it removed |
 | Private preferences | `users/{uid}/mutes`, favorites subcollections | Owner only |
 | Chat | deterministic `chats/{uidLow_uidHigh}` document and nested `messages` | Members only; member set cannot be manipulated by clients |
 | Reports | **Recommended** moderation collection | Minimal access; protect reporter and evidence data |
 | Blocks | **Recommended** owner-managed relationship/block data | Owner writes; enforce block in reads, sends, and function delivery checks |
-| Device registrations | **Recommended** private per-device/token documents | Owner or trusted server only |
+| Device registrations | `users/{uid}/private/push` `{fcmToken, updatedAt}` | **Implemented (live, Phase 2):** the owner and Admin SDK only; one per account for now |
 | Deletion jobs | **Recommended** server-controlled jobs/status | No client access to other users' jobs; operations auditable |
 
 Do not change collection paths or push payload contracts casually: installed app versions may still consume old data. Use additive migrations, dual-read/write only when necessary, and a removal plan for obsolete fields.
@@ -259,6 +306,20 @@ sequenceDiagram
   O->>O: Snooze is saved locally and re-armed with AlarmManager
 ```
 
+**Current (implemented):**
+- `onDoodleCreated`:
+  - checks friendship (in both directions) and mute;
+  - takes the sender's name from their stored profile;
+  - adds `receiverId`;
+  - reads the private token (Phase 2), falling back to the legacy field, and forgets dead tokens;
+  - catches and logs lookup failures.
+- The receiver's app drops pushes meant for another account, holds doodles while Snooze is pausing pop-ups (5.3), and otherwise shows the overlay on the main thread.
+- The fallback fetch for large doodles blocks for at most 10 seconds.
+- **Not implemented:**
+  - A fallback when overlay permission is denied (finding F13, Phase 3). If "Display over other apps" is off, the doodle doesn't appear and stays only in the Vault.
+  - Delivery telemetry.
+  - Deduplication by event id.
+
 Important distinctions:
 
 - A successful FCM send call confirms that FCM accepted a send request; it does **not** prove the phone received it, displayed the overlay or was seen by the user.
@@ -293,9 +354,23 @@ sequenceDiagram
 
 Requirements: enforce membership and sender identity in rules, validate message length/type server-side for push processing, make message creation/preview updates consistent, handle offline pending writes, and avoid logging chat text in analytics or routine logs.
 
+**Current (implemented):**
+- Membership and sender identity are enforced in the rules and tested.
+- `onChatMessageCreated`:
+  - checks friendship and mute;
+  - caps the sender's name at 32 characters and the text at 200;
+  - adds `receiverId`;
+  - uses the private token (Phase 2), with a legacy fallback.
+- Chat text is never logged. The app logs only the push type and payload keys.
+
 ### 5.3 Snooze flow (local)
 
-The documented design saves a snoozed doodle in `files/snoozed/{doodleId}.json`, records a trigger time and schedules an `AlarmManager` alarm. Receivers reschedule after reboot/update/permission changes; the Vault can cancel the alarm and file.
+**Current (implemented; owner-verified 2026-10-27):**
+- **What Snooze does:** Snooze (5 minutes, 15 minutes or 1 hour) pauses all doodle and flash-card pop-ups until an end time stored in `duudle_prefs`. Chat isn't affected.
+- **During the pause:** the tapped doodle, and any doodle that arrives while pop-ups are paused, is held in `files/snoozed/{doodleId}.json` with no overlay.
+- **When the pause ends:** one `AlarmManager` alarm fires, exact if the user allowed "Alarms & reminders". Held doodles don't pop up. Instead, one normal notification ("N doodles arrived while pop-ups were paused") opens Vault → Snoozed.
+- **Ending early:** "Resume pop-ups" ends the pause.
+- **Re-arming:** receivers re-arm the pause after a reboot, an app update, a change to the exact-alarm permission, and at app start. If the phone was off when the pause ended, that end is handled once.
 
 Recommended safeguards: validate the local serialized data before rendering; ensure cancellation, snooze and remove actions are idempotent; handle exact-alarm permission denial and inexact timing; test process death, reboot, app update, Android 8–16 behaviours and multiple OEMs. Snooze is a local-device state unless an explicit synced snooze model is added later.
 
@@ -407,7 +482,20 @@ Official docs: [Crashlytics for Android](https://firebase.google.com/docs/crashl
 
 ## 10. Cloud Functions: correctness and scaling
 
-Currently documented triggers are `onDoodleCreated` on `doodles/{id}` and `onChatMessageCreated` on `chats/{chatId}/messages/{id}`. Functions use Admin SDK reads and send FCM data messages.
+Current triggers are `onDoodleCreated` on `doodles/{id}` and `onChatMessageCreated` on `chats/{chatId}/messages/{id}`. Functions use Admin SDK reads and send FCM data messages.
+
+**Current (implemented):**
+- Both functions check friendship and mute.
+- The sender's name comes from the server-side profile.
+- Every push carries `receiverId`.
+- Lookup errors are caught.
+- Phase 2 (live): private-token reads with a legacy fallback, and safe dead-token cleanup.
+
+**Tests:** 16 Node tests, including a smoke test that loads `index.js`. The smoke test was added after a staging deploy in which `initializeApp()` had been deleted by mistake: every helper test passed, but every push crashed at runtime.
+
+**Lesson:** after a functions deploy, confirm a real invocation in Cloud Logging; "deploy successful" isn't enough.
+
+**Not implemented:** idempotency/deduplication by event id, per-user rate limits, retries.
 
 Recommended controls:
 
@@ -422,9 +510,27 @@ Recommended controls:
 
 ## 11. Environments, tests, releases, and rollback
 
-### 11.1 Current documented deployment risk
+### 11.1 Current deployment setup (implemented)
 
-The architecture says there is one Firebase project (`duudle-296a9`) and no staging environment, so deploying rules/functions affects the live project. The README reports 110 JVM unit tests and a Samsung Galaxy A34 checklist. These are useful, but they do not establish production security, load capacity or complete device compatibility.
+- **Projects:** `duudle-296a9` (production) and `duudle-staging` (staging, in the same database location, nam5). The default in `.firebaserc` is still production, so every staging deploy names `--project duudle-staging` explicitly.
+- **App variants:**
+  - `debug`: production backend.
+  - `staging`: "Duudle Staging", which installs alongside it and uses the staging backend via `app/src/staging/google-services.json`.
+- **Release order in practice:**
+  1. emulator tests;
+  2. staging deploy;
+  3. owner's phone test;
+  4. commit;
+  5. production deploy, with explicit owner approval;
+  6. post-deploy check of the live app.
+- **Rules versus app ordering:** when older app versions can't satisfy new rules, the app ships first (Phase 1). When new app writes need new rules, the rules ship first (Phase 2).
+- **Rollback:** previous rules and functions come from git (for example `git show 9ef324f:firestore.rules`). Once the Phase 2 app is out, never roll the functions back to Phase 1: those read only the public token, which the new app deletes.
+- **Tests:**
+  - 128 JVM unit tests;
+  - 80 Firestore rules tests, run on the emulator with the offline project `demo-duudle`;
+  - 16 Cloud Functions tests.
+  CI runs all three plus the build. Device checks are tracked in `PHONE_TEST_CHECKLIST.md` (Samsung A34 + emulator).
+- **Not covered yet:** these tests don't establish load capacity or broad device compatibility. Backups/restore and alerts aren't set up.
 
 ### 11.2 Recommended environment design
 
@@ -477,17 +583,17 @@ Scale progressively using measurements and service-native capabilities:
 
 ## 13. Implementation ownership map
 
-| Area | Likely files/resources to inspect or change | Completion evidence |
-|---|---|---|
-| Authorization | `firestore.rules`, `firebase.json`, rule tests | Emulator negative/positive tests pass; no broad writes on sensitive collections |
-| Push privacy | `users/{uid}` schema, `MainActivity.kt`, `DuudleMessagingService.kt`, `functions` | Tokens are private per device; no token readable through public profile queries |
-| Function reliability | Cloud Functions source and tests | Validation, block/mute checks, dedupe and token cleanup tests pass |
-| Account recovery/deletion | Auth UI/service, profile/settings, deletion callable/job and web deletion page | Linked-account recovery and full deletion flow verified end-to-end |
-| UGC controls | Friends/chat/doodle UI, moderation collections/services | Policy acceptance, report and block flows work and are enforced server-side |
-| Overlay safety | Manifest, overlay manager (currently documented in `MainActivity.kt`), messaging service | Permission denial/revoke, fallback, dismissal and device matrix tests pass |
-| Monitoring | Gradle/Firebase config, Cloud Logging/Monitoring | Test crash/perf event and alert observed; runbook owner assigned |
-| CI/environments | Gradle, Firebase CLI config, workflows | CI is green; staging deploy verified; production gate/rollback documented |
-| Store readiness | Release bundle, Play Console, privacy policy and listing | Target SDK, forms, deletion link, content rating and asset rights verified |
+| Area | Likely files/resources to inspect or change | Completion evidence | Status (2026-10-27) |
+|---|---|---|---|
+| Authorization | `firestore.rules`, `firebase.json`, rule tests | Emulator negative/positive tests pass; no broad writes on sensitive collections | **Done, live** (Phase 1) |
+| Push privacy | `users/{uid}` schema, `MainActivity.kt`, `DuudleMessagingService.kt`, `functions` | Tokens are private per device; no token readable through public profile queries | **Done, live** (Phase 2); legacy-token cleanup pending |
+| Function reliability | Cloud Functions source and tests | Validation, block/mute checks, dedupe and token cleanup tests pass | Partly done: validation, mute, friendship and token cleanup are built; block and dedupe are not |
+| Account recovery/deletion | Auth UI/service, profile/settings, deletion callable/job and web deletion page | Linked-account recovery and full deletion flow verified end-to-end | Not started (Phase 5) |
+| UGC controls | Friends/chat/doodle UI, moderation collections/services | Policy acceptance, report and block flows work and are enforced server-side | Not started (Phase 4) |
+| Overlay safety | Manifest, overlay manager (currently in `MainActivity.kt`), messaging service | Permission denial/revoke, fallback, dismissal and device matrix tests pass | Partly done: dismissal and the Snooze pause are built; the denied-permission fallback (F13) is not |
+| Monitoring | Gradle/Firebase config, Cloud Logging/Monitoring | Test crash/perf event and alert observed; runbook owner assigned | Not started (Phase 7) |
+| CI/environments | Gradle, Firebase CLI config, workflows | CI is green; staging deploy verified; production gate/rollback documented | Mostly done: staging, the approval gate and rollback have been used in practice; CI not yet confirmed green on GitHub |
+| Store readiness | Release bundle, Play Console, privacy policy and listing | Target SDK, forms, deletion link, content rating and asset rights verified | Not started. Target SDK 36 is confirmed in Gradle; the `com.example` package name and the flash-card image rights block release |
 
 ## 14. Related documents
 
@@ -498,4 +604,4 @@ Scale progressively using measurements and service-native capabilities:
 
 ---
 
-**Final caveat:** This document is a target architecture and flow reference. Before declaring Duudle secure or Play-ready, inspect the real Kotlin source, manifest, Gradle target SDK, `firestore.rules`, Cloud Functions source, Firebase console configuration, and Play Console forms; run the tests and retain their results.
+**Final caveat:** This document is a target architecture and flow reference, reconciled with the implementation through Phase 2 on 2026-10-27. Before declaring Duudle secure or Play-ready, inspect the real Kotlin source, manifest, Gradle target SDK, `firestore.rules`, Cloud Functions source, Firebase console configuration, and Play Console forms; run the tests and retain their results.

@@ -526,7 +526,7 @@ affected. Files: `DoodleSnooze.kt`, `DuudleMessagingService.kt`, `MainActivity.k
 - [ ] Snooze 5 min, B sends one, restart A before the time is up: the notification still
       arrives (on time, or right after boot / app open if the phone was off at the end)
 
-## Phase 2 private push tokens (staging: owner-verified pushes arrive, 2026-10-27)
+## Phase 2 private push tokens (released to production 2026-10-27)
 
 What changed: the push token moved from the public profile to an owner-only
 `users/{uid}/private/push` document; each phone moves its own token on launch; the
@@ -536,11 +536,19 @@ reports as dead. Tested: 80 rules tests, 15 function tests, 128 unit tests.
 - [x] Duudle Staging, both devices: a doodle and a chat message each way still arrive
       (first staging run failed: a Phase 2 edit removed `initializeApp()` from functions/index.js,
       so every push crashed; fixed, plus a smoke test that loads index.js)
-- [ ] Function logs (Firebase console > duudle-staging > Functions > logs) show
-      `tokenSource: "private"` for those pushes
+- [x] Function logs (Firebase console > duudle-staging > Functions > logs) show
+      `tokenSource: "private"` for those pushes (doodle 08:51:18Z: "Push sent successfully
+      tokenSource=private"; chat "Chat push sent successfully")
 - [ ] Clear Duudle Staging's data on one device and sign up again: that account
       receives pushes (fresh sign-up saves its token privately)
-- [ ] After going live: the same on the normal app; no "Failed to save FCM token" in logs
+- [x] Approved and released to the live project 2026-10-27 (functions 09:50Z, then rules,
+      then the app on the emulator). The emulator's account `emulator2` moved its token to
+      `private/push` and dropped the public one, with no permission errors
+- [x] Live app, A34 (`arnav111`) to emulator (`emulator2`): doodle arrived (function log
+      10:02:53Z "Push sent successfully tokenSource=private") and chat arrived (10:12:42Z;
+      the first try stayed pending on mobile data, sent fine on Wi-Fi)
+- [ ] Install the new app on the A34, open it, then emulator to A34: a doodle and a chat
+      arrive; no "Failed to save FCM token" in logs (the A34 still runs the previous app)
 
 ## Already passed on the phone
 
