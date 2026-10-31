@@ -180,6 +180,21 @@ class MainActivity : ComponentActivity() {
                     onDispose { listener.remove() }
                 }
 
+                // Who I've blocked, for every screen; their unseen doodles don't reach Home.
+                DisposableEffect(currentUid) {
+                    if (currentUid.isBlank()) return@DisposableEffect onDispose {}
+                    val listener = Blocks.listen(currentUid)
+                    onDispose {
+                        listener.remove()
+                        Blocks.clear()
+                    }
+                }
+                val blocked by Blocks.state.collectAsState()
+                val visibleIncoming = remember(incomingDoodles, blocked) { incomingDoodles.filter { it.senderId !in blocked } }
+
+                // Accounts from before the Terms existed agree once, over whatever screen opens.
+                var termsAccepted by remember { mutableStateOf(hasAcceptedCurrentTerms(context)) }
+
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     when (currentScreen) {
                         Screen.WELCOME -> WelcomeScreen(
@@ -204,6 +219,9 @@ class MainActivity : ComponentActivity() {
                                     isSigningIn = false
                                     if (success) {
                                         prefs.edit().putString("username", username).apply()
+                                        // Get Started is only enabled once the Terms box is ticked.
+                                        recordTermsAccepted(context, FirebaseAuth.getInstance().currentUser?.uid ?: "")
+                                        termsAccepted = true
                                         currentScreen = Screen.HOME
                                     } else {
                                         signInError = error ?: "Something went wrong, try again"
@@ -222,8 +240,8 @@ class MainActivity : ComponentActivity() {
                             onOverlayDebugClick = openOverlayHelp,
                             onVaultClick = { currentScreen = Screen.VAULT },
                             onMeClick = { currentScreen = Screen.PROFILE },
-                            newDoodleFromUsername = incomingDoodles.firstOrNull()?.senderUsername,
-                            newItemIsFlashCard = incomingDoodles.firstOrNull()?.cardId != null,
+                            newDoodleFromUsername = visibleIncoming.firstOrNull()?.senderUsername,
+                            newItemIsFlashCard = visibleIncoming.firstOrNull()?.cardId != null,
                             onViewDoodle = { currentScreen = Screen.VIEW_DOODLE }
                         )
                         // Keyed on the recipient so a reply arriving while Draw is
@@ -301,7 +319,7 @@ class MainActivity : ComponentActivity() {
                             onSnoozedTabOpened = { openVaultOnSnoozed = false }
                         )
                         Screen.VIEW_DOODLE -> {
-                            val doodle = incomingDoodles.firstOrNull()
+                            val doodle = visibleIncoming.firstOrNull()
                             if (doodle == null) {
                                 LaunchedEffect(Unit) { currentScreen = Screen.HOME }
                             } else {
@@ -321,6 +339,10 @@ class MainActivity : ComponentActivity() {
                                         recipientUid = senderUid
                                         recipientUsername = senderUsername
                                         currentScreen = Screen.DRAW
+                                    },
+                                    onBlocked = {
+                                        DoodleSnooze.cancel(context, doodle.docId)
+                                        currentScreen = Screen.HOME
                                     }
                                 )
                             }
@@ -358,6 +380,13 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(Unit) { currentScreen = Screen.HOME }
                         }
                     }
+                }
+
+                if (!termsAccepted && currentScreen != Screen.WELCOME) {
+                    TermsAgreementDialog(onAgree = {
+                        recordTermsAccepted(context, currentUid)
+                        termsAccepted = true
+                    })
                 }
             }
         }

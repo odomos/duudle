@@ -79,7 +79,13 @@ fun VaultScreen(
     openSnoozedTab: Boolean = false,
     onSnoozedTabOpened: () -> Unit = {}
 ) {
-    var doodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
+    var allDoodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
+    // Doodles from people I've blocked are hidden (the ones I sent them stay).
+    val blocked by Blocks.state.collectAsState()
+    val doodles = remember(allDoodles, blocked) {
+        allDoodles.filter { it.senderId == currentUid || it.senderId !in blocked }
+    }
+    val safety = rememberSafetyActions()
     var loaded by remember { mutableStateOf(false) }
     var selectedDoodle by remember { mutableStateOf<IncomingDoodle?>(null) }
     var savedOnly by rememberSaveable { mutableStateOf(false) }
@@ -118,7 +124,7 @@ fun VaultScreen(
     DisposableEffect(currentUid) {
         if (currentUid.isBlank()) return@DisposableEffect onDispose {}
         val listeners = listenForVaultDoodles(currentUid) {
-            doodles = it
+            allDoodles = it
             loaded = true
         }
         onDispose { listeners.forEach { it.remove() } }
@@ -149,7 +155,9 @@ fun VaultScreen(
             onReply = { uid, username ->
                 selectedDoodle = null
                 onReply(uid, username)
-            }
+            },
+            onReport = { safety.report(ReportSubject.doodle(doodle.senderId, doodle.senderUsername, doodle.docId)) },
+            onBlock = { safety.block(doodle.senderId, doodle.senderUsername) }
         )
     } else {
         DuudlePage(modifier = modifier.faceGazeSource(gaze)) {
@@ -240,6 +248,7 @@ fun VaultScreen(
             )
         }
     }
+    SafetyDialogs(safety, currentUid, onBlocked = { selectedDoodle = null })
 }
 
 @Composable
@@ -402,7 +411,9 @@ private fun VaultDoodleDetail(
     heldNote: String?,
     onToggleSaved: () -> Unit,
     onBack: () -> Unit,
-    onReply: (uid: String, username: String) -> Unit
+    onReply: (uid: String, username: String) -> Unit,
+    onReport: () -> Unit,
+    onBlock: () -> Unit
 ) {
     val isSent = doodle.senderId == currentUid
     val time = relativeTime(doodle.createdAt)
@@ -411,12 +422,15 @@ private fun VaultDoodleDetail(
             title = if (isSent) "To @${doodle.receiverUsername}" else "From @${doodle.senderUsername}",
             onBack = onBack,
             trailing = {
-                IconToggleButton(
-                    checked = isSaved,
-                    onCheckedChange = { onToggleSaved() },
-                    modifier = Modifier.semantics { contentDescription = if (isSaved) "Saved" else "Save" }
-                ) {
-                    StarGlyph(filled = isSaved, modifier = Modifier.size(26.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconToggleButton(
+                        checked = isSaved,
+                        onCheckedChange = { onToggleSaved() },
+                        modifier = Modifier.semantics { contentDescription = if (isSaved) "Saved" else "Save" }
+                    ) {
+                        StarGlyph(filled = isSaved, modifier = Modifier.size(26.dp))
+                    }
+                    if (!isSent) SafetyMenuButton(username = doodle.senderUsername, onReport = onReport, onBlock = onBlock)
                 }
             }
         )

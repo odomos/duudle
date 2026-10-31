@@ -22,6 +22,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username;
     }
 
+    // Either of the two has blocked the other. exists() reads the owner-only blocks
+    // documents with the rules' own access, so a blocked person still can't list who
+    // blocked them; they only find that sending to that person fails.
+    function blockedBetween(a, b) {
+      return exists(/databases/$(database)/documents/users/$(a)/blocks/$(b))
+        || exists(/databases/$(database)/documents/users/$(b)/blocks/$(a));
+    }
+
     match /users/{userId} {
       // Readable by any signed-in user: username search needs it.
       allow read: if signedIn();
@@ -53,15 +61,32 @@ service cloud.firestore {
           || !('fcmToken' in request.resource.data));
       allow delete: if false;
 
-      // This device's push token. Owner only; the Cloud Functions read it with admin
-      // rights. The only document here is "push".
+      // Owner-only documents. "push": this device's push token (the Cloud Functions read
+      // it with admin rights). "terms": which version of the Terms the user accepted.
       match /private/{docId} {
         allow read, delete: if signedIn() && request.auth.uid == userId;
         allow create, update: if signedIn() && request.auth.uid == userId
-          && docId == 'push'
-          && request.resource.data.keys().hasOnly(['fcmToken', 'updatedAt'])
-          && validToken(request.resource.data.fcmToken)
-          && request.resource.data.updatedAt == request.time;
+          && ((docId == 'push'
+              && request.resource.data.keys().hasOnly(['fcmToken', 'updatedAt'])
+              && validToken(request.resource.data.fcmToken)
+              && request.resource.data.updatedAt == request.time)
+            || (docId == 'terms'
+              && request.resource.data.keys().hasOnly(['version', 'acceptedAt'])
+              && request.resource.data.version is int
+              && request.resource.data.version > 0
+              && request.resource.data.acceptedAt == request.time));
+      }
+
+      // Who I've blocked. Owner-only like mutes; blockedBetween() and the Cloud Functions
+      // check it with their own access. The username is only for my Blocked list.
+      match /blocks/{blockedUid} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+        allow create, update: if signedIn() && request.auth.uid == userId
+          && blockedUid != userId
+          && request.resource.data.keys().hasOnly(['blockedAt', 'username'])
+          && request.resource.data.blockedAt == request.time
+          && request.resource.data.username is string
+          && request.resource.data.username.size() <= 200;
       }
 
       // Who I've muted. Owner-only, so a muted friend can never find out.
@@ -98,7 +123,8 @@ service cloud.firestore {
         && request.resource.data.fromUsername == myUsername()
         && otherName(request.resource.data.toUsername)
         && request.resource.data.status == 'pending'
-        && request.resource.data.timestamp is number;
+        && request.resource.data.timestamp is number
+        && !blockedBetween(request.auth.uid, request.resource.data.toUid);
       allow update: if false;
     }
 
@@ -121,16 +147,18 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/friend_requests/$(request.resource.data.requestId))
         && get(/databases/$(database)/documents/friend_requests/$(request.resource.data.requestId)).data.fromUid == request.resource.data.userB
         && get(/databases/$(database)/documents/friend_requests/$(request.resource.data.requestId)).data.toUid == request.auth.uid
-        && get(/databases/$(database)/documents/friend_requests/$(request.resource.data.requestId)).data.status == 'pending';
+        && get(/databases/$(database)/documents/friend_requests/$(request.resource.data.requestId)).data.status == 'pending'
+        && !blockedBetween(request.auth.uid, request.resource.data.userB);
       allow update: if false;
     }
 
     // Doodles and flash cards: only the sender and receiver can see one. Sent as yourself,
     // to someone else, "unseen", with a bounded drawing or a known card id. Afterwards
     // the receiver may only mark it "removed"; nobody can edit the content or delete it.
+    // Nothing can be sent between two people when either has blocked the other.
     // Limitation: friendship can't be checked here (random friendship ids); the push
     // function checks it, so a non-friend's doodle never pops up (it can still appear in
-    // the receiver's Vault list until Block / deterministic friendship ids land).
+    // the receiver's Vault list; blocking the sender hides it and stops more).
     match /doodles/{doodleId} {
       allow read: if signedIn()
         && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
@@ -147,12 +175,44 @@ service cloud.firestore {
         && request.resource.data.createdAt is number
         && request.resource.data.status == 'unseen'
         && (!('cardId' in request.resource.data)
-          || (request.resource.data.cardId is string && request.resource.data.cardId.matches('card[0-9]{2}')));
+          || (request.resource.data.cardId is string && request.resource.data.cardId.matches('card[0-9]{2}')))
+        && !blockedBetween(request.auth.uid, request.resource.data.receiverId);
       allow update: if signedIn()
         && request.auth.uid == resource.data.receiverId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.status == 'removed';
       allow delete: if false;
+    }
+
+    // Reports: a user, a doodle you received, or a chat you're in. Write-only for clients;
+    // the developer reads and handles them in the Firebase console (MODERATION.md).
+    // A doodle report must name a doodle the reported person really sent you, and a chat
+    // report the chat between you two, so nobody can pin content on someone else.
+    match /reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['reporterId', 'reportedUid', 'reason', 'contentType', 'contentId', 'details', 'createdAt', 'status'])
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reportedUid is string
+        && request.resource.data.reportedUid.size() > 0
+        && request.resource.data.reportedUid.size() <= 128
+        && request.resource.data.reportedUid != request.auth.uid
+        && request.resource.data.reason in ['harassment', 'hate', 'sexual', 'violence', 'spam', 'impersonation', 'underage', 'other']
+        && (!('details' in request.resource.data)
+          || (request.resource.data.details is string && request.resource.data.details.size() <= 1000))
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'open'
+        && ((request.resource.data.contentType == 'user'
+            && !('contentId' in request.resource.data))
+          || (request.resource.data.contentType == 'doodle'
+            && request.resource.data.contentId is string
+            && request.resource.data.contentId.matches('[A-Za-z0-9]{1,40}')
+            && get(/databases/$(database)/documents/doodles/$(request.resource.data.contentId)).data.receiverId == request.auth.uid
+            && get(/databases/$(database)/documents/doodles/$(request.resource.data.contentId)).data.senderId == request.resource.data.reportedUid)
+          || (request.resource.data.contentType == 'chat'
+            && request.resource.data.contentId in [
+              request.auth.uid + '_' + request.resource.data.reportedUid,
+              request.resource.data.reportedUid + '_' + request.auth.uid]));
     }
 
     // (The old connection_test collection is gone: anything not matched here is denied.)
@@ -236,7 +296,8 @@ service cloud.firestore {
           && request.resource.data.kind in ['text', 'theme']
           && request.resource.data.text is string
           && request.resource.data.text.size() >= 1
-          && request.resource.data.text.size() <= 1000;
+          && request.resource.data.text.size() <= 1000
+          && !blockedBetween(chatId.split('_')[0], chatId.split('_')[1]);
         allow update, delete: if false;
       }
     }

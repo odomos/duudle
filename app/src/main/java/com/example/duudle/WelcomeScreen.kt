@@ -6,13 +6,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -34,7 +38,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -99,13 +107,17 @@ fun WelcomeScreen(
     onGetStarted: (String) -> Unit
 ) {
     var username by remember { mutableStateOf("") }
+    var agreed by rememberSaveable { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val gaze = rememberFaceGaze()
     val clock = rememberFaceClock()
     val navBarBottom = WindowInsets.navigationBars.getBottom(LocalDensity.current).toFloat()
     val trimmed = username.trim()
     val usernameOk = isValidUsername(trimmed)
-    val submit = { if (usernameOk) onGetStarted(trimmed) }
+    // The age/Terms box gates sign-up; MainActivity records the acceptance once it succeeds.
+    val canSubmit = usernameOk && agreed
+    val submit = { if (canSubmit) onGetStarted(trimmed) }
 
     Column(
         modifier = modifier
@@ -177,10 +189,12 @@ fun WelcomeScreen(
                 onValueChange = { username = it.take(USERNAME_MAX_LENGTH) },
                 onDone = {
                     focusManager.clearFocus()
-                    if (!isLoading && usernameOk) submit()
+                    if (!isLoading && canSubmit) submit()
                 }
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(8.dp))
+            TermsCheckRow(checked = agreed, onCheckedChange = { agreed = it }, onReadTerms = { showTerms = true })
+            Spacer(Modifier.height(8.dp))
             // Typing hint first (once something's typed), then any sign-up error.
             val shownError = if (trimmed.isNotEmpty() && !usernameOk) USERNAME_RULE_HINT else errorMessage
             if (shownError != null) {
@@ -194,12 +208,55 @@ fun WelcomeScreen(
             }
             BlackPillButton(
                 text = if (isLoading) "Setting up..." else "Get Started",
-                enabled = !isLoading && usernameOk,
-                dimmed = !isLoading && !usernameOk,
+                enabled = !isLoading && canSubmit,
+                dimmed = !isLoading && !canSubmit,
                 onClick = submit
             )
         }
         Spacer(Modifier.weight(0.1f))
+    }
+    if (showTerms) TermsDialog(onDismiss = { showTerms = false })
+}
+
+/** "I'm 13 or older and agree to the Terms…": the row toggles; the link opens the Terms. */
+@Composable
+private fun TermsCheckRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, onReadTerms: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            modifier = Modifier
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+                .padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = checked,
+                onCheckedChange = null,
+                colors = CheckboxDefaults.colors(checkedColor = DuudleColors.Ink, uncheckedColor = DuudleColors.Muted)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "I'm $MINIMUM_AGE or older and agree to the Terms and Community Guidelines",
+                fontSize = 13.sp,
+                color = DuudleColors.Ink
+            )
+        }
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)) {
+                    append("Read the Terms and Community Guidelines")
+                }
+            },
+            fontSize = 13.sp,
+            color = DuudleColors.Ink,
+            modifier = Modifier
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(role = Role.Button, onClick = onReadTerms)
+                .wrapContentHeight(Alignment.CenterVertically)
+                .padding(horizontal = 8.dp)
+        )
     }
 }
 

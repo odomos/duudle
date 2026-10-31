@@ -52,14 +52,16 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   const db = getFirestore();
   const receiverRef = db.collection("users").doc(receiverId);
   const friendships = db.collection("friendships");
-  let userDoc; let muteDoc; let senderDoc; let asA; let asB;
+  let userDoc; let muteDoc; let senderDoc; let asA; let asB; let blockedByReceiver; let blockedBySender;
   try {
-    [userDoc, muteDoc, senderDoc, asA, asB] = await Promise.all([
+    [userDoc, muteDoc, senderDoc, asA, asB, blockedByReceiver, blockedBySender] = await Promise.all([
       receiverRef.get(),
       receiverRef.collection("mutes").doc(senderId).get(),
       db.collection("users").doc(senderId).get(),
       friendships.where("userA", "==", senderId).where("userB", "==", receiverId).limit(1).get(),
       friendships.where("userA", "==", receiverId).where("userB", "==", senderId).limit(1).get(),
+      receiverRef.collection("blocks").doc(senderId).get(),
+      db.collection("users").doc(senderId).collection("blocks").doc(receiverId).get(),
     ]);
   } catch (error) {
     // No retries are configured, so log enough to find the lost push.
@@ -81,6 +83,7 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   const decision = decideDoodlePush({
     senderId,
     receiverId,
+    blocked: blockedByReceiver.exists || blockedBySender.exists,
     areFriends: !asA.empty || !asB.empty,
     muted: muteDoc.exists,
     receiverExists: userDoc.exists,
@@ -182,11 +185,19 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
   }
 
   const recipientRef = db.collection("users").doc(recipientId);
-  const [recipientDoc, muteDoc, senderDoc] = await Promise.all([
+  const [recipientDoc, muteDoc, senderDoc, blockedByRecipient, blockedBySender] = await Promise.all([
     recipientRef.get(),
     recipientRef.collection("mutes").doc(senderId).get(),
     db.collection("users").doc(senderId).get(),
+    recipientRef.collection("blocks").doc(senderId).get(),
+    db.collection("users").doc(senderId).collection("blocks").doc(recipientId).get(),
   ]);
+
+  // The rules refuse messages between blocked people; this catches one sent just before.
+  if (blockedByRecipient.exists || blockedBySender.exists) {
+    logger.info("Blocked, skipping chat push", {chatId, messageId});
+    return;
+  }
 
   // Same mute semantics as doodles: the message is still stored and shows in the chat,
   // only the push is skipped. The sender is never told.

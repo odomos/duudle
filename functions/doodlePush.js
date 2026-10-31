@@ -14,6 +14,7 @@ function displayName(storedUsername) {
  * @param {object} facts
  * @param {string|undefined} facts.senderId
  * @param {string|undefined} facts.receiverId
+ * @param {boolean} facts.blocked      either of the two has blocked the other
  * @param {boolean} facts.areFriends   a friendship doc links the two, either direction
  * @param {boolean} facts.muted        receiver muted the sender
  * @param {boolean} facts.receiverExists
@@ -24,6 +25,9 @@ function decideDoodlePush(facts) {
   if (!facts.receiverId) return {send: false, reason: "no-receiver"};
   if (!facts.senderId) return {send: false, reason: "no-sender"};
   if (facts.senderId === facts.receiverId) return {send: false, reason: "self"};
+  // The rules already refuse doodles between blocked people; this also catches one
+  // written just before the block landed.
+  if (facts.blocked) return {send: false, reason: "blocked"};
   // Rules can't check friendship (random friendship ids), so this is where a stranger's
   // doodle is stopped from popping up. It still lands in the receiver's Vault list.
   if (!facts.areFriends) return {send: false, reason: "not-friends"};

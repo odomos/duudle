@@ -155,9 +155,11 @@ fun IncomingDoodleScreen(
     currentUid: String,
     onSnooze: () -> Unit,
     onRemove: () -> Unit,
-    onReply: (senderUid: String, senderUsername: String) -> Unit
+    onReply: (senderUid: String, senderUsername: String) -> Unit,
+    onBlocked: () -> Unit
 ) {
     val isSaved = doodle.docId in rememberFavoriteDoodleIds(currentUid)
+    val safety = rememberSafetyActions()
     Column(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -168,10 +170,19 @@ fun IncomingDoodleScreen(
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
-            TextButton(
-                onClick = { setDoodleFavorite(currentUid, doodle.docId, !isSaved) },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) { Text(if (isSaved) "★ Saved" else "☆ Save") }
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { setDoodleFavorite(currentUid, doodle.docId, !isSaved) }) {
+                    Text(if (isSaved) "★ Saved" else "☆ Save")
+                }
+                SafetyMenuButton(
+                    username = doodle.senderUsername,
+                    onReport = { safety.report(ReportSubject.doodle(doodle.senderId, doodle.senderUsername, doodle.docId)) },
+                    onBlock = { safety.block(doodle.senderId, doodle.senderUsername) }
+                )
+            }
         }
 
         DoodleOrCard(
@@ -196,4 +207,5 @@ fun IncomingDoodleScreen(
             Button(onClick = { onReply(doodle.senderId, doodle.senderUsername) }) { Text("Draw") }
         }
     }
+    SafetyDialogs(safety, currentUid, onBlocked = { onBlocked() })
 }

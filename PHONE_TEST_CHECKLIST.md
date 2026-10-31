@@ -568,6 +568,29 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 4 Terms, Block, Report (owner-verified on staging 2026-10-31; going live)
+
+What changed: sign-up needs "I'm 13 or older and agree to the Terms…"; existing accounts
+see a one-time "Before you keep doodling" dialog; a ⋮ menu (Report / Block) on friend
+cards, friend requests, the chat header, a received doodle in the Vault and the doodle
+screen opened from Home; Profile > Safety lists blocked accounts (Unblock) and opens the
+Terms. Rules: nothing can pass between two people when either blocked the other; reports
+are write-only. Tested: 108 rules tests, 17 function tests, 137 unit tests.
+
+Verified on **Duudle Staging** (A34 + emulator), owner "checked everything" 2026-10-31:
+- [x] Terms dialog shows once and both accounts accepted (saved in staging 2026-10-29)
+- [x] Report from the ⋮ menus (chat report saved in staging 2026-10-29; owner checked the
+      rest. No doodle report reached staging Firestore, so that one is owner-verified only)
+- [x] Block: the friend vanishes from Friends on both phones; the blocked person's friend
+      request and chat message don't go through (2026-10-29)
+- [x] Unblock in Profile, then a new friend request works again (2026-10-29)
+- [x] Remaining items (Vault hiding, Profile > Safety list, blocked doodle, other friends)
+      owner-checked 2026-10-31
+- [ ] The app starts at normal speed on the A34 (the emulator was slow to start for both
+      the old and new build because it was overloaded)
+- [ ] After the production deploy: in the live **Duudle** app, the Terms dialog shows once,
+      and a doodle and a chat between two friends still pop up
+
 ## Already passed on the phone
 
 - Mute (#4), long doodles (#2), case-insensitive friend search (#3)

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -239,6 +240,9 @@ fun ProfileScreen(
                 )
 
                 Spacer(Modifier.height(16.dp))
+                SafetyCard(currentUid = currentUid)
+
+                Spacer(Modifier.height(16.dp))
                 Text(
                     "Your account lives on this phone. Uninstalling Duudle or clearing its data starts you fresh.",
                     fontSize = 13.sp,
@@ -434,6 +438,79 @@ private fun PhoneSetupCard(
             )
         }
     }
+}
+
+/** Blocked accounts (with Unblock) and the Terms. */
+@Composable
+private fun SafetyCard(currentUid: String) {
+    val context = LocalContext.current
+    val blocked by Blocks.state.collectAsState()
+    var showTerms by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CardShape)
+            .background(DuudleColors.Paper)
+            .border(1.dp, DuudleColors.Hairline, CardShape)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        SectionTitle("Safety")
+        Spacer(Modifier.height(6.dp))
+        Text("Blocked accounts", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = DuudleColors.Ink)
+        if (blocked.isEmpty()) {
+            Text("You haven't blocked anyone.", fontSize = 13.sp, color = DuudleColors.Muted)
+        } else {
+            blocked.entries.sortedBy { it.value.lowercase() }.forEach { (uid, username) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "@$username",
+                        fontSize = 15.sp,
+                        color = DuudleColors.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = {
+                        unblockUser(currentUid, uid) { ok ->
+                            Toast.makeText(
+                                context,
+                                if (ok) "Unblocked @$username" else "Couldn't unblock. Try again.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }) { Text("Unblock", color = DuudleColors.Ink, fontWeight = FontWeight.Bold) }
+                }
+            }
+            Text(
+                "Unblocking doesn't make you friends again; either of you can send a new request.",
+                fontSize = 13.sp,
+                color = DuudleColors.Muted
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = DuudleColors.Hairline)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(role = Role.Button, onClick = { showTerms = true }),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Terms & Community Guidelines",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = DuudleColors.Ink,
+                modifier = Modifier.weight(1f)
+            )
+            Text("›", fontSize = 22.sp, color = DuudleColors.Ink, modifier = Modifier.clearAndSetSemantics { })
+        }
+    }
+    if (showTerms) TermsDialog(onDismiss = { showTerms = false })
 }
 
 @Composable

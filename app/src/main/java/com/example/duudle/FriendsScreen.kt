@@ -105,6 +105,10 @@ fun FriendsScreen(
     var friendshipsBReported by remember { mutableStateOf(false) }
     var friendsLoaded by remember { mutableStateOf(false) }
     var friendsLoadFailed by remember { mutableStateOf(false) }
+    val safety = rememberSafetyActions()
+    val blocked by Blocks.state.collectAsState()
+    // Blocking deletes pending requests too; this hides one until the listener catches up.
+    val visibleRequests = remember(requests, blocked) { requests.filter { it.fromUid !in blocked } }
 
     DisposableEffect(currentUid) {
         val db = FirebaseFirestore.getInstance()
@@ -233,7 +237,7 @@ fun FriendsScreen(
             options = FriendsTabLabels,
             selectedIndex = selectedTab.ordinal,
             onSelect = { selectedTab = FriendsTab.entries[it] },
-            badges = listOf(0, 0, requests.size),
+            badges = listOf(0, 0, visibleRequests.size),
             modifier = Modifier.padding(horizontal = 24.dp)
         )
 
@@ -255,15 +259,18 @@ fun FriendsScreen(
                     unreadChatUids = unreadChatUids,
                     onChatClick = { friend -> onChatClick(friend.uid, friend.username) },
                     onAddFriend = { selectedTab = FriendsTab.ADD },
+                    safety = safety,
                     gaze = gaze
                 )
                 FriendsTab.ADD -> AddFriendTab(
                     currentUid = currentUid,
                     currentUsername = currentUsername,
-                    friendUids = friendUids
+                    friendUids = friendUids,
+                    blockedUids = blocked.keys
                 )
                 FriendsTab.REQUESTS -> RequestsTab(
-                    requests = requests,
+                    requests = visibleRequests,
+                    safety = safety,
                     onAccept = { req -> acceptFriendRequest(req.docId, currentUid, req.fromUid) { } },
                     onDecline = { req -> declineFriendRequest(req.docId) },
                     gaze = gaze
@@ -286,6 +293,7 @@ fun FriendsScreen(
             )
         }
     }
+    SafetyDialogs(safety, currentUid)
 }
 
 /** Grey rounded search field with a magnifier, used on the Friends and Add tabs. */
@@ -339,6 +347,7 @@ private fun FriendsTabContent(
     unreadChatUids: Set<String>,
     onChatClick: (Friend) -> Unit,
     onAddFriend: () -> Unit,
+    safety: SafetyActions,
     gaze: FaceGaze
 ) {
     when {
@@ -374,6 +383,7 @@ private fun FriendsTabContent(
                 onSelectFriend = onSelectFriend,
                 unreadChatUids = unreadChatUids,
                 onChatClick = onChatClick,
+                safety = safety,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -388,6 +398,7 @@ private fun FriendsList(
     onSelectFriend: (Friend) -> Unit,
     unreadChatUids: Set<String>,
     onChatClick: (Friend) -> Unit,
+    safety: SafetyActions,
     modifier: Modifier = Modifier
 ) {
     // Typing "@maya" finds maya too.
@@ -419,7 +430,9 @@ private fun FriendsList(
                 onToggleMute = onToggleMute,
                 onSelectFriend = onSelectFriend,
                 hasUnreadChat = friend.uid in unreadChatUids,
-                onChatClick = onChatClick
+                onChatClick = onChatClick,
+                onReport = { safety.report(ReportSubject.user(friend.uid, friend.username)) },
+                onBlock = { safety.block(friend.uid, friend.username) }
             )
         }
     }
@@ -463,7 +476,9 @@ private fun FriendCard(
     onToggleMute: (Friend) -> Unit,
     onSelectFriend: (Friend) -> Unit,
     hasUnreadChat: Boolean,
-    onChatClick: (Friend) -> Unit
+    onChatClick: (Friend) -> Unit,
+    onReport: () -> Unit,
+    onBlock: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -491,6 +506,7 @@ private fun FriendCard(
                     color = DuudleColors.Muted
                 )
             }
+            SafetyMenuButton(username = friend.username, onReport = onReport, onBlock = onBlock)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -618,7 +634,7 @@ data class UserSearchResult(val uid: String, val username: String)
 private enum class AddState { IDLE, WORKING, SENT, ALREADY_SENT, ALREADY_FRIENDS, FAILED }
 
 @Composable
-private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids: Set<String>) {
+private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids: Set<String>, blockedUids: Set<String>) {
     var searchText by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf<List<UserSearchResult>>(emptyList()) }
@@ -640,7 +656,7 @@ private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids
             if (usernameKey(searchText) != query) return@searchUsersByPrefix // a newer search is running
             isSearching = false
             errorMessage = error?.let { "Search failed: $it" }
-            results = found.filter { it.uid != currentUid && it.uid !in friendUids }
+            results = found.filter { it.uid != currentUid && it.uid !in friendUids && it.uid !in blockedUids }
         }
     }
 
@@ -661,7 +677,12 @@ private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids
                     toUsername = user.username
                 ) { success, error ->
                     setState(user.uid, if (success) AddState.SENT else AddState.FAILED)
-                    if (!success) errorMessage = "Couldn't send request: $error"
+                    // Generic on purpose: a refusal can mean they blocked you, and the
+                    // raw error would hint at that.
+                    if (!success) {
+                        android.util.Log.e("DuudleDebug", "Friend request failed: $error")
+                        errorMessage = "Couldn't send a request to @${user.username}. Try again later."
+                    }
                 }
             }
         }
@@ -851,6 +872,7 @@ fun declineFriendRequest(requestDocId: String) {
 @Composable
 private fun RequestsTab(
     requests: List<FriendRequest>,
+    safety: SafetyActions,
     onAccept: (FriendRequest) -> Unit,
     onDecline: (FriendRequest) -> Unit,
     gaze: FaceGaze
@@ -884,6 +906,11 @@ private fun RequestsTab(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
+                    )
+                    SafetyMenuButton(
+                        username = req.fromUsername,
+                        onReport = { safety.report(ReportSubject.user(req.fromUid, req.fromUsername)) },
+                        onBlock = { safety.block(req.fromUid, req.fromUsername) }
                     )
                 }
                 Spacer(Modifier.height(12.dp))

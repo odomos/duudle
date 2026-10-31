@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {decideDoodlePush, displayName, MAX_NAME_LENGTH} = require("../doodlePush");
 
-const ok = {senderId: "alice", receiverId: "bob", areFriends: true, muted: false, receiverExists: true, fcmToken: "t"};
+const ok = {senderId: "alice", receiverId: "bob", blocked: false, areFriends: true, muted: false, receiverExists: true, fcmToken: "t"};
 
 test("friends with a token get the push", () => {
   assert.deepEqual(decideDoodlePush(ok), {send: true, reason: "ok"});
@@ -11,6 +11,11 @@ test("friends with a token get the push", () => {
 
 test("a stranger's doodle never pops up", () => {
   assert.deepEqual(decideDoodlePush({...ok, areFriends: false}), {send: false, reason: "not-friends"});
+});
+
+test("a doodle between blocked people never pops up, even if they're still friends", () => {
+  assert.deepEqual(decideDoodlePush({...ok, blocked: true}), {send: false, reason: "blocked"});
+  assert.equal(decideDoodlePush({...ok, blocked: true, areFriends: false, muted: true}).reason, "blocked");
 });
 
 test("a muted friend's doodle doesn't pop up", () => {

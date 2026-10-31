@@ -118,6 +118,9 @@ fun ChatScreen(
     var retryKey by remember { mutableIntStateOf(0) }
     var draft by rememberSaveable { mutableStateOf("") }
     var showThemePicker by remember { mutableStateOf(false) }
+    val safety = rememberSafetyActions()
+    // Blocked: the chat stays closed (the rules refuse new messages either way).
+    val isBlocked = friendUid in Blocks.state.collectAsState().value
 
     val theme = chatThemeFor(chat?.themeId ?: ChatThemeId.CLASSIC)
 
@@ -267,7 +270,11 @@ fun ChatScreen(
             title = headerTitle,
             themeName = theme.id.displayName,
             onBack = onBack,
-            onThemeClick = { showThemePicker = true }
+            onThemeClick = { showThemePicker = true },
+            onReport = { safety.report(ReportSubject.chat(friendUid, friendName, chatId)) },
+            onBlock = { safety.block(friendUid, friendName) },
+            friendName = friendName,
+            showMenu = !isBlocked
         )
         HorizontalDivider(color = DuudleColors.Hairline)
 
@@ -279,6 +286,19 @@ fun ChatScreen(
         ) {
             val maxBubbleWidth = maxWidth * 0.78f
             when {
+                isBlocked -> Text(
+                    "You blocked @$friendName. Unblock them in Profile to chat again.",
+                    color = theme.noteText,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(32.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(theme.noteFill)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                )
                 loadError && ordered.isEmpty() -> ChatErrorState(theme = theme, onRetry = { retryKey++ })
                 !loaded -> CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center).size(28.dp),
@@ -354,14 +374,17 @@ fun ChatScreen(
             }
         }
 
-        HorizontalDivider(color = DuudleColors.Hairline)
-        ChatInputBar(
-            draft = draft,
-            onDraftChange = { draft = it.take(MAX_CHAT_MESSAGE_LENGTH) },
-            friendUsername = friendName,
-            onSend = { send() }
-        )
+        if (!isBlocked) {
+            HorizontalDivider(color = DuudleColors.Hairline)
+            ChatInputBar(
+                draft = draft,
+                onDraftChange = { draft = it.take(MAX_CHAT_MESSAGE_LENGTH) },
+                friendUsername = friendName,
+                onSend = { send() }
+            )
+        }
     }
+    SafetyDialogs(safety, currentUid, onBlocked = { onBack() })
 
     if (showThemePicker) {
         ChatThemePickerSheet(
@@ -385,7 +408,11 @@ private fun ChatHeader(
     title: String,
     themeName: String,
     onBack: () -> Unit,
-    onThemeClick: () -> Unit
+    onThemeClick: () -> Unit,
+    onReport: () -> Unit,
+    onBlock: () -> Unit,
+    friendName: String,
+    showMenu: Boolean
 ) {
     Row(
         modifier = Modifier
@@ -415,6 +442,7 @@ private fun ChatHeader(
         ) {
             PaletteIcon(color = DuudleColors.Ink, modifier = Modifier.size(24.dp))
         }
+        if (showMenu) SafetyMenuButton(username = friendName, onReport = onReport, onBlock = onBlock)
     }
 }
 
