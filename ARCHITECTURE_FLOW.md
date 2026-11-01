@@ -2,7 +2,7 @@
 
 > **Purpose:** One end-to-end reference for how Duudle works, how data moves through it, the current documented design, the risks identified from `README.md` and `ARCHITECTURE.md`, and the recommended production-ready direction.
 >
-> **Status note (updated 2026-10-27):** This document was first written from `README.md` and `ARCHITECTURE.md` alone. It has since been reconciled with the source code, `firestore.rules`, the Cloud Functions and the deployed state through Phase 2 of the engineering audit. **Current (implemented)** means it is in the code, with evidence. **Recommended** means it is not built yet. Older **Current (documented)** wording stays where nothing changed. Do not treat a recommendation as already shipped.
+> **Status note (updated 2026-11-01):** This document was first written from `README.md` and `ARCHITECTURE.md` alone. It has since been reconciled with the source code, `firestore.rules`, the Cloud Functions and the deployed state through Phase 2 of the engineering audit; Phases 3 and 4 are recorded in the status table below. **Current (implemented)** means it is in the code, with evidence. **Recommended** means it is not built yet. Older **Current (documented)** wording stays where nothing changed. Do not treat a recommendation as already shipped.
 
 ### Implementation status (verified 2026-10-27)
 
@@ -16,7 +16,9 @@
 | 20-second sign-up timeout | In the app on the owner's devices | `SignInAttempts.kt` + unit tests |
 | Snooze = pause all pop-ups | In the app on the owner's devices (local only) | Commit e191138; owner-verified |
 | Private push tokens (Phase 2) | **Released to production 2026-10-27** | Commit d0a7a63; live doodle push logged `tokenSource=private` (10:02:53Z); live chat push delivered to the migrated emulator account. The A34 still runs the previous app (public-token fallback) |
-| Reports, Block, Terms, account linking/deletion, App Check, rate limits, Crashlytics, release signing | Not started | See `roadmap.md` (Phases 3-8) |
+| Play policy fixes (Phase 3: no battery-exemption permission, notification fallback when overlays are off, debug screen debug-only) | In the app on the owner's devices | Commit 76a87a9; owner-verified on the A34 + emulator |
+| Terms (13+), Block, Report (Phase 4) | **Released to production 2026-10-31** | Commit f10cbc9; functions 14:58Z, rules 15:02Z. Owner-verified on staging; after deploy, live doodles both ways logged `Push sent successfully tokenSource=private` (2026-11-01 11:04:53Z, 11:06:08Z) and chat both ways `Chat push sent successfully` (11:03:03Z, 11:04:12Z) |
+| Account linking/deletion, App Check, rate limits, Crashlytics, release signing | Not started | See `roadmap.md` (Phases 5-8) |
 
 ## 1. System at a glance
 
@@ -184,7 +186,7 @@ The current account is anonymous and effectively tied to the installed app data.
 - Participant checks are written as `a == uid || b == uid` so that Firestore can prove the app's list queries are allowed.
 
 **Remaining gaps:**
-- The doodle and chat rules don't check friendship, because friendship document ids are random. A stranger's doodle can still land in your Vault list, but it never pops up, because the push function checks friendship. Planned fix: deterministic friendship ids, built together with Block (Phase 4).
+- The doodle and chat rules don't check friendship, because friendship document ids are random. A stranger's doodle can still land in your Vault list, but it never pops up, because the push function checks friendship. Block (Phase 4) is enforced in the rules without needing friendship ids; deterministic friendship ids are still a planned fix.
 - Not built yet: server-side prevention of duplicate requests, username uniqueness, rate limits.
 
 Original finding (kept for history): signed-in users could write `friend_requests`, `friendships` and `doodles` too broadly, which let a user forge relationship or sender fields. The emulator suite reproduced each hole before it was fixed.
@@ -246,8 +248,9 @@ flowchart TD
 | Doodles / flash cards | `doodles` with sender, receiver, strokes or `cardId`, status, created time | **Implemented (live):** sender and receiver only; size-bounded; the receiver may only mark it removed |
 | Private preferences | `users/{uid}/mutes`, favorites subcollections | Owner only |
 | Chat | deterministic `chats/{uidLow_uidHigh}` document and nested `messages` | Members only; member set cannot be manipulated by clients |
-| Reports | **Recommended** moderation collection | Minimal access; protect reporter and evidence data |
-| Blocks | **Recommended** owner-managed relationship/block data | Owner writes; enforce block in reads, sends, and function delivery checks |
+| Reports | `reports/{id}` `{reporterId, reportedUid, reason, contentType, contentId?, details?, createdAt, status}` | **Implemented (live, Phase 4):** create-only from the app, nobody reads them in the app; reviewed in the console per `MODERATION.md` |
+| Blocks | `users/{uid}/blocks/{blockedUid}` `{blockedAt, username}` | **Implemented (live, Phase 4):** owner only; rules refuse requests, friendships, doodles and messages across a block either way; both functions skip the push |
+| Terms acceptance | `users/{uid}/private/terms` `{version, acceptedAt}` | **Implemented (live, Phase 4):** owner only, server time; the app checks a local copy |
 | Device registrations | `users/{uid}/private/push` `{fcmToken, updatedAt}` | **Implemented (live, Phase 2):** the owner and Admin SDK only; one per account for now |
 | Deletion jobs | **Recommended** server-controlled jobs/status | No client access to other users' jobs; operations auditable |
 

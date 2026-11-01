@@ -279,14 +279,16 @@ Full text: [`firestore.rules`](firestore.rules). Every rule requires `request.au
 | Collection | Read | Write |
 |---|---|---|
 | `users/{uid}` | Any signed-in user (needed for search) | Owner only; known fields only; username 3-20 of `A-Z a-z 0-9 _ .` with a matching lower-case search key; push token must be a string. No deletes |
-| `users/{uid}/mutes/*`, `users/{uid}/favorites/*` | Owner only | Owner only |
+| `users/{uid}/mutes/*`, `users/{uid}/favorites/*`, `users/{uid}/blocks/*` | Owner only | Owner only (a block names someone else, at server time) |
+| `reports/*` | Nobody (console only) | Create only: as yourself, about someone else, a known reason, `open`; a doodle or chat report must involve the two of you |
 | `friend_requests/*` | Only the sender and recipient | Create as yourself, under your stored username, to someone else, `pending`; either party can delete; no edits |
 | `friendships/*` | Only the two friends | Created only by the person accepting, naming a real pending request sent to them, deleted in the same batch (one request = one friendship); either friend can delete; no edits |
 | `doodles/*` | Only the sender and receiver | Create as yourself, under your stored username, to someone else, `unseen`, at most 500 strokes or a known card id; the receiver may only set `status` to `removed`; no deletes |
 | `chats/{chatId}` | Members only (or, before the doc exists, one of the two uids in the id) | Create by one of the two sorted members with a matching id. Update by a member: members can't change, only known fields, preview must name the writer as sender at server time, and only your own `lastRead` entry. No deletes |
 | `chats/{chatId}/messages/*` | Either member | Create only: by a member, as themselves, at server time, `kind` text or theme, 1-1000 chars, no extra fields. No edits or deletes |
 
-Live since 2026-10-27 (Phase 1). Tested by 69 emulator rules tests (`firestore-tests/`).
+Live since 2026-10-27 (Phase 1); Block and Report since 2026-10-31 (Phase 4): requests, friendships, doodles and
+chat messages are refused between two people when either blocked the other. Tested by 108 emulator rules tests (`firestore-tests/`).
 
 **Remaining gaps:** friendship isn't checked in the rules (random friendship ids), so a
 stranger's doodle can still land in your Vault list, but the push function checks

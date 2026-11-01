@@ -568,7 +568,7 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
-## Phase 4 Terms, Block, Report (owner-verified on staging 2026-10-31; going live)
+## Phase 4 Terms, Block, Report (live since 2026-10-31)
 
 What changed: sign-up needs "I'm 13 or older and agree to the Terms…"; existing accounts
 see a one-time "Before you keep doodling" dialog; a ⋮ menu (Report / Block) on friend
@@ -588,8 +588,11 @@ Verified on **Duudle Staging** (A34 + emulator), owner "checked everything" 2026
       owner-checked 2026-10-31
 - [ ] The app starts at normal speed on the A34 (the emulator was slow to start for both
       the old and new build because it was overloaded)
-- [ ] After the production deploy: in the live **Duudle** app, the Terms dialog shows once,
-      and a doodle and a chat between two friends still pop up
+- [x] After the production deploy (2026-11-01): doodles and chats both ways between the A34
+      and the emulator on the live app; pushes logged as sent
+- [ ] A brand-new live account (or a phone that never ran a Phase 4 build) sees the Terms
+      dialog, and `users/{uid}/private/terms` appears in production. The A34 and emulator
+      accepted on dev builds before the rules were live, so they have no production record
 
 ## Already passed on the phone
 
