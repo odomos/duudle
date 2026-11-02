@@ -118,8 +118,11 @@ Reference: [Google Play — User Generated Content](https://support.google.com/g
 **Finding from architecture:** auth is anonymous-only; uninstalling/clearing app data may create a new UID and lose the old identity. No account deletion flow is documented.
 
 - [ ] Choose a supported account-linking/recovery method and link the existing anonymous Firebase account to it without changing its UID where possible.
+  - **Implemented, tests passed, owner-verified on staging** _(Phase 5b, 2026-11-02)_: Google via Credential Manager (`GoogleLink.kt`). Me > Account > Link Google account calls `linkWithCredential`, so the uid stays the same. Welcome > "Already linked your account to Google? Sign in" restores it; Terms already accepted aren't asked again. Live needs Google sign-in enabled in `duudle-296a9` and a new `app/google-services.json`; until then the live build hides the Google options.
 - [ ] Handle credential conflicts, linking interruption, sign-in from a second device and migration/recovery UX.
+  - **Implemented, tests passed, owner-verified on staging** _(Phase 5b, 2026-11-02)_: a Google account already linked elsewhere is refused with a message; signing in with an unlinked Google account deletes the empty account it would create; cancelling the picker is silent; linked accounts can Sign out. Not yet: the character (avatar) is stored only on the phone, so it doesn't come back on a new phone.
 - [ ] Explain the anonymous-account limitation until recovery is available.
+  - **Implemented** _(Phase 5b, 2026-11-02)_: Profile's note says the account lives on this phone unless linked to Google, and changes once linked.
 - [ ] Add a clearly discoverable in-app deletion path (for example, Settings/Profile → Delete account) with confirmation and clear description of consequences.
   - **Implemented, tests passed, owner-verified on staging** _(Phase 5a, 2026-11-02)_: Me > Account > Delete account, a confirmation listing what goes, progress and a retry on failure (`AccountDeletion.kt`). Afterwards the phone clears its settings, character, snoozed doodles and notifications, drops its push token and signs out.
 - [ ] Publish a functioning external web page where a user can request account and associated-data deletion even after uninstalling; the page must identify Duudle/developer and make the request process easy to find.

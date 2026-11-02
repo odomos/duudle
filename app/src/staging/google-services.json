@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "617411192456-stm2td9j02j2je8sut74krvmb75877qn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.duudle.staging",
+            "certificate_hash": "d59683c7e31b8f4c21314312604d2368ceeaf5ce"
+          }
+        },
+        {
           "client_id": "617411192456-02n57gr8fs309iidl58b3puqjrguma8s.apps.googleusercontent.com",
           "client_type": 3
         }

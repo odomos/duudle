@@ -64,6 +64,8 @@ someone else.
   doodle (`doodles/{contentId}`) or chat (`chats/{contentId}`, with its `messages`) in the
   console too. Report documents themselves stay.
 - **Email requests** (from the web page `/delete`, for people who no longer have the app):
+  if the account is linked to Google (Authentication > Users shows a Google provider for that
+  uid) and the email came from that Google address, it's verified: delete it. Otherwise
   the username is the only identifier, so don't delete on request alone. In the console,
   find `users` where `usernameLower ==` the lower-case name, then check the account looks
   abandoned: no doodles, chat messages or push-token updates (`users/{uid}/private/push`

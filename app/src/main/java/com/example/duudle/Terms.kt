@@ -69,6 +69,13 @@ val TERMS_SECTIONS: List<Pair<String, String>> = listOf(
 fun hasAcceptedCurrentTerms(context: Context): Boolean =
     context.getSharedPreferences("duudle_prefs", Context.MODE_PRIVATE).getInt(KEY_TERMS_ACCEPTED, 0) >= TERMS_VERSION
 
+/** After signing back in: the account already accepted [version] on another phone. */
+fun rememberTermsAcceptedLocally(context: Context, version: Int) {
+    if (version >= TERMS_VERSION) {
+        context.getSharedPreferences("duudle_prefs", Context.MODE_PRIVATE).edit().putInt(KEY_TERMS_ACCEPTED, version).apply()
+    }
+}
+
 /**
  * Remembers the acceptance on this phone (that's what the app checks) and records it in
  * the owner-only users/{uid}/private/terms document as evidence.

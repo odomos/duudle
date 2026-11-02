@@ -192,6 +192,9 @@ class MainActivity : ComponentActivity() {
                 val blocked by Blocks.state.collectAsState()
                 val visibleIncoming = remember(incomingDoodles, blocked) { incomingDoodles.filter { it.senderId !in blocked } }
 
+                // Null until this build's Firebase project has Google sign-in (then the Google options hide).
+                val googleClientId = remember { googleWebClientId(context) }
+
                 // Accounts from before the Terms existed agree once, over whatever screen opens.
                 var termsAccepted by remember { mutableStateOf(hasAcceptedCurrentTerms(context)) }
 
@@ -201,6 +204,35 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             isLoading = isSigningIn,
                             errorMessage = signInError,
+                            onSignInWithGoogle = googleClientId?.let { clientId ->
+                                {
+                                    isSigningIn = true
+                                    signInError = null
+                                    signInScope.launch {
+                                        when (val pick = pickGoogleAccount(context, clientId)) {
+                                            is GooglePick.Token -> signInWithGoogle(pick.idToken) { result ->
+                                                isSigningIn = false
+                                                when (result) {
+                                                    is GoogleSignIn.SignedIn -> {
+                                                        prefs.edit().putString("username", result.username).apply()
+                                                        rememberTermsAcceptedLocally(context, result.termsVersion)
+                                                        termsAccepted = hasAcceptedCurrentTerms(context)
+                                                        currentScreen = Screen.HOME
+                                                        Toast.makeText(context, "Welcome back, @${result.username}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                    GoogleSignIn.NoDuudleAccount -> signInError =
+                                                        "No Duudle account is linked to that Google account. Pick a username to start."
+                                                    GoogleSignIn.Failed -> signInError = "Couldn't sign in with Google. Try again."
+                                                }
+                                            }
+                                            else -> {
+                                                isSigningIn = false
+                                                signInError = googlePickMessage(pick)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                             onGetStarted = { username ->
                                 isSigningIn = true
                                 signInError = null
@@ -371,6 +403,15 @@ class MainActivity : ComponentActivity() {
                                 termsAccepted = false
                                 currentScreen = Screen.WELCOME
                                 Toast.makeText(context, "Your account was deleted", Toast.LENGTH_LONG).show()
+                            },
+                            onSignedOut = {
+                                incomingDoodles = emptyList()
+                                recipientUid = null
+                                recipientUsername = null
+                                chatUid = null
+                                chatUsername = null
+                                termsAccepted = false
+                                currentScreen = Screen.WELCOME
                             }
                         )
                         Screen.EDIT_CHARACTER -> CharacterEditorScreen(

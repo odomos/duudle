@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -63,6 +64,7 @@ import com.google.firebase.firestore.Query
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 // Darker than the app's #3DBE64 so "On" text passes contrast on white.
 private val GreenOnText = Color(0xFF1E7E3E)
@@ -87,7 +89,8 @@ fun ProfileScreen(
     onDesignDoodleClick: () -> Unit = {},
     onOverlayDebugClick: () -> Unit = {},
     onEditCharacter: () -> Unit = {},
-    onAccountDeleted: () -> Unit = {}
+    onAccountDeleted: () -> Unit = {},
+    onSignedOut: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -244,11 +247,22 @@ fun ProfileScreen(
                 SafetyCard(currentUid = currentUid)
 
                 Spacer(Modifier.height(16.dp))
-                AccountCard(username = currentUsername, onAccountDeleted = onAccountDeleted)
+                var googleEmail by remember { mutableStateOf(linkedGoogleEmail(FirebaseAuth.getInstance().currentUser)) }
+                AccountCard(
+                    username = currentUsername,
+                    googleEmail = googleEmail,
+                    onGoogleLinked = { googleEmail = linkedGoogleEmail(FirebaseAuth.getInstance().currentUser) },
+                    onAccountDeleted = onAccountDeleted,
+                    onSignedOut = onSignedOut
+                )
 
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Your account lives on this phone. Uninstalling Duudle or clearing its data starts you fresh.",
+                    if (googleEmail != null) {
+                        "Your account is linked to Google. On a new phone or after reinstalling, sign in with Google to get it back."
+                    } else {
+                        "Your account lives on this phone. Uninstalling Duudle or clearing its data starts you fresh, unless you link Google."
+                    },
                     fontSize = 13.sp,
                     color = DuudleColors.Muted,
                     textAlign = TextAlign.Center,
@@ -517,10 +531,21 @@ private fun SafetyCard(currentUid: String) {
     if (showTerms) TermsDialog(onDismiss = { showTerms = false })
 }
 
-/** Delete account (Phase 5a). */
+/** Link Google (Phase 5b) and Delete account (Phase 5a). */
 @Composable
-private fun AccountCard(username: String, onAccountDeleted: () -> Unit) {
+private fun AccountCard(
+    username: String,
+    googleEmail: String?,
+    onGoogleLinked: () -> Unit,
+    onAccountDeleted: () -> Unit,
+    onSignedOut: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val googleClientId = remember { googleWebClientId(context) }
+    var linking by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
+    var confirmingSignOut by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -530,6 +555,71 @@ private fun AccountCard(username: String, onAccountDeleted: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         SectionTitle("Account")
+        if (googleEmail != null) {
+            Row(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (googleEmail.isBlank()) "Linked to Google" else "Linked to Google · $googleEmail",
+                    fontSize = 15.sp,
+                    color = DuudleColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            HorizontalDivider(color = DuudleColors.Hairline)
+            // Only a linked account can sign out: an anonymous one could never get back in.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Button, onClick = { confirmingSignOut = true }),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Sign out", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = DuudleColors.Ink, modifier = Modifier.weight(1f))
+                Text("›", fontSize = 22.sp, color = DuudleColors.Ink, modifier = Modifier.clearAndSetSemantics { })
+            }
+            HorizontalDivider(color = DuudleColors.Hairline)
+        } else if (googleClientId != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = !linking, role = Role.Button, onClick = {
+                        linking = true
+                        scope.launch {
+                            when (val pick = pickGoogleAccount(context, googleClientId)) {
+                                is GooglePick.Token -> linkGoogleAccount(pick.idToken) { result ->
+                                    linking = false
+                                    if (result == LinkResult.LINKED) onGoogleLinked()
+                                    Toast.makeText(context, linkResultMessage(result), Toast.LENGTH_LONG).show()
+                                }
+                                else -> {
+                                    linking = false
+                                    googlePickMessage(pick)?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                                }
+                            }
+                        }
+                    }),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        if (linking) "Linking…" else "Link Google account",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = DuudleColors.Ink
+                    )
+                    Text(
+                        "So you can get your account back on a new phone or after reinstalling.",
+                        fontSize = 13.sp,
+                        color = DuudleColors.Muted
+                    )
+                }
+                Text("›", fontSize = 22.sp, color = DuudleColors.Ink, modifier = Modifier.clearAndSetSemantics { })
+            }
+            HorizontalDivider(color = DuudleColors.Hairline)
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -547,6 +637,28 @@ private fun AccountCard(username: String, onAccountDeleted: () -> Unit) {
             )
             Text("›", fontSize = 22.sp, color = DuudleColors.ErrorRed, modifier = Modifier.clearAndSetSemantics { })
         }
+    }
+    if (confirmingSignOut) {
+        AlertDialog(
+            onDismissRequest = { confirmingSignOut = false },
+            title = { Text("Sign out?") },
+            text = {
+                Text(
+                    "Pop-ups stop on this phone. Sign back in any time with \"Already linked your account to " +
+                        "Google? Sign in\". Your character and snoozed doodles stay on this phone only and are cleared."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingSignOut = false
+                    forgetAccountOnThisPhone(context)
+                    onSignedOut()
+                }) { Text("Sign out", color = DuudleColors.Ink, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingSignOut = false }) { Text("Cancel", color = DuudleColors.Ink) }
+            }
+        )
     }
     if (confirming) {
         DeleteAccountDialog(

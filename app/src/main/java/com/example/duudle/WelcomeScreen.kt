@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -104,6 +105,8 @@ fun WelcomeScreen(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     errorMessage: String? = null,
+    /** Null hides "Sign in with Google" (this build's project has no Google sign-in yet). */
+    onSignInWithGoogle: (() -> Unit)? = null,
     onGetStarted: (String) -> Unit
 ) {
     var username by remember { mutableStateOf("") }
@@ -212,6 +215,18 @@ fun WelcomeScreen(
                 dimmed = !isLoading && !canSubmit,
                 onClick = submit
             )
+            if (onSignInWithGoogle != null) {
+                Spacer(Modifier.height(6.dp))
+                TextButton(enabled = !isLoading, onClick = onSignInWithGoogle) {
+                    Text(
+                        "Already linked your account to Google? Sign in",
+                        color = DuudleColors.Ink,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
         Spacer(Modifier.weight(0.1f))
     }

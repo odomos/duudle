@@ -568,6 +568,26 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 5b Link Google (owner-verified on staging 2026-11-02; not live yet)
+
+What changed: Me > Account > "Link Google account" adds Google as a way into the same
+account (same uid, so friends, doodles and chats stay). Welcome has "Already linked your
+account to Google? Sign in", which brings a linked account back on any phone. Signing in
+with a Google account that isn't linked says so and leaves nothing behind. Only the staging
+app shows these until Google sign-in is turned on for the live project.
+
+Use **Duudle Staging**:
+- [x] Link Google on a new account: @arnav222 linked on the A34 (staging shows the Google
+      provider, 2026-11-02, owner-verified)
+- [x] Sign out (Me > Account, only shown once linked) > confirm: back on Welcome
+- [x] Recovery (2026-11-02; staging: same uid k6vcDh signed in again at 07:16Z, no new accounts): Welcome > "Already linked… Sign in" > same Google account: "Welcome back,
+      @arnav222", Home with its friends and doodles, no Terms dialog
+- [ ] Signed out, sign in with a Google account that isn't linked (if you have a second one):
+      "No Duudle account is linked…", and nothing is left behind (I'll check staging)
+- [ ] On the emulator (@emulator36), link the Google account @arnav222 already uses:
+      "That Google account is already linked to another Duudle account…"
+- [ ] Back out of the Google picker: nothing happens, no error
+
 ## Phase 5a Delete account (owner-verified on staging 2026-11-02; not live yet)
 
 What changed: Profile (Me) > Account > Delete account asks "Delete your account?", then the
