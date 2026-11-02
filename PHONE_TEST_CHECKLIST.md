@@ -582,6 +582,10 @@ Use **Duudle Staging**:
 - [x] Sign out (Me > Account, only shown once linked) > confirm: back on Welcome
 - [x] Recovery (2026-11-02; staging: same uid k6vcDh signed in again at 07:16Z, no new accounts): Welcome > "Already linked… Sign in" > same Google account: "Welcome back,
       @arnav222", Home with its friends and doodles, no Terms dialog
+- [x] **Live** (Google enabled for duudle-296a9 2026-11-02, new app/google-services.json; owner confirmed;
+      live Auth: the same old uid ZJQnGK now has google.com, signed in again 09:46Z, no new accounts):
+      in the live **Duudle** app, Me > Account > Link Google account on @arnav111, then
+      Sign out and "Already linked… Sign in": back as @arnav111 with friends and doodles
 - [ ] Signed out, sign in with a Google account that isn't linked (if you have a second one):
       "No Duudle account is linked…", and nothing is left behind (I'll check staging)
 - [ ] On the emulator (@emulator36), link the Google account @arnav222 already uses:
