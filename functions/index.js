@@ -1,10 +1,13 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onRequest} = require("firebase-functions/v2/https");
 const {initializeApp} = require("firebase-admin/app");
+const {getAuth} = require("firebase-admin/auth");
 const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 const {getMessaging} = require("firebase-admin/messaging");
 const logger = require("firebase-functions/logger");
 const {decideDoodlePush, displayName} = require("./doodlePush");
 const {isDeadTokenError, readPushToken, forgetDeadToken} = require("./pushTokens");
+const {deleteAccountData, deleteAuthUser, bearerToken} = require("./accountDeletion");
 
 // Must run before any getFirestore()/getMessaging() call (the handlers below use them).
 initializeApp();
@@ -249,5 +252,35 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
   } catch (error) {
     logger.error("Failed to send chat push", {chatId, messageId, recipientId, error: error.message, code: error.code});
     if (isDeadTokenError(error)) await cleanUpDeadToken(recipientRef, fcmToken, {chatId, messageId, recipientId});
+  }
+});
+
+// Profile > Delete account (Phase 5a). The app POSTs here with the user's ID token; only the
+// token decides whose account is deleted. Data first, Auth account last, so a failed run can
+// be retried from the app.
+exports.deleteAccount = onRequest({maxInstances: 5, timeoutSeconds: 300}, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({error: "method-not-allowed"});
+    return;
+  }
+  const token = bearerToken(req.get("Authorization"));
+  let uid;
+  try {
+    uid = token ? (await getAuth().verifyIdToken(token)).uid : null;
+  } catch (error) {
+    uid = null;
+  }
+  if (!uid) {
+    res.status(401).json({error: "unauthenticated"});
+    return;
+  }
+  try {
+    const summary = await deleteAccountData(getFirestore(), uid);
+    await deleteAuthUser(getAuth(), uid);
+    logger.info("Account deleted", {uid, ...summary});
+    res.status(200).json({deleted: true});
+  } catch (error) {
+    logger.error("Account deletion failed", {uid, error: error.message});
+    res.status(500).json({error: "failed"});
   }
 });

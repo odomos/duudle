@@ -121,9 +121,13 @@ Reference: [Google Play — User Generated Content](https://support.google.com/g
 - [ ] Handle credential conflicts, linking interruption, sign-in from a second device and migration/recovery UX.
 - [ ] Explain the anonymous-account limitation until recovery is available.
 - [ ] Add a clearly discoverable in-app deletion path (for example, Settings/Profile → Delete account) with confirmation and clear description of consequences.
+  - **Implemented, tests passed, owner-verified on staging** _(Phase 5a, 2026-11-02)_: Me > Account > Delete account, a confirmation listing what goes, progress and a retry on failure (`AccountDeletion.kt`). Afterwards the phone clears its settings, character, snoozed doodles and notifications, drops its push token and signs out.
 - [ ] Publish a functioning external web page where a user can request account and associated-data deletion even after uninstalling; the page must identify Duudle/developer and make the request process easy to find.
+  - **Built, on staging only** _(Phase 5a, 2026-11-02)_: `hosting/delete.html` (Firebase Hosting `/delete`): in-app steps, what's deleted, and an email request for people without the app. Waiting for the owner's contact email before going live.
 - [ ] Implement a trusted, retryable deletion workflow: stop future writes/notifications, revoke device tokens, enumerate/remove or anonymize associated records, handle nested collections and related records, then delete the auth account at a safe point.
+  - **Implemented, tests passed, owner-verified on staging** _(Phase 5a, 2026-11-02)_: `deleteAccount` HTTPS function (`functions/accountDeletion.js`), authorised only by the caller's ID token; deletes data first and the Auth account last, safe to re-run. Emulator end-to-end test (`npm run test:emulator`) mutation-checked.
 - [ ] Decide and disclose how content visible in other users' chats is handled, and which limited records may be retained for abuse prevention/legal compliance. Do not promise erasure beyond what the system actually does.
+  - **Decided** _(Phase 5a, 2026-11-01)_: everything is deleted, including friends' copies of doodles and chats; a doodle or chat under an open report is kept until the report is closed (`MODERATION.md`). Report records are kept; how long is still the owner's decision.
 - [ ] Cover profiles, friend requests/friendships, sent/received doodles, chat messages and metadata, favorites, mutes, blocks, private tokens, analytics identifiers, local cached files and pending jobs as applicable.
 - [ ] Make repeated delete requests idempotent and recover cleanly from partial failure; record completion status with minimal retained data.
 - [ ] Complete Play Console Data safety's data-deletion questions and provide the web resource URL.
@@ -168,7 +172,7 @@ Reference: [Firebase App Check](https://firebase.google.com/docs/app-check).
 The README reports 110 JVM unit tests and manual verification on a Samsung Galaxy A34. Keep those tests, but they cover only the behaviours they actually exercise.
 
 - [ ] Run Android compile and JVM unit tests on pull requests.
-  - **Implemented, not yet run on GitHub** _(Phase 0, 2026-10-26)_: `.github/workflows/ci.yml` (Android build + unit tests, both rules suites (targets non-blocking until Phase 1), function syntax check). Starts running once the workflow is pushed.
+  - **Green on GitHub since 2026-11-02** (f9f9f28: the functions job now installs its libraries; it had failed on every push before) _(Phase 0, 2026-10-26)_: `.github/workflows/ci.yml` (Android build + unit tests, both rules suites (targets non-blocking until Phase 1), function syntax check). Starts running once the workflow is pushed.
 - [ ] Add Firestore emulator tests for all rules and sensitive operations.
   - **In progress** _(Phase 0, 2026-10-26)_: see 2.1; also runs in CI.
 - [ ] Add Cloud Functions lint/unit tests, using emulator/test fixtures where possible.

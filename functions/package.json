@@ -7,7 +7,8 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:emulator": "node --test test/deleteAccount.emulator.js"
   },
   "engines": {
     "node": "24"

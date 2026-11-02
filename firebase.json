@@ -2,6 +2,11 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "hosting": {
+    "public": "hosting",
+    "cleanUrls": true,
+    "ignore": ["**/.*"]
+  },
   "functions": [
     {
       "source": "functions",
@@ -19,6 +24,14 @@
   ],
   "emulators": {
     "singleProjectMode": true,
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9099
+    },
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5001
+    },
     "firestore": {
       "host": "127.0.0.1",
       "port": 8080

@@ -86,7 +86,8 @@ fun ProfileScreen(
     onVaultClick: () -> Unit = {},
     onDesignDoodleClick: () -> Unit = {},
     onOverlayDebugClick: () -> Unit = {},
-    onEditCharacter: () -> Unit = {}
+    onEditCharacter: () -> Unit = {},
+    onAccountDeleted: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -241,6 +242,9 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(16.dp))
                 SafetyCard(currentUid = currentUid)
+
+                Spacer(Modifier.height(16.dp))
+                AccountCard(username = currentUsername, onAccountDeleted = onAccountDeleted)
 
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -511,6 +515,49 @@ private fun SafetyCard(currentUid: String) {
         }
     }
     if (showTerms) TermsDialog(onDismiss = { showTerms = false })
+}
+
+/** Delete account (Phase 5a). */
+@Composable
+private fun AccountCard(username: String, onAccountDeleted: () -> Unit) {
+    var confirming by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CardShape)
+            .background(DuudleColors.Paper)
+            .border(1.dp, DuudleColors.Hairline, CardShape)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        SectionTitle("Account")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(role = Role.Button, onClick = { confirming = true }),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Delete account",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = DuudleColors.ErrorRed,
+                modifier = Modifier.weight(1f)
+            )
+            Text("›", fontSize = 22.sp, color = DuudleColors.ErrorRed, modifier = Modifier.clearAndSetSemantics { })
+        }
+    }
+    if (confirming) {
+        DeleteAccountDialog(
+            username = username,
+            onDismiss = { confirming = false },
+            onDeleted = {
+                confirming = false
+                onAccountDeleted()
+            }
+        )
+    }
 }
 
 @Composable

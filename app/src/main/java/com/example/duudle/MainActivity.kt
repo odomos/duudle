@@ -360,7 +360,18 @@ class MainActivity : ComponentActivity() {
                                 currentScreen = Screen.DRAW
                             },
                             onOverlayDebugClick = testPopUp,
-                            onEditCharacter = { currentScreen = Screen.EDIT_CHARACTER }
+                            onEditCharacter = { currentScreen = Screen.EDIT_CHARACTER },
+                            onAccountDeleted = {
+                                // This phone has already signed out and forgotten the account.
+                                incomingDoodles = emptyList()
+                                recipientUid = null
+                                recipientUsername = null
+                                chatUid = null
+                                chatUsername = null
+                                termsAccepted = false
+                                currentScreen = Screen.WELCOME
+                                Toast.makeText(context, "Your account was deleted", Toast.LENGTH_LONG).show()
+                            }
                         )
                         Screen.EDIT_CHARACTER -> CharacterEditorScreen(
                             modifier = Modifier.padding(innerPadding),

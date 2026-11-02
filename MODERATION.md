@@ -55,9 +55,24 @@ someone else.
   authorities if someone may be in danger.
 - `underage` reports: if the account looks under 13, disable it.
 
+## Deleted accounts (Phase 5)
+
+- **Delete account in the app** runs the `deleteAccount` function: it deletes the person's
+  profile, friendships, requests, doodles, chats and Auth account straight away. It keeps
+  any doodle or chat that an `open` report points at (reports by or about them), so the
+  evidence survives. When you close such a report (`dismissed` / `actioned`), delete that
+  doodle (`doodles/{contentId}`) or chat (`chats/{contentId}`, with its `messages`) in the
+  console too. Report documents themselves stay.
+- **Email requests** (from the web page `/delete`, for people who no longer have the app):
+  the username is the only identifier, so don't delete on request alone. In the console,
+  find `users` where `usernameLower ==` the lower-case name, then check the account looks
+  abandoned: no doodles, chat messages or push-token updates (`users/{uid}/private/push`
+  `updatedAt`) in the last 30 days. If it's active, reply asking them to delete it from the
+  app on that phone. If it's abandoned, delete it (Authentication > Users > delete the uid,
+  and the same Firestore documents the function deletes), reply, and answer within 30 days.
+
 ## Known limits (to improve later)
 
 - No alert yet when a report arrives; check the console on the routine above. Phase 7
   (monitoring) can add an alert.
 - No rate limit on reports yet (Phase 6).
-- Account deletion (Phase 5) must keep reported content until the report is closed.

@@ -568,6 +568,21 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 5a Delete account (owner-verified on staging 2026-11-02; not live yet)
+
+What changed: Profile (Me) > Account > Delete account asks "Delete your account?", then the
+`deleteAccount` function deletes the profile, friends, requests, doodles, chats and the
+account (keeping anything under an open report), and the phone signs out and forgets the
+account (username, character, snoozed doodles, settings). Web page: `/delete` on Hosting.
+Tested: emulator end-to-end test, function unit tests, app unit tests.
+
+- [x] Delete account on Duudle Staging works (owner, 2026-11-02). Staging confirms: account,
+      friendship, doodles and Terms record deleted at 05:33:58Z; the chat under an open report
+      kept with its 10 messages
+- [ ] Sign up again with the same username after deleting: starts fresh, Terms box required
+- [ ] With Wi-Fi and mobile data off: Delete account shows "Couldn't delete your account…"
+- [ ] After going live: the web page `/delete` on the live site shows the real contact email
+
 ## Phase 4 Terms, Block, Report (live since 2026-10-31)
 
 What changed: sign-up needs "I'm 13 or older and agree to the Terms…"; existing accounts
