@@ -63,7 +63,7 @@ val TERMS_SECTIONS: List<Pair<String, String>> = listOf(
         "Duudle is provided as is, without guarantees that it's always available or that every doodle arrives. " +
         "We may change these Terms; if the change matters, the app will ask you to agree again.",
     "Contact" to
-        "Questions or safety concerns: use the contact email on Duudle's Google Play listing."
+        "Questions, safety concerns or account deletion requests: doodlebyarnav425@gmail.com."
 )
 
 fun hasAcceptedCurrentTerms(context: Context): Boolean =
