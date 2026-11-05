@@ -564,11 +564,13 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [x] A34: Profile > "Unrestricted battery" > Fix opens Duudle's App info page with the
       "Tap Battery, then choose Unrestricted" hint, and setting it turns the row to "On"
 - [x] A34, overlay permission on: doodles still pop up as before (no notification)
-- [ ] With notifications also off: nothing crashes, the doodle is still in the Vault
+- [x] With notifications also off: nothing crashes, the doodle is still in the Vault (2026-11-04)
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
 ## Phase 8 New app ID + Play prep (staging 2026-11-02)
+
+Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
 The app ID is now `com.arnavchauhan.duudle` (Play rejects `com.example`). The new
 **Duudle Staging** is a separate app on the phone (installed 2026-11-02, App Check secret
@@ -576,42 +578,46 @@ registered); the old staging and live apps stay until you remove them. All the 6
 7 checks above apply to the new staging app too.
 
 Use the **new Duudle Staging** (check App info shows `com.arnavchauhan.duudle.staging`):
-- [ ] Welcome > "Sign in with Google" brings back your staging account (arnav222): same
+- [x] Welcome > "Sign in with Google" brings back your staging account (arnav222): same
       friends, Vault and chats
-- [ ] Sending and receiving a doodle works, and the pop-up shows (grant "Display over other
+- [x] Sending and receiving a doodle works, and the pop-up shows (grant "Display over other
       apps" again: it's a new app)
-- [ ] Notifications and chat pushes arrive (allow notifications again)
-- [ ] Draw > Flash cards shows 6 cards (no 01, 02, 05); sending one works
-- [ ] An old doodle in the Vault that used card 01, 02 or 05 (if any) shows "This flash card
+- [x] Notifications and chat pushes arrive (allow notifications again)
+- [x] Draw > Flash cards shows 6 cards (no 01, 02, 05); sending one works
+- [x] An old doodle in the Vault that used card 01, 02 or 05 (if any) shows "This flash card
       is no longer available"
-- [ ] A doodle pop-up's **Draw** button opens Draw with "To: <their real username>" (the name
+- [x] A doodle pop-up's **Draw** button opens Draw with "To: <their real username>" (the name
       is now looked up, not passed along); offline it still opens, titled "Draw"
-- [ ] Each doodle pops up once (repeat pushes are dropped); a snoozed doodle still comes back
+- [x] Each doodle pops up once (repeat pushes are dropped); a snoozed doodle still comes back
       when the snooze ends
-- [ ] Profile > "Make sure doodles pop up" has a **Pop-ups** switch. Turn it off: the "Show
+- [x] Profile > "Make sure doodles pop up" has a **Pop-ups** switch. Turn it off: the "Show
       over other apps" row goes away, Home's pill says "Pop-ups off" (grey, not tappable), and a
       friend's doodle arrives as a notification ("Tap to see it in your Vault.") instead of
       popping up. Turn it back on: doodles pop up again. TalkBack reads it as a switch
-- [ ] Doodles and flash cards still pop up normally after the function update (it now
+- [x] Doodles and flash cards still pop up normally after the function update (it now
       checks the strokes before anything else; staging only)
 
 ## Phase 7 Monitoring (staging 2026-11-02; not live yet)
+
+Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
 Crashlytics now reports crashes, freezes and failed doodle pop-ups. Alerts email
 doodlebyarnav425@gmail.com (see `MONITORING.md`). The staging build with the test crash
 button isn't on the phone yet (it disconnected); I'll install it when you test.
 
 Use **Duudle Staging**:
-- [ ] Profile > "Test a pop-up" opens the overlay test screen (staging builds); tap
+- [x] Profile > "Test a pop-up" opens the overlay test screen (staging builds); tap
       **Test crash (Crashlytics)**: the app closes. Open it again (the report is sent on
       the next start). Within ~5 minutes the crash shows in the staging Firebase console >
-      Crashlytics
-- [ ] Doodles, chat and pop-ups behave exactly as before
-- [ ] Inbox of doodlebyarnav425@gmail.com: a "Duudle: new report" alert email arrived
+      Crashlytics (2026-11-05: "Crashlytics test crash" under com.arnavchauhan.duudle.staging)
+- [x] Doodles, chat and pop-ups behave exactly as before
+- [x] Inbox of doodlebyarnav425@gmail.com: a "Duudle: new report" alert email arrived
       (I filed a labelled test report on staging at 19:46 and then deleted it), or arrives
       after you file a report in Duudle Staging. Check spam too
 
 ## Phase 6b App Check, monitor-only (staging 2026-11-02; not live yet)
+
+Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
 The app now attaches an App Check token to its Firebase requests: dev builds (debug,
 staging) with a debug secret I register per install, release builds with Play Integrity.
@@ -620,11 +626,16 @@ switched on in the console after the Play release (Phase 8). App Check API enabl
 allowed on the staging key 2026-11-02.
 
 Use **Duudle Staging** (test together with 6a below):
-- [ ] The app opens, signs in and everything in 6a works exactly as before
-- [ ] A doodle pops up with the app swiped away (App Check starts with the app)
-- [ ] (I check) the staging App Check metrics show this phone's requests as verified
+- [x] The app opens, signs in and everything in 6a works exactly as before
+- [x] A doodle pops up with the app swiped away (App Check starts with the app)
+- [x] (I check) the staging App Check metrics show this phone's requests as verified
+      (2026-11-05: 850 valid Firestore requests from the new staging app; only the A34's
+      debug secret is registered, so the emulator's requests show as invalid, fine while
+      monitor-only)
 
 ## Phase 6a Rate limits (on staging 2026-11-02; not live yet)
+
+Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
 Every doodle or flash card, chat message (and theme change), friend request and report is
 now written together with a private counter, and the rules refuse it past the limit:
@@ -633,14 +644,16 @@ An older app can't send at all once these rules are live, so the live order is a
 then rules. Tested: 120 rules tests (12 new, mutation-checked), 146 unit tests.
 
 Use **Duudle Staging** (new build installed on the A34 2026-11-02; rules on staging):
-- [ ] Send a doodle and a flash card: both arrive and pop up as before (no slower)
-- [ ] Chat: send several messages quickly and change the theme: all appear in order,
+- [x] Send a doodle and a flash card: both arrive and pop up as before (no slower)
+- [x] Chat: send several messages quickly and change the theme: all appear in order,
       straight away, on both phones
-- [ ] Send a friend request and accept it on the other phone
-- [ ] Report something (e.g. a user): "Thanks. We'll review your report."
-- [ ] Airplane mode: send a chat message, turn it off again: the message goes through
-- [ ] (I check staging) each of these left a `users/{uid}/limits/{kind}` counter
-- [ ] Hitting a limit shows "You've sent a lot of … lately. Try again in …" (I can set your
+- [x] Send a friend request and accept it on the other phone
+- [x] Report something (e.g. a user): "Thanks. We'll review your report."
+- [x] Airplane mode: send a chat message, turn it off again: the message goes through
+- [x] (I check staging) each of these left a `users/{uid}/limits/{kind}` counter
+      (2026-11-05: doodles, messages, friend_requests on arnav222; the report came from the
+      emulator account deleted afterwards, which removes its counters)
+- [x] Hitting a limit shows "You've sent a lot of … lately. Try again in …" (I can set your
       staging counter to just under the limit, so you don't have to send 60)
 
 ## Phase 5b Link Google (owner-verified on staging 2026-11-02; not live yet)
@@ -661,11 +674,11 @@ Use **Duudle Staging**:
       live Auth: the same old uid ZJQnGK now has google.com, signed in again 09:46Z, no new accounts):
       in the live **Duudle** app, Me > Account > Link Google account on @arnav111, then
       Sign out and "Already linked… Sign in": back as @arnav111 with friends and doodles
-- [ ] Signed out, sign in with a Google account that isn't linked (if you have a second one):
+- [x] Signed out, sign in with a Google account that isn't linked (if you have a second one):
       "No Duudle account is linked…", and nothing is left behind (I'll check staging)
-- [ ] On the emulator (@emulator36), link the Google account @arnav222 already uses:
+- [x] On the emulator (@emulator36), link the Google account @arnav222 already uses:
       "That Google account is already linked to another Duudle account…"
-- [ ] Back out of the Google picker: nothing happens, no error
+- [x] Back out of the Google picker: nothing happens, no error (2026-11-04)
 
 ## Phase 5a Delete account (owner-verified on staging 2026-11-02; not live yet)
 
@@ -678,8 +691,8 @@ Tested: emulator end-to-end test, function unit tests, app unit tests.
 - [x] Delete account on Duudle Staging works (owner, 2026-11-02). Staging confirms: account,
       friendship, doodles and Terms record deleted at 05:33:58Z; the chat under an open report
       kept with its 10 messages
-- [ ] Sign up again with the same username after deleting: starts fresh, Terms box required
-- [ ] With Wi-Fi and mobile data off: Delete account shows "Couldn't delete your account…"
+- [x] Sign up again with the same username after deleting: starts fresh, Terms box required
+- [x] With Wi-Fi and mobile data off: Delete account shows "Couldn't delete your account…"
 - [ ] After going live: the web page `/delete` on the live site shows the real contact email
 
 ## Phase 4 Terms, Block, Report (live since 2026-10-31)
