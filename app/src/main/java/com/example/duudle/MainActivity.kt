@@ -660,6 +660,11 @@ fun OverlayTestScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
         }) {
             Text("Simulate Push in 30s")
         }
+
+        // Checks that crash reports reach Crashlytics (Phase 7a). This screen is debug/staging-only.
+        OutlinedButton(onClick = { throw RuntimeException("Crashlytics test crash") }) {
+            Text("Test crash (Crashlytics)")
+        }
     }
 
     if (showBatteryGuide) {

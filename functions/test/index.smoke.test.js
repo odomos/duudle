@@ -11,4 +11,5 @@ test("index.js initialises Firebase Admin and exports every function", () => {
   assert.equal(typeof fns.onDoodleCreated, "function");
   assert.equal(typeof fns.onChatMessageCreated, "function");
   assert.equal(typeof fns.deleteAccount, "function");
+  assert.equal(typeof fns.onReportCreated, "function");
 });

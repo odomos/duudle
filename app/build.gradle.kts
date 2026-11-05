@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -78,6 +79,8 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     debugImplementation("com.google.firebase:firebase-appcheck-debug")
     "stagingImplementation"("com.google.firebase:firebase-appcheck-debug")
+    // Crash, ANR and non-fatal reports (Phase 7a); each build reports to its own project.
+    implementation("com.google.firebase:firebase-crashlytics")
     // Sign in with Google, to link the anonymous account (Phase 5b).
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")

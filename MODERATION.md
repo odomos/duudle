@@ -75,6 +75,6 @@ someone else.
 
 ## Known limits (to improve later)
 
-- No alert yet when a report arrives; check the console on the routine above. Phase 7
-  (monitoring) can add an alert.
+- A new report emails the alert address ("Duudle: new report", `MONITORING.md`; on staging
+  2026-11-02, live once Phase 7 is rolled out). Keep the routine above anyway.
 - No rate limit on reports yet (Phase 6).

@@ -100,6 +100,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
                     )
                 } catch (e: Exception) {
                     Log.e("DuudleFCM", "Failed to show overlay for flash card: ${e.message}")
+                    reportNonFatal(e)
                 }
             }
             return
@@ -125,6 +126,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
                     )
                 } catch (e: Exception) {
                     Log.e("DuudleFCM", "Failed to show overlay from embedded strokes: ${e.message}")
+                    reportNonFatal(e)
                 }
             }
         } else {
@@ -160,6 +162,7 @@ class DuudleMessagingService : FirebaseMessagingService() {
                     )
                 } catch (e: Exception) {
                     Log.e("DuudleFCM", "Failed to show overlay from fetched doodle: ${e.message}")
+                    reportNonFatal(e)
                 }
             }
         }

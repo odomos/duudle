@@ -103,7 +103,7 @@ Duudle includes user-created doodles and one-to-one chat. Google Play's UGC poli
 - [ ] Implement **Block user**, distinct from mute. Enforce it across user interaction, friend requests, chat sending/access and Cloud Function push eligibility. Do not rely on UI hiding.
   - **Released to production 2026-10-31** (owner-verified on staging, then live; post-deploy check: doodles and chats both ways pushed on the live app 2026-11-01) _(Phase 4)_: owner-only `users/{uid}/blocks/{blockedUid}`. Blocking also unfriends (one batch deletes the friendship and any requests), so both people lose each other from Friends; the blocked person isn't told. Rules refuse friend requests, friendships, doodles and chat messages between two people when either blocked the other (`blockedBetween`), and both functions skip the push ("blocked" reason). The app hides a blocked person's doodles in Vault and Home. Unblock in Profile > Safety.
 - [ ] Define a moderator/admin process to review reports, remove content/disable accounts as appropriate, deal with repeat offenders and record resolution without keeping unnecessary sensitive data.
-  - **Documented** _(Phase 4, 2026-10-31)_: `MODERATION.md` (review at least every 2 days in the Firebase console, dismiss/action, disable repeat offenders). Not yet: an alert when a report arrives (Phase 7).
+  - **Documented** _(Phase 4, 2026-10-31)_: `MODERATION.md` (review at least every 2 days in the Firebase console, dismiss/action, disable repeat offenders). Report alert email on staging (Phase 7b, 2026-11-02); not yet on live.
 - [ ] Provide a route for urgent safety reports and maintain a response process during beta/production.
 - [ ] Check age screening/target audience requirements and answer the Play content-rating questionnaire accurately for user-generated content and social features.
 - [ ] Test the entire report/block lifecycle with two accounts, including direct Firestore/API attempts that bypass the UI.
@@ -150,6 +150,7 @@ Reference: [Google Play — Account deletion requirements](https://support.googl
 - [ ] Begin by monitoring App Check metrics and validating test devices/real traffic; enable enforcement gradually for supported services after validating legitimate traffic.
 - [ ] Remember App Check supplements, but does not replace, auth and Firestore rules.
 - [ ] Add spam/abuse alerts for bursts in content writes, rejected requests and unusual push volume.
+  - **On staging** _(Phase 7b, 2026-11-02)_: Cloud Monitoring alerts "burst of refused requests" (over 100 rules denials in 10 min) and "burst of writes" (over 2000 document writes in 10 min), emailed to the alert address. Push volume follows write volume. Not yet on live.
 - [ ] **Restrict the Firebase Android API keys (owner, manual, Google Cloud Console).** _Added 2026-10-27 after a GitHub secret-scanning alert on `app/src/staging/google-services.json` (commit e5d77762); the repo is public, so both projects' keys (`app/google-services.json` since the first commit, and the staging one) are visible._ The keys aren't secret by design (Firebase: keys restricted to Firebase services "do not need to be treated as secrets"), but they must be restricted. For **each** project (`duudle-296a9`, `duudle-staging`): console.cloud.google.com → pick the project → APIs & Services → Credentials → "Android key (auto created by Firebase)":
   1. **API restrictions:** "Restrict key" listing only the Firebase APIs the app uses (Identity Toolkit, Token Service, Cloud Firestore, FCM Registration, Firebase Installations…). Remove Generative Language/Gemini, Maps or any paid API (both projects are on Blaze).
   2. **Application restrictions:** Android apps, package `com.example.duudle` (live) / `com.example.duudle.staging` (staging), SHA-1 `D5:96:83:C7:E3:1B:8F:4C:21:31:43:12:60:4D:23:68:CE:EA:F5:CE` (the laptop's debug signing key; add the release SHA-1 when a Play release is signed).
@@ -190,10 +191,15 @@ The README reports 110 JVM unit tests and manual verification on a Samsung Galax
 ### 3.3 Crash and performance monitoring
 
 - [ ] Integrate Firebase Crashlytics; verify an intentional test crash in a non-production build appears correctly, then remove/guard test-only crash triggers.
+  - **Implemented, builds pass** _(Phase 7a, 2026-11-02)_: `firebase-crashlytics` + its Gradle plugin; crashes and ANRs automatic, failed doodle pop-ups recorded as non-fatals (`reportNonFatal`, `Monitoring.kt`). Test crash button on the debug/staging-only overlay test screen. Test crash in the console not yet seen (needs the phone).
 - [ ] Enable Firebase Performance Monitoring for startup and important app flows; measure actual slow paths instead of guessing.
+  - **Deferred** _(Phase 7, 2026-11-02)_: owner chose Crashlytics only for now (Performance adds a bytecode plugin and more data to disclose).
 - [ ] Configure Cloud Logging/Monitoring dashboards and alert policies for Cloud Functions errors/duration, unusual invocation volume, Firestore access failures and service errors.
+  - **On staging** _(Phase 7b, 2026-11-02)_: alerts for function errors, new reports (`onReportCreated` logs one line per report) and the two bursts above, as code in `scripts/monitoring-setup.js`; runbook `MONITORING.md`. Report alert path checked on staging (test report logged by the function, then deleted). Not yet on live.
 - [ ] Set up budget/usage alerts for Firestore, Functions, logs and other enabled Google Cloud services.
+  - **Live** _(Phase 7c, 2026-11-02)_: "Duudle monthly budget" ₹900/month (about $10) on `duudle-296a9`, emails at 50/90/100% to the billing admins and the alert address.
 - [ ] Assign an owner and response procedure for high crash rate, function outage, abuse spike and billing spike.
+  - **Documented** _(Phase 7, 2026-11-02)_: `MONITORING.md` (owner: Arnav; what to do per alert).
 
 References: [Crashlytics for Android](https://firebase.google.com/docs/crashlytics/android/get-started), [Performance Monitoring for Android](https://firebase.google.com/docs/perf-mon/get-started-android), [Firestore best practices](https://firebase.google.com/docs/firestore/best-practices).
 

@@ -568,6 +568,22 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 7 Monitoring (staging 2026-11-02; not live yet)
+
+Crashlytics now reports crashes, freezes and failed doodle pop-ups. Alerts email
+doodlebyarnav425@gmail.com (see `MONITORING.md`). The staging build with the test crash
+button isn't on the phone yet (it disconnected); I'll install it when you test.
+
+Use **Duudle Staging**:
+- [ ] Profile > "Test a pop-up" opens the overlay test screen (staging builds); tap
+      **Test crash (Crashlytics)**: the app closes. Open it again (the report is sent on
+      the next start). Within ~5 minutes the crash shows in the staging Firebase console >
+      Crashlytics
+- [ ] Doodles, chat and pop-ups behave exactly as before
+- [ ] Inbox of doodlebyarnav425@gmail.com: a "Duudle: new report" alert email arrived
+      (I filed a labelled test report on staging at 19:46 and then deleted it), or arrives
+      after you file a report in Duudle Staging. Check spam too
+
 ## Phase 6b App Check, monitor-only (staging 2026-11-02; not live yet)
 
 The app now attaches an App Check token to its Firebase requests: dev builds (debug,

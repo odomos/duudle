@@ -594,7 +594,7 @@ Scale progressively using measurements and service-native capabilities:
 | Account recovery/deletion | Auth UI/service, profile/settings, deletion callable/job and web deletion page | Linked-account recovery and full deletion flow verified end-to-end | Not started (Phase 5) |
 | UGC controls | Friends/chat/doodle UI, moderation collections/services | Policy acceptance, report and block flows work and are enforced server-side | Not started (Phase 4) |
 | Overlay safety | Manifest, overlay manager (currently in `MainActivity.kt`), messaging service | Permission denial/revoke, fallback, dismissal and device matrix tests pass | Partly done: dismissal and the Snooze pause are built; the denied-permission fallback (F13) is not |
-| Monitoring | Gradle/Firebase config, Cloud Logging/Monitoring | Test crash/perf event and alert observed; runbook owner assigned | Not started (Phase 7) |
+| Monitoring | Gradle/Firebase config, Cloud Logging/Monitoring | Test crash/perf event and alert observed; runbook owner assigned | In progress (Phase 7, 2026-11-02): Crashlytics in the app, alerts on staging, budget live, runbook `MONITORING.md`; Performance Monitoring deferred |
 | CI/environments | Gradle, Firebase CLI config, workflows | CI is green; staging deploy verified; production gate/rollback documented | Mostly done: staging, the approval gate and rollback have been used in practice; CI not yet confirmed green on GitHub |
 | Store readiness | Release bundle, Play Console, privacy policy and listing | Target SDK, forms, deletion link, content rating and asset rights verified | Not started. Target SDK 36 is confirmed in Gradle; the `com.example` package name and the flash-card image rights block release |
 

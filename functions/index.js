@@ -255,6 +255,18 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
   }
 });
 
+// A new report (Phase 7b). Only logs it: a Cloud Monitoring alert on this line emails the
+// moderator, since Monitoring can't see Firestore writes. Reason and type only, no uids or text.
+exports.onReportCreated = onDocumentCreated("reports/{reportId}", (event) => {
+  const report = event.data ? event.data.data() : {};
+  logger.info("New report", {
+    event: "report_created",
+    reportId: event.params.reportId,
+    reason: String(report.reason || "unknown"),
+    contentType: String(report.contentType || "unknown"),
+  });
+});
+
 // Profile > Delete account (Phase 5a). The app POSTs here with the user's ID token; only the
 // token decides whose account is deleted. Data first, Auth account last, so a failed run can
 // be retried from the app.
