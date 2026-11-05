@@ -45,7 +45,10 @@ android {
     buildTypes {
         release {
             if (uploadKey != null) signingConfig = signingConfigs.getByName("upload")
-            isMinifyEnabled = false
+            // R8: smaller download, and the Log.d/Log.v lines are stripped (proguard-rules.pro).
+            // Crashlytics uploads the mapping file so release crash reports stay readable.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -565,8 +565,22 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
       "Tap Battery, then choose Unrestricted" hint, and setting it turns the row to "On"
 - [x] A34, overlay permission on: doodles still pop up as before (no notification)
 - [x] With notifications also off: nothing crashes, the doodle is still in the Vault (2026-11-04)
-- [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
-      "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
+- [x] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
+      "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere (R8 release
+      build on the A34, 2026-11-05)
+
+## R8 release build (A34, 2026-11-05)
+
+Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop
+`Log.d`/`Log.v` lines. Tested with a release APK signed by the laptop's debug key (which the
+API keys allow), installed over the live app on the A34, against live:
+- [x] Opens signed in as arnav111; Friends, Vault (all tabs) and Profile load
+- [x] Sends a doodle to the emulator; a doodle from the emulator pops up
+- [x] Snooze 5 min from the pop-up: exact alarm set, a doodle sent meanwhile is held (Vault >
+      Snoozed), and "doodles waiting" posts at the exact end time (20:10:58)
+- [x] Release-only: "Test a pop-up" shows the sample, "Overlay off" opens Profile
+- [ ] Repeat once on the Play-signed build from internal testing (Google sign-in needs the
+      Play signing SHA-1 in Firebase first)
 
 ## Phase 8 New app ID + Play prep (staging 2026-11-02; new live app on the owner's devices 2026-11-05)
 

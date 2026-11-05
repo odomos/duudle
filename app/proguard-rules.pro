@@ -1,21 +1,14 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Duudle release rules. The libraries (Firebase, Compose, Credential Manager) bring their own
+# consumer rules; the app reads Firestore and the push payload by field name (Map / org.json),
+# never by reflection, so it needs no keep rules of its own.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Readable stack traces in Crashlytics: keep line numbers, hide the source file names.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Strip debug and verbose logs from release builds (they carry uids and doodle ids).
+# Info, warning and error logs stay.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+}
