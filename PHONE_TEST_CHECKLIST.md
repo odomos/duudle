@@ -568,7 +568,7 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
-## Phase 8 New app ID + Play prep (staging 2026-11-02)
+## Phase 8 New app ID + Play prep (staging 2026-11-02; new live app on the owner's devices 2026-11-05)
 
 Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
@@ -595,9 +595,9 @@ Use the **new Duudle Staging** (check App info shows `com.arnavchauhan.duudle.st
       friend's doodle arrives as a notification ("Tap to see it in your Vault.") instead of
       popping up. Turn it back on: doodles pop up again. TalkBack reads it as a switch
 - [x] Doodles and flash cards still pop up normally after the function update (it now
-      checks the strokes before anything else; staging only)
+      checks the strokes before anything else; live since 2026-11-05)
 
-## Phase 7 Monitoring (staging 2026-11-02; not live yet)
+## Phase 7 Monitoring (staging 2026-11-02; live 2026-11-05)
 
 Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
@@ -615,7 +615,7 @@ Use **Duudle Staging**:
       (I filed a labelled test report on staging at 19:46 and then deleted it), or arrives
       after you file a report in Duudle Staging. Check spam too
 
-## Phase 6b App Check, monitor-only (staging 2026-11-02; not live yet)
+## Phase 6b App Check, monitor-only (staging 2026-11-02; live 2026-11-05)
 
 Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
@@ -633,7 +633,7 @@ Use **Duudle Staging** (test together with 6a below):
       debug secret is registered, so the emulator's requests show as invalid, fine while
       monitor-only)
 
-## Phase 6a Rate limits (on staging 2026-11-02; not live yet)
+## Phase 6a Rate limits (staging 2026-11-02; live 2026-11-05)
 
 Owner-verified on staging 2026-11-04/05 (launch plan checks, A34 + emulator).
 
@@ -656,7 +656,7 @@ Use **Duudle Staging** (new build installed on the A34 2026-11-02; rules on stag
 - [x] Hitting a limit shows "You've sent a lot of … lately. Try again in …" (I can set your
       staging counter to just under the limit, so you don't have to send 60)
 
-## Phase 5b Link Google (owner-verified on staging 2026-11-02; not live yet)
+## Phase 5b Link Google (owner-verified on staging 2026-11-02; live 2026-11-02)
 
 What changed: Me > Account > "Link Google account" adds Google as a way into the same
 account (same uid, so friends, doodles and chats stay). Welcome has "Already linked your
@@ -680,7 +680,7 @@ Use **Duudle Staging**:
       "That Google account is already linked to another Duudle account…"
 - [x] Back out of the Google picker: nothing happens, no error (2026-11-04)
 
-## Phase 5a Delete account (owner-verified on staging 2026-11-02; not live yet)
+## Phase 5a Delete account (owner-verified on staging 2026-11-02; live 2026-11-02)
 
 What changed: Profile (Me) > Account > Delete account asks "Delete your account?", then the
 `deleteAccount` function deletes the profile, friends, requests, doodles, chats and the

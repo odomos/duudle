@@ -9,7 +9,7 @@
 | Area | Status | Evidence |
 |---|---|---|
 | Firestore emulator rules tests + CI (Phase 0) | Implemented | `firestore-tests/` (80 tests passing locally); `.github/workflows/ci.yml` (not yet confirmed green on GitHub) |
-| Staging environment | Implemented | Firebase project `duudle-staging` (Firestore Standard, nam5, Anonymous + Google sign-in, Blaze); `staging` build type "Duudle Staging" (`com.example.duudle.staging`) |
+| Staging environment | Implemented | Firebase project `duudle-staging` (Firestore Standard, nam5, Anonymous + Google sign-in, Blaze); `staging` build type "Duudle Staging" (`com.arnavchauhan.duudle.staging` since Phase 8) |
 | Firestore access lockdown (Phase 1) | **Released to production 2026-10-27** | Commit e5d7776; staging-tested on the A34 + emulator; after deploy, Friends, Vault and Profile loaded on the live app with 0 permission errors |
 | Doodle pushes only between friends; sender name taken from their profile | **Released to production 2026-10-27** | `functions/doodlePush.js` + Node tests |
 | `receiverId` push guard in the app | In the app on the owner's devices | `PushGuard.kt` + unit tests |
@@ -18,7 +18,9 @@
 | Private push tokens (Phase 2) | **Released to production 2026-10-27** | Commit d0a7a63; live doodle push logged `tokenSource=private` (10:02:53Z); live chat push delivered to the migrated emulator account. The A34 still runs the previous app (public-token fallback) |
 | Play policy fixes (Phase 3: no battery-exemption permission, notification fallback when overlays are off, debug screen debug-only) | In the app on the owner's devices | Commit 76a87a9; owner-verified on the A34 + emulator |
 | Terms (13+), Block, Report (Phase 4) | **Released to production 2026-10-31** | Commit f10cbc9; functions 14:58Z, rules 15:02Z. Owner-verified on staging; after deploy, live doodles both ways logged `Push sent successfully tokenSource=private` (2026-11-01 11:04:53Z, 11:06:08Z) and chat both ways `Chat push sent successfully` (11:03:03Z, 11:04:12Z) |
-| Account linking/deletion, App Check, rate limits, Crashlytics, release signing | Not started | See `roadmap.md` (Phases 5-8) |
+| Link Google and Delete account (Phase 5) | **Released to production 2026-11-02** | Commits 192be19, ad92c68, 2ca445e; `deleteAccount` function and `/delete` page live; owner-verified |
+| Rate limits, App Check (monitor-only), Crashlytics and alerts, hardening (Phases 6-7) | **Released to production 2026-11-05** | Commits 15ee8e9..b261e3b; rules, functions, indexes and alert policies on duudle-296a9; live doodles both ways logged `Push sent successfully` |
+| New app ID `com.arnavchauhan.duudle`, release signing setup (Phase 8) | On the owner's devices; not on Play yet | Commit 191aebe; upload key, icon and store listing still to do (`RELEASE.md`) |
 
 ## 1. System at a glance
 
@@ -591,12 +593,12 @@ Scale progressively using measurements and service-native capabilities:
 | Authorization | `firestore.rules`, `firebase.json`, rule tests | Emulator negative/positive tests pass; no broad writes on sensitive collections | **Done, live** (Phase 1) |
 | Push privacy | `users/{uid}` schema, `MainActivity.kt`, `DuudleMessagingService.kt`, `functions` | Tokens are private per device; no token readable through public profile queries | **Done, live** (Phase 2); legacy-token cleanup pending |
 | Function reliability | Cloud Functions source and tests | Validation, block/mute checks, dedupe and token cleanup tests pass | Partly done: validation, mute, friendship and token cleanup are built; block and dedupe are not |
-| Account recovery/deletion | Auth UI/service, profile/settings, deletion callable/job and web deletion page | Linked-account recovery and full deletion flow verified end-to-end | Not started (Phase 5) |
-| UGC controls | Friends/chat/doodle UI, moderation collections/services | Policy acceptance, report and block flows work and are enforced server-side | Not started (Phase 4) |
-| Overlay safety | Manifest, overlay manager (currently in `MainActivity.kt`), messaging service | Permission denial/revoke, fallback, dismissal and device matrix tests pass | Partly done: dismissal and the Snooze pause are built; the denied-permission fallback (F13) is not |
-| Monitoring | Gradle/Firebase config, Cloud Logging/Monitoring | Test crash/perf event and alert observed; runbook owner assigned | In progress (Phase 7, 2026-11-02): Crashlytics in the app, alerts on staging, budget live, runbook `MONITORING.md`; Performance Monitoring deferred |
-| CI/environments | Gradle, Firebase CLI config, workflows | CI is green; staging deploy verified; production gate/rollback documented | Mostly done: staging, the approval gate and rollback have been used in practice; CI not yet confirmed green on GitHub |
-| Store readiness | Release bundle, Play Console, privacy policy and listing | Target SDK, forms, deletion link, content rating and asset rights verified | Not started. Target SDK 36 is confirmed in Gradle; the `com.example` package name and the flash-card image rights block release |
+| Account recovery/deletion | Auth UI/service, profile/settings, deletion callable/job and web deletion page | Linked-account recovery and full deletion flow verified end-to-end | **Done, live** (Phase 5) |
+| UGC controls | Friends/chat/doodle UI, moderation collections/services | Policy acceptance, report and block flows work and are enforced server-side | **Done, live** (Phase 4) |
+| Overlay safety | Manifest, overlay manager (currently in `MainActivity.kt`), messaging service | Permission denial/revoke, fallback, dismissal and device matrix tests pass | Mostly done: dismissal, the Snooze pause, the denied-permission notification fallback (F13, Phase 3) and a Pop-ups off switch are built |
+| Monitoring | Gradle/Firebase config, Cloud Logging/Monitoring | Test crash/perf event and alert observed; runbook owner assigned | **Done, live** (Phase 7, 2026-11-05): Crashlytics in the app (test crash seen on staging), alerts and budget live, runbook `MONITORING.md`; Performance Monitoring deferred |
+| CI/environments | Gradle, Firebase CLI config, workflows | CI is green; staging deploy verified; production gate/rollback documented | Mostly done: staging, the approval gate and rollback have been used in practice; CI green on GitHub (builds the release bundle too) |
+| Store readiness | Release bundle, Play Console, privacy policy and listing | Target SDK, forms, deletion link, content rating and asset rights verified | In progress (Phase 8): app ID `com.arnavchauhan.duudle`, watermarked cards removed, signing setup, privacy policy and `RELEASE.md`; still to do: upload key, app icon, store listing, rights to the six remaining card images |
 
 ## 14. Related documents
 

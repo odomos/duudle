@@ -75,6 +75,6 @@ someone else.
 
 ## Known limits (to improve later)
 
-- A new report emails the alert address ("Duudle: new report", `MONITORING.md`; on staging
-  2026-11-02, live once Phase 7 is rolled out). Keep the routine above anyway.
+- A new report emails the alert address ("Duudle: new report", `MONITORING.md`; live since
+  2026-11-05). Keep the routine above anyway.
 - No rate limit on reports yet (Phase 6).

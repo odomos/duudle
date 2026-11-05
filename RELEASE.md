@@ -54,8 +54,8 @@ sign-in, Firestore and Google linking fail in the Play build:
 
 ## 2. Play Console forms (draft answers)
 
-**Privacy policy URL:** `https://duudle-296a9.web.app/privacy` (draft in `hosting/privacy.html`,
-not published yet). **Account deletion URL:** `https://duudle-296a9.web.app/delete`.
+**Privacy policy URL:** `https://duudle-296a9.web.app/privacy` (`hosting/privacy.html`,
+published 2026-11-05). **Account deletion URL:** `https://duudle-296a9.web.app/delete`.
 
 **Data safety**
 - Data encrypted in transit: yes. Users can request deletion: yes (in app + web page).

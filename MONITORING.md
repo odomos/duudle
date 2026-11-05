@@ -16,7 +16,7 @@ responder: Arnav. Alerts email **doodlebyarnav425@gmail.com**.
 | Spend | Billing > Budgets & alerts | **Duudle monthly budget** ₹900 (about $10; the billing account is in INR) on the live project, emails at 50%, 90%, 100% of actual spend to the billing admins and the alert address. Firebase's own budgets (₹25 live, ₹100 staging) still email the billing admins. |
 
 Alert policies live in Cloud Monitoring (console > Monitoring > Alerting) on each project;
-staging has the same set as live once rolled out (staging only until then). Firestore reports each metric twice (`module` `""` and
+staging and live have the same set (live since 2026-11-05). Firestore reports each metric twice (`module` `""` and
 `__unknown__`), so the two burst alerts group by `module` and one spike may send two emails.
 
 ## When an alert arrives
