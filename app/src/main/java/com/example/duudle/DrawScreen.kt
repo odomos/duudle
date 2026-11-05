@@ -215,13 +215,13 @@ fun DrawScreen(
             receiverId = toUid,
             receiverUsername = toName ?: "Unknown",
             card = card
-        ) { success, _ ->
+        ) { error ->
             sendingCardId = null
-            if (success) {
+            if (error == null) {
                 Toast.makeText(context, "Flash card sent to ${toName ?: "your friend"}!", Toast.LENGTH_LONG).show()
                 onBack()
             } else {
-                Toast.makeText(context, "Couldn't send. Check your connection.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, rateLimitedOr(error, "Couldn't send. Check your connection."), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -268,13 +268,13 @@ fun DrawScreen(
                                     strokes = strokes,
                                     canvasWidth = canvasSize.width.toFloat(),
                                     canvasHeight = canvasSize.height.toFloat()
-                                ) { success, error ->
+                                ) { error ->
                                     isSending = false
-                                    if (success) {
+                                    if (error == null) {
                                         Toast.makeText(context, "Doodle sent to $activeRecipientUsername!", Toast.LENGTH_LONG).show()
                                         onBack()
                                     } else {
-                                        Toast.makeText(context, "Failed to send: $error", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, rateLimitedOr(error, "Failed to send: ${error.message}"), Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }
@@ -740,7 +740,7 @@ fun sendDoodle(
     strokes: List<DoodleStroke>,
     canvasWidth: Float,
     canvasHeight: Float,
-    onResult: (Boolean, String?) -> Unit
+    onResult: (Exception?) -> Unit
 ) {
     val doodleData = hashMapOf(
         "senderId" to senderId,
@@ -751,10 +751,8 @@ fun sendDoodle(
         "createdAt" to System.currentTimeMillis(),
         "status" to "unseen"
     )
-    FirebaseFirestore.getInstance().collection("doodles")
-        .add(doodleData)
-        .addOnSuccessListener { onResult(true, null) }
-        .addOnFailureListener { e -> onResult(false, e.message) }
+    val doc = FirebaseFirestore.getInstance().collection("doodles").document()
+    sendRateLimited(RateLimit.DOODLES, senderId, doc, doodleData, onDone = onResult)
 }
 
 /** A flash card is a normal doodle doc with no strokes plus its cardId (see FlashCards.kt). */
@@ -764,7 +762,7 @@ fun sendFlashCard(
     receiverId: String,
     receiverUsername: String,
     card: FlashCard,
-    onResult: (Boolean, String?) -> Unit
+    onResult: (Exception?) -> Unit
 ) {
     val doodleData = hashMapOf(
         "senderId" to senderId,
@@ -776,8 +774,6 @@ fun sendFlashCard(
         "createdAt" to System.currentTimeMillis(),
         "status" to "unseen"
     )
-    FirebaseFirestore.getInstance().collection("doodles")
-        .add(doodleData)
-        .addOnSuccessListener { onResult(true, null) }
-        .addOnFailureListener { e -> onResult(false, e.message) }
+    val doc = FirebaseFirestore.getInstance().collection("doodles").document()
+    sendRateLimited(RateLimit.DOODLES, senderId, doc, doodleData, onDone = onResult)
 }

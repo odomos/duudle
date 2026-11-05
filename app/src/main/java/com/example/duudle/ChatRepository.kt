@@ -126,10 +126,11 @@ object ChatRepository {
      * set-merged with its members, so the first message also creates the chat.
      */
     fun sendText(chatId: String, me: String, friend: String, text: String, onError: (Exception) -> Unit) {
-        val batch = db.batch()
-        batch.set(messagesRef(chatId).document(), messageData(me, ChatMessageKind.TEXT, text))
-        batch.set(chatRef(chatId), chatUpdate(me, friend, chatPreview(text)), SetOptions.merge())
-        batch.commit().addOnFailureListener { e ->
+        sendRateLimited(
+            RateLimit.MESSAGES, me, messagesRef(chatId).document(), messageData(me, ChatMessageKind.TEXT, text),
+            also = { it.set(chatRef(chatId), chatUpdate(me, friend, chatPreview(text)), SetOptions.merge()) }
+        ) { e ->
+            if (e == null) return@sendRateLimited
             Log.e("DuudleDebug", "Sending chat message failed for $chatId: ${e.message}")
             onError(e)
         }
@@ -137,11 +138,12 @@ object ChatRepository {
 
     /** Switches the shared theme for both people and leaves a note in the chat. */
     fun changeTheme(chatId: String, me: String, friend: String, theme: ChatThemeId, onError: (Exception) -> Unit) {
-        val batch = db.batch()
-        batch.set(messagesRef(chatId).document(), messageData(me, ChatMessageKind.THEME, theme.id))
         val update = chatUpdate(me, friend, "changed the theme") + ("theme" to theme.id)
-        batch.set(chatRef(chatId), update, SetOptions.merge())
-        batch.commit().addOnFailureListener { e ->
+        sendRateLimited(
+            RateLimit.MESSAGES, me, messagesRef(chatId).document(), messageData(me, ChatMessageKind.THEME, theme.id),
+            also = { it.set(chatRef(chatId), update, SetOptions.merge()) }
+        ) { e ->
+            if (e == null) return@sendRateLimited
             Log.e("DuudleDebug", "Changing chat theme failed for $chatId: ${e.message}")
             onError(e)
         }

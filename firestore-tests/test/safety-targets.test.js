@@ -6,7 +6,7 @@ const { assertFails, assertSucceeds } = require("@firebase/rules-unit-testing");
 const {
   doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, collection, collectionGroup, query, where, writeBatch, serverTimestamp,
 } = require("firebase/firestore");
-const { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
+const { createEnv, seed, seedUsers, doodleDoc, requestDoc, limitedAdd, ALICE, BOB, CAROL } = require("./helpers");
 
 describe("Phase 4: block, report, terms", function () {
   let env;
@@ -15,14 +15,11 @@ describe("Phase 4: block, report, terms", function () {
     setDoc(doc(db, `users/${owner}/blocks/${other}`), { blockedAt: serverTimestamp(), username: other });
   const seedBlock = (owner, other) =>
     seed(env, (db) => setDoc(doc(db, `users/${owner}/blocks/${other}`), { blockedAt: new Date(), username: other }));
-  const sendMessage = (db, sender, chatId, members, text = "hi") => {
-    const b = writeBatch(db);
-    b.set(doc(collection(db, `chats/${chatId}/messages`)),
-      { senderId: sender, kind: "text", text, createdAt: serverTimestamp() });
-    b.set(doc(db, `chats/${chatId}`),
-      { members, lastMessage: text, lastSenderId: sender, lastAt: serverTimestamp() }, { merge: true });
-    return b.commit();
-  };
+  const sendMessage = (db, sender, chatId, members, text = "hi") =>
+    limitedAdd(db, sender, "messages", `chats/${chatId}/messages`,
+      { senderId: sender, kind: "text", text, createdAt: serverTimestamp() },
+      (b) => b.set(doc(db, `chats/${chatId}`),
+        { members, lastMessage: text, lastSenderId: sender, lastAt: serverTimestamp() }, { merge: true }));
   const acceptBatch = (db, requestId, me, friend) => {
     const b = writeBatch(db);
     b.set(doc(collection(db, "friendships")), { userA: me, userB: friend, createdAt: 1, requestId });
@@ -103,15 +100,15 @@ describe("Phase 4: block, report, terms", function () {
     for (const [label, blocker, blocked] of [["blocked person", ALICE, BOB], ["blocker", BOB, ALICE]]) {
       it(`a doodle from the ${label} is denied`, async () => {
         await seedBlock(blocker, blocked);
-        await assertFails(addDoc(collection(as(BOB), "doodles"), doodleDoc(BOB, ALICE)));
+        await assertFails(limitedAdd(as(BOB), BOB, "doodles", "doodles", doodleDoc(BOB, ALICE)));
       });
       it(`a flash card from the ${label} is denied`, async () => {
         await seedBlock(blocker, blocked);
-        await assertFails(addDoc(collection(as(BOB), "doodles"), doodleDoc(BOB, ALICE, { strokes: [], cardId: "card01" })));
+        await assertFails(limitedAdd(as(BOB), BOB, "doodles", "doodles", doodleDoc(BOB, ALICE, { strokes: [], cardId: "card01" })));
       });
       it(`a friend request from the ${label} is denied`, async () => {
         await seedBlock(blocker, blocked);
-        await assertFails(addDoc(collection(as(BOB), "friend_requests"), requestDoc(BOB, ALICE)));
+        await assertFails(limitedAdd(as(BOB), BOB, "friend_requests", "friend_requests", requestDoc(BOB, ALICE)));
       });
       it(`a chat message from the ${label} is denied`, async () => {
         await seedBlock(blocker, blocked);
@@ -125,13 +122,13 @@ describe("Phase 4: block, report, terms", function () {
     });
     it("other people are unaffected by someone's block", async () => {
       await seedBlock(ALICE, BOB);
-      await assertSucceeds(addDoc(collection(as(CAROL), "doodles"), doodleDoc(CAROL, ALICE)));
-      await assertSucceeds(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB)));
+      await assertSucceeds(limitedAdd(as(CAROL), CAROL, "doodles", "doodles", doodleDoc(CAROL, ALICE)));
+      await assertSucceeds(limitedAdd(as(CAROL), CAROL, "friend_requests", "friend_requests", requestDoc(CAROL, BOB)));
     });
     it("after unblocking, contact works again", async () => {
       await seedBlock(ALICE, BOB);
       await seed(env, (db) => deleteDoc(doc(db, "users/alice/blocks/bob")));
-      await assertSucceeds(addDoc(collection(as(BOB), "doodles"), doodleDoc(BOB, ALICE)));
+      await assertSucceeds(limitedAdd(as(BOB), BOB, "doodles", "doodles", doodleDoc(BOB, ALICE)));
       await assertSucceeds(sendMessage(as(BOB), BOB, "alice_bob", [ALICE, BOB]));
     });
     it("the blocker can still read old doodles and mark them removed", async () => {
@@ -142,24 +139,24 @@ describe("Phase 4: block, report, terms", function () {
 
   describe("reports", () => {
     it("you can report a user", async () => {
-      await assertSucceeds(addDoc(collection(as(ALICE), "reports"), report()));
-      await assertSucceeds(addDoc(collection(as(ALICE), "reports"), report({ reason: "other", details: "x".repeat(1000) })));
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "reports", "reports", report()));
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ reason: "other", details: "x".repeat(1000) })));
     });
     it("you can report a doodle the reported person sent you", async () => {
-      await assertSucceeds(addDoc(collection(as(ALICE), "reports"), report({ contentType: "doodle", contentId: "d1" })));
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ contentType: "doodle", contentId: "d1" })));
     });
     it("you can report your chat with them", async () => {
-      await assertSucceeds(addDoc(collection(as(ALICE), "reports"), report({ contentType: "chat", contentId: "alice_bob" })));
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ contentType: "chat", contentId: "alice_bob" })));
     });
     it("you can't pin a doodle on someone who didn't send it, or report a doodle you didn't get", async () => {
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ contentType: "doodle", contentId: "d2" })));
-      await assertFails(addDoc(collection(as(CAROL), "reports"),
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ contentType: "doodle", contentId: "d2" })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "reports", "reports",
         report({ reporterId: CAROL, contentType: "doodle", contentId: "d1" })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ contentType: "doodle", contentId: "nope" })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ contentType: "doodle", contentId: "nope" })));
     });
     it("a chat report must be the chat between the two of you", async () => {
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ contentType: "chat", contentId: "bob_carol" })));
-      await assertFails(addDoc(collection(as(CAROL), "reports"),
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ contentType: "chat", contentId: "bob_carol" })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "reports", "reports",
         report({ reporterId: CAROL, contentType: "chat", contentId: "alice_bob" })));
     });
     it("nobody can read, edit or delete reports, including the reporter", async () => {
@@ -171,14 +168,14 @@ describe("Phase 4: block, report, terms", function () {
       await assertFails(deleteDoc(doc(as(ALICE), "reports/rep1")));
     });
     it("a report is sent as yourself, about someone else, with a known reason, open, at server time", async () => {
-      await assertFails(addDoc(collection(as(CAROL), "reports"), report()));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ reportedUid: ALICE })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ reason: "dislike" })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ status: "closed" })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ createdAt: new Date(0) })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ details: "x".repeat(1001) })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ priority: "urgent" })));
-      await assertFails(addDoc(collection(as(ALICE), "reports"), report({ contentType: "user", contentId: "d1" })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "reports", "reports", report()));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ reportedUid: ALICE })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ reason: "dislike" })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ status: "closed" })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ createdAt: new Date(0) })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ details: "x".repeat(1001) })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ priority: "urgent" })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "reports", "reports", report({ contentType: "user", contentId: "d1" })));
     });
   });
 

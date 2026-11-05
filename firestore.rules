@@ -30,6 +30,24 @@ service cloud.firestore {
         || exists(/databases/$(database)/documents/users/$(b)/blocks/$(a));
     }
 
+    // Rate limits (Phase 6). Each doodle or card, chat message, friend request and report
+    // is written in one batch with the sender's counter users/{uid}/limits/{kind}. Keep the
+    // numbers in step with RateLimit in RateLimits.kt.
+    function limitMax(kind) {
+      return {'doodles': 60, 'messages': 300, 'friend_requests': 30, 'reports': 20}[kind];
+    }
+    function limitWindow(kind) {
+      return kind in ['doodles', 'messages'] ? duration.value(1, 'h') : duration.value(1, 'd');
+    }
+    // This write moved my counter on to name docId. The counter moves by exactly one per
+    // write (see limits below), so one counter step pays for exactly one doc: a batch can't
+    // slip in extra docs, and a deleted friend request can't be re-created for free.
+    function paidFor(kind, docId) {
+      let counter = /databases/$(database)/documents/users/$(request.auth.uid)/limits/$(kind);
+      return getAfter(counter).data.lastId == docId
+        && (!exists(counter) || get(counter).data.lastId != docId);
+    }
+
     match /users/{userId} {
       // Readable by any signed-in user: username search needs it.
       allow read: if signedIn();
@@ -99,6 +117,29 @@ service cloud.firestore {
       match /favorites/{doodleId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Rate-limit counters: {count, windowStart, lastId}. Owner-only. A write either
+      // adds one inside the current window (up to the limit) or, once the window has
+      // passed, starts a new one at 1. Never deleted, so it can't be reset early.
+      match /limits/{kind} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == userId
+          && kind in ['doodles', 'messages', 'friend_requests', 'reports']
+          && request.resource.data.keys().hasOnly(['count', 'windowStart', 'lastId'])
+          && request.resource.data.count == 1
+          && request.resource.data.windowStart == request.time
+          && request.resource.data.lastId is string;
+        allow update: if signedIn() && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['count', 'windowStart', 'lastId'])
+          && request.resource.data.lastId is string
+          && request.resource.data.lastId != resource.data.lastId
+          && (request.time > resource.data.windowStart + limitWindow(kind)
+            ? request.resource.data.count == 1 && request.resource.data.windowStart == request.time
+            : request.resource.data.count == resource.data.count + 1
+              && request.resource.data.count <= limitMax(kind)
+              && request.resource.data.windowStart == resource.data.windowStart);
+        allow delete: if false;
+      }
     }
     // The other person's name copied onto a doodle or request (shown only to the sender).
     // Generous bound: some older usernames predate the 20-character rule.
@@ -124,7 +165,8 @@ service cloud.firestore {
         && otherName(request.resource.data.toUsername)
         && request.resource.data.status == 'pending'
         && request.resource.data.timestamp is number
-        && !blockedBetween(request.auth.uid, request.resource.data.toUid);
+        && !blockedBetween(request.auth.uid, request.resource.data.toUid)
+        && paidFor('friend_requests', requestId);
       allow update: if false;
     }
 
@@ -176,7 +218,8 @@ service cloud.firestore {
         && request.resource.data.status == 'unseen'
         && (!('cardId' in request.resource.data)
           || (request.resource.data.cardId is string && request.resource.data.cardId.matches('card[0-9]{2}')))
-        && !blockedBetween(request.auth.uid, request.resource.data.receiverId);
+        && !blockedBetween(request.auth.uid, request.resource.data.receiverId)
+        && paidFor('doodles', doodleId);
       allow update: if signedIn()
         && request.auth.uid == resource.data.receiverId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
@@ -212,7 +255,8 @@ service cloud.firestore {
           || (request.resource.data.contentType == 'chat'
             && request.resource.data.contentId in [
               request.auth.uid + '_' + request.resource.data.reportedUid,
-              request.resource.data.reportedUid + '_' + request.auth.uid]));
+              request.resource.data.reportedUid + '_' + request.auth.uid]))
+        && paidFor('reports', reportId);
     }
 
     // (The old connection_test collection is gone: anything not matched here is denied.)
@@ -297,7 +341,8 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() >= 1
           && request.resource.data.text.size() <= 1000
-          && !blockedBetween(chatId.split('_')[0], chatId.split('_')[1]);
+          && !blockedBetween(chatId.split('_')[0], chatId.split('_')[1])
+          && paidFor('messages', messageId);
         allow update, delete: if false;
       }
     }

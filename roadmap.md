@@ -143,6 +143,7 @@ Reference: [Google Play — Account deletion requirements](https://support.googl
 ### 2.5 Abuse controls and Firebase App Check
 
 - [ ] Add server-enforced rate limiting/quotas for registration, username lookups, friend requests, doodle sends, chat messages and actions that trigger pushes.
+  - **Implemented, tests passed, on staging** _(Phase 6a, 2026-11-02)_: doodles+cards (60/hour), chat messages incl. theme changes (300/hour), friend requests (30/day) and reports (20/day) are each written in one batch with a private counter `users/{uid}/limits/{kind}` `{count, windowStart, lastId}`; the rules refuse a send without its counter step or past the limit, and `lastId` makes one step pay for exactly one doc (`RateLimits.kt`, `firestore.rules`, `firestore-tests/test/rate-limits.test.js`, mutation-checked). Not covered: sign-ups (Firebase Auth's own per-IP limit) and username lookups (reads can't be rate-limited by rules; App Check, 6b). Live order: app first, then rules (older apps can't send under the new rules).
 - [ ] Reject malformed or over-sized payloads before expensive work.
 - [ ] Configure App Check for the Android app using Play Integrity where appropriate.
 - [ ] Begin by monitoring App Check metrics and validating test devices/real traffic; enable enforcement gradually for supported services after validating legitimate traffic.

@@ -6,7 +6,7 @@ const { assertFails } = require("@firebase/rules-unit-testing");
 const {
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, writeBatch,
 } = require("firebase/firestore");
-const { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
+const { createEnv, seed, seedUsers, doodleDoc, requestDoc, limitedAdd, ALICE, BOB, CAROL } = require("./helpers");
 
 describe("Phase 1 lockdown: must deny", function () {
   let env;
@@ -35,7 +35,7 @@ describe("Phase 1 lockdown: must deny", function () {
       await assertFails(getDocs(query(collection(as(CAROL), "doodles"), where("receiverId", "==", BOB))));
     });
     it("nobody can send a doodle as someone else", async () => {
-      await assertFails(addDoc(collection(as(CAROL), "doodles"), doodleDoc(ALICE, BOB)));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "doodles", "doodles", doodleDoc(ALICE, BOB)));
     });
     it("a stranger can't change a doodle's status", async () => {
       await assertFails(updateDoc(doc(as(CAROL), "doodles/d1"), { status: "removed" }));
@@ -50,19 +50,19 @@ describe("Phase 1 lockdown: must deny", function () {
       await assertFails(updateDoc(doc(as(BOB), "doodles/d1"), { senderUsername: "someone else" }));
     });
     it("a doodle can't be created already 'removed' or with extra fields", async () => {
-      await assertFails(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, BOB, { status: "removed" })));
-      await assertFails(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, BOB, { isAdmin: true })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "doodles", "doodles", doodleDoc(ALICE, BOB, { status: "removed" })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "doodles", "doodles", doodleDoc(ALICE, BOB, { isAdmin: true })));
     });
     it("rejects an unknown flash card id", async () => {
-      await assertFails(addDoc(collection(as(ALICE), "doodles"),
+      await assertFails(limitedAdd(as(ALICE), ALICE, "doodles", "doodles",
         doodleDoc(ALICE, BOB, { strokes: [], cardId: "../../etc" })));
     });
     it("rejects an oversized drawing (more than 500 strokes)", async () => {
       const strokes = Array.from({ length: 501 }, () => ({ points: [{ x: 0, y: 0 }], color: 0, width: 4 }));
-      await assertFails(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, BOB, { strokes })));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "doodles", "doodles", doodleDoc(ALICE, BOB, { strokes })));
     });
     it("can't send a doodle under someone else's name", async () => {
-      await assertFails(addDoc(collection(as(CAROL), "doodles"), doodleDoc(CAROL, BOB, { senderUsername: "alice" })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "doodles", "doodles", doodleDoc(CAROL, BOB, { senderUsername: "alice" })));
     });
     it("the receiver can only set status to 'removed'", async () => {
       await assertFails(updateDoc(doc(as(BOB), "doodles/d1"), { status: "seen" }));
@@ -71,7 +71,7 @@ describe("Phase 1 lockdown: must deny", function () {
       await assertFails(updateDoc(doc(as(ALICE), "doodles/d1"), { status: "removed" }));
     });
     it("can't send a doodle to yourself", async () => {
-      await assertFails(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, ALICE)));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "doodles", "doodles", doodleDoc(ALICE, ALICE)));
     });
   });
 
@@ -80,13 +80,13 @@ describe("Phase 1 lockdown: must deny", function () {
       await assertFails(getDoc(doc(as(CAROL), "friend_requests/r1")));
     });
     it("nobody can send a request as someone else", async () => {
-      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(ALICE, BOB)));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "friend_requests", "friend_requests", requestDoc(ALICE, BOB)));
     });
     it("a stranger can't delete someone else's request", async () => {
       await assertFails(deleteDoc(doc(as(CAROL), "friend_requests/r1")));
     });
     it("can't send a friend request to yourself", async () => {
-      await assertFails(addDoc(collection(as(ALICE), "friend_requests"), requestDoc(ALICE, ALICE)));
+      await assertFails(limitedAdd(as(ALICE), ALICE, "friend_requests", "friend_requests", requestDoc(ALICE, ALICE)));
     });
     it("a stranger can't forge a friendship between two other people", async () => {
       await assertFails(addDoc(collection(as(CAROL), "friendships"), { userA: ALICE, userB: BOB, createdAt: 1 }));
@@ -104,11 +104,11 @@ describe("Phase 1 lockdown: must deny", function () {
         { userA: BOB, userB: ALICE, createdAt: 1, requestId: "r1" }));
     });
     it("can't send a friend request under someone else's name", async () => {
-      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB, { fromUsername: "alice" })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "friend_requests", "friend_requests", requestDoc(CAROL, BOB, { fromUsername: "alice" })));
     });
     it("a request can't carry extra fields or start as anything but pending", async () => {
-      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB, { status: "accepted" })));
-      await assertFails(addDoc(collection(as(CAROL), "friend_requests"), requestDoc(CAROL, BOB, { isAdmin: true })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "friend_requests", "friend_requests", requestDoc(CAROL, BOB, { status: "accepted" })));
+      await assertFails(limitedAdd(as(CAROL), CAROL, "friend_requests", "friend_requests", requestDoc(CAROL, BOB, { isAdmin: true })));
     });
     it("the sender of a request can't accept it themselves", async () => {
       const db = as(ALICE); const b = writeBatch(db);

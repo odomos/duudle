@@ -568,6 +568,25 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 6a Rate limits (on staging 2026-11-02; not live yet)
+
+Every doodle or flash card, chat message (and theme change), friend request and report is
+now written together with a private counter, and the rules refuse it past the limit:
+60 doodles+cards and 300 chat messages per hour, 30 friend requests and 20 reports per day.
+An older app can't send at all once these rules are live, so the live order is app first,
+then rules. Tested: 120 rules tests (12 new, mutation-checked), 146 unit tests.
+
+Use **Duudle Staging** (new build installed on the A34 2026-11-02; rules on staging):
+- [ ] Send a doodle and a flash card: both arrive and pop up as before (no slower)
+- [ ] Chat: send several messages quickly and change the theme: all appear in order,
+      straight away, on both phones
+- [ ] Send a friend request and accept it on the other phone
+- [ ] Report something (e.g. a user): "Thanks. We'll review your report."
+- [ ] Airplane mode: send a chat message, turn it off again: the message goes through
+- [ ] (I check staging) each of these left a `users/{uid}/limits/{kind}` counter
+- [ ] Hitting a limit shows "You've sent a lot of … lately. Try again in …" (I can set your
+      staging counter to just under the limit, so you don't have to send 60)
+
 ## Phase 5b Link Google (owner-verified on staging 2026-11-02; not live yet)
 
 What changed: Me > Account > "Link Google account" adds Google as a way into the same

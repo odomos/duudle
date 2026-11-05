@@ -675,13 +675,13 @@ private fun AddFriendTab(currentUid: String, currentUsername: String, friendUids
                     fromUsername = currentUsername,
                     toUid = user.uid,
                     toUsername = user.username
-                ) { success, error ->
-                    setState(user.uid, if (success) AddState.SENT else AddState.FAILED)
+                ) { error ->
+                    setState(user.uid, if (error == null) AddState.SENT else AddState.FAILED)
                     // Generic on purpose: a refusal can mean they blocked you, and the
-                    // raw error would hint at that.
-                    if (!success) {
-                        android.util.Log.e("DuudleDebug", "Friend request failed: $error")
-                        errorMessage = "Couldn't send a request to @${user.username}. Try again later."
+                    // raw error would hint at that. Only your own rate limit is spelled out.
+                    if (error != null) {
+                        android.util.Log.e("DuudleDebug", "Friend request failed: ${error.message}")
+                        errorMessage = rateLimitedOr(error, "Couldn't send a request to @${user.username}. Try again later.")
                     }
                 }
             }
@@ -823,10 +823,10 @@ fun sendFriendRequest(
     fromUsername: String,
     toUid: String,
     toUsername: String,
-    onResult: (Boolean, String?) -> Unit
+    onResult: (Exception?) -> Unit
 ) {
     if (fromUid.isBlank() || fromUsername.isBlank()) {
-        onResult(false, "Your account isn't fully set up — try restarting the app")
+        onResult(IllegalStateException("Your account isn't fully set up — try restarting the app"))
         return
     }
     val requestData = hashMapOf(
@@ -837,10 +837,8 @@ fun sendFriendRequest(
         "status" to "pending",
         "timestamp" to System.currentTimeMillis()
     )
-    FirebaseFirestore.getInstance().collection("friend_requests")
-        .add(requestData)
-        .addOnSuccessListener { onResult(true, null) }
-        .addOnFailureListener { e -> onResult(false, e.message) }
+    val doc = FirebaseFirestore.getInstance().collection("friend_requests").document()
+    sendRateLimited(RateLimit.FRIEND_REQUESTS, fromUid, doc, requestData, onDone = onResult)
 }
 
 fun acceptFriendRequest(requestDocId: String, myUid: String, friendUid: String, onDone: (Boolean) -> Unit) {

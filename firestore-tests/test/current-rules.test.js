@@ -6,7 +6,7 @@ const {
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs,
   query, where, orderBy, limit, writeBatch, serverTimestamp, getCountFromServer, deleteField,
 } = require("firebase/firestore");
-const { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL } = require("./helpers");
+const { createEnv, seed, seedUsers, doodleDoc, requestDoc, limitedAdd, ALICE, BOB, CAROL } = require("./helpers");
 
 describe("Current rules: must keep passing", function () {
   let env;
@@ -83,10 +83,10 @@ describe("Current rules: must keep passing", function () {
   describe("doodles: real app flows that must survive the lockdown", () => {
     beforeEach(async () => { await seedUsers(env); });
     it("sender can create a doodle as themselves", async () => {
-      await assertSucceeds(addDoc(collection(as(ALICE), "doodles"), doodleDoc(ALICE, BOB)));
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "doodles", "doodles", doodleDoc(ALICE, BOB)));
     });
     it("sender can create a flash card", async () => {
-      await assertSucceeds(addDoc(collection(as(ALICE), "doodles"),
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "doodles", "doodles",
         doodleDoc(ALICE, BOB, { strokes: [], cardId: "card03" })));
     });
     it("receiver can read it, query their unseen ones and mark it removed", async () => {
@@ -104,7 +104,7 @@ describe("Current rules: must keep passing", function () {
   describe("friends: real app flows that must survive the lockdown", () => {
     beforeEach(async () => { await seedUsers(env); });
     it("a user can send a request as themselves and see their incoming requests", async () => {
-      await assertSucceeds(addDoc(collection(as(ALICE), "friend_requests"), requestDoc(ALICE, BOB)));
+      await assertSucceeds(limitedAdd(as(ALICE), ALICE, "friend_requests", "friend_requests", requestDoc(ALICE, BOB)));
       await assertSucceeds(getDocs(query(collection(as(BOB), "friend_requests"),
         where("toUid", "==", BOB), where("status", "==", "pending"))));
     });
@@ -150,14 +150,11 @@ describe("Current rules: must keep passing", function () {
   });
 
   describe("chats (already locked down)", () => {
-    const firstMessageBatch = (db, sender, chatId, members, text = "hi") => {
-      const b = writeBatch(db);
-      b.set(doc(collection(db, `chats/${chatId}/messages`)),
-        { senderId: sender, kind: "text", text, createdAt: serverTimestamp() });
-      b.set(doc(db, `chats/${chatId}`),
-        { members, lastMessage: text.slice(0, 120), lastSenderId: sender, lastAt: serverTimestamp() }, { merge: true });
-      return b.commit();
-    };
+    const firstMessageBatch = (db, sender, chatId, members, text = "hi") =>
+      limitedAdd(db, sender, "messages", `chats/${chatId}/messages`,
+        { senderId: sender, kind: "text", text, createdAt: serverTimestamp() },
+        (b) => b.set(doc(db, `chats/${chatId}`),
+          { members, lastMessage: text.slice(0, 120), lastSenderId: sender, lastAt: serverTimestamp() }, { merge: true }));
 
     it("a member can start a chat with the first message (batch)", async () => {
       await assertSucceeds(firstMessageBatch(as(ALICE), ALICE, "alice_bob", [ALICE, BOB]));
@@ -178,7 +175,7 @@ describe("Current rules: must keep passing", function () {
     });
     it("nobody can post as the other member", async () => {
       await seed(env, (db) => setDoc(doc(db, "chats/alice_bob"), { members: [ALICE, BOB] }));
-      await assertFails(addDoc(collection(as(BOB), "chats/alice_bob/messages"),
+      await assertFails(limitedAdd(as(BOB), BOB, "messages", "chats/alice_bob/messages",
         { senderId: ALICE, kind: "text", text: "fake", createdAt: serverTimestamp() }));
     });
     it("messages can't be edited or deleted", async () => {

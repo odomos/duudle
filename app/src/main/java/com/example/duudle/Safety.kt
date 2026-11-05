@@ -95,14 +95,13 @@ fun reportFields(reporterUid: String, subject: ReportSubject, reason: ReportReas
     return fields
 }
 
-fun submitReport(reporterUid: String, subject: ReportSubject, reason: ReportReason, details: String, onDone: (Boolean) -> Unit) {
+fun submitReport(reporterUid: String, subject: ReportSubject, reason: ReportReason, details: String, onDone: (Exception?) -> Unit) {
     val data = reportFields(reporterUid, subject, reason, details) + ("createdAt" to FieldValue.serverTimestamp())
-    FirebaseFirestore.getInstance().collection("reports").add(data)
-        .addOnSuccessListener { onDone(true) }
-        .addOnFailureListener { e ->
-            Log.e("DuudleDebug", "Report failed: ${e.message}")
-            onDone(false)
-        }
+    val doc = FirebaseFirestore.getInstance().collection("reports").document()
+    sendRateLimited(RateLimit.REPORTS, reporterUid, doc, data) { e ->
+        if (e != null) Log.e("DuudleDebug", "Report failed: ${e.message}")
+        onDone(e)
+    }
 }
 
 // ----- Block -----
@@ -232,10 +231,10 @@ fun SafetyDialogs(actions: SafetyActions, currentUid: String, onBlocked: (uid: S
             onDismiss = { actions.reportSubject = null },
             onSubmit = { reason, details, alsoBlock ->
                 actions.reportSubject = null
-                submitReport(currentUid, subject, reason, details) { ok ->
+                submitReport(currentUid, subject, reason, details) { error ->
                     Toast.makeText(
                         context,
-                        if (ok) "Thanks. We'll review your report." else "Couldn't send the report. Try again.",
+                        if (error == null) "Thanks. We'll review your report." else rateLimitedOr(error, "Couldn't send the report. Try again."),
                         Toast.LENGTH_LONG
                     ).show()
                 }

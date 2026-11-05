@@ -55,6 +55,25 @@ function requestDoc(from, to, extra = {}) {
   };
 }
 
+/**
+ * Since Phase 6 the app writes every doodle, chat message, friend request and report in
+ * one batch with the sender's rate-limit counter users/{uid}/limits/{kind} (RateLimits.kt).
+ * Adds `data` as a new doc in `path` the same way; `also(batch, db)` adds the rest of the
+ * app's batch (e.g. the chat doc). `uid` is whoever is signed in on `db`.
+ */
+async function limitedAdd(db, uid, kind, path, data, also = () => {}) {
+  const { doc, collection, getDoc, writeBatch, serverTimestamp, increment } = require("firebase/firestore");
+  const ref = doc(collection(db, path));
+  const counter = doc(db, `users/${uid}/limits/${kind}`);
+  const b = writeBatch(db);
+  b.set(ref, data);
+  also(b, db);
+  b.set(counter, (await getDoc(counter)).exists()
+    ? { count: increment(1), lastId: ref.id }
+    : { count: 1, windowStart: serverTimestamp(), lastId: ref.id }, { merge: true });
+  return b.commit();
+}
+
 /** Seeds data with rules bypassed (like an admin would). */
 async function seed(env, fn) {
   await env.withSecurityRulesDisabled(async (ctx) => fn(ctx.firestore()));
@@ -70,4 +89,4 @@ async function seedUsers(env) {
   });
 }
 
-module.exports = { createEnv, seed, seedUsers, doodleDoc, requestDoc, ALICE, BOB, CAROL };
+module.exports = { createEnv, seed, seedUsers, doodleDoc, requestDoc, limitedAdd, ALICE, BOB, CAROL };

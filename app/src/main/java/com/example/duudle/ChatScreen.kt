@@ -256,8 +256,8 @@ fun ChatScreen(
         val check = checkChatDraft(draft)
         if (check !is ChatDraftCheck.Ok) return
         draft = ""
-        ChatRepository.sendText(chatId, currentUid, friendUid, check.text) {
-            Toast.makeText(context, "Couldn't send your message", Toast.LENGTH_SHORT).show()
+        ChatRepository.sendText(chatId, currentUid, friendUid, check.text) { e ->
+            Toast.makeText(context, rateLimitedOr(e, "Couldn't send your message"), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -392,8 +392,8 @@ fun ChatScreen(
             onPick = { picked ->
                 showThemePicker = false
                 if (picked != theme.id) {
-                    ChatRepository.changeTheme(chatId, currentUid, friendUid, picked) {
-                        Toast.makeText(context, "Couldn't change the theme", Toast.LENGTH_SHORT).show()
+                    ChatRepository.changeTheme(chatId, currentUid, friendUid, picked) { e ->
+                        Toast.makeText(context, rateLimitedOr(e, "Couldn't change the theme"), Toast.LENGTH_SHORT).show()
                     }
                 }
             },
