@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit
 
 enum class Screen { WELCOME, HOME, DRAW, FRIENDS, VAULT, OVERLAY_DEBUG, VIEW_DOODLE, PROFILE, EDIT_CHARACTER, CHAT }
 
-private data class ReplyTarget(val uid: String, val username: String?)
+private data class ReplyTarget(val uid: String)
 
 private data class ChatTarget(val uid: String, val username: String?)
 
@@ -101,10 +101,17 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(pendingReply) {
                     val reply = pendingReply ?: return@LaunchedEffect
-                    recipientUid = reply.uid
-                    recipientUsername = reply.username
-                    currentScreen = Screen.DRAW
                     pendingReply = null
+                    // The name comes from their profile, never the intent (MainActivity is
+                    // exported, so another app could label a friend's uid "Mom").
+                    val openDraw = { username: String? ->
+                        recipientUid = reply.uid
+                        recipientUsername = username
+                        currentScreen = Screen.DRAW
+                    }
+                    FirebaseFirestore.getInstance().collection("users").document(reply.uid).get()
+                        .addOnSuccessListener { doc -> openDraw(doc.getString("username")) }
+                        .addOnFailureListener { openDraw(null) }
                 }
 
                 LaunchedEffect(pendingChat) {
@@ -465,7 +472,7 @@ class MainActivity : ComponentActivity() {
         val uid = intent?.getStringExtra("reply_to_uid") ?: return
         // MainActivity is exported, so extras can come from anywhere: drop malformed uids.
         if (!isAcceptableFriendUid(uid, FirebaseAuth.getInstance().currentUser?.uid)) return
-        pendingReply = ReplyTarget(uid, intent.getStringExtra("reply_to_username"))
+        pendingReply = ReplyTarget(uid)
     }
 
     private fun consumeChatIntent(intent: Intent?) {
@@ -889,7 +896,6 @@ fun showRealDoodleOverlay(
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra("reply_to_uid", senderUid)
-                putExtra("reply_to_username", senderUsername)
             }
             context.startActivity(replyIntent)
         }

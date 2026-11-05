@@ -70,6 +70,10 @@ class DuudleMessagingService : FirebaseMessagingService() {
             Log.d("DuudleFCM", "Ignoring message: wrong type or missing doodleId")
             return
         }
+        if (!PushDedupe.isFirstDelivery(applicationContext, doodleId)) {
+            Log.d("DuudleFCM", "path=duplicate doodle=$doodleId (already handled)")
+            return
+        }
 
         // Pop-ups are paused (the user tapped Snooze): hold it for the Vault's Snoozed tab
         // instead of showing it. No overlay permission or Firestore fetch is needed for this.

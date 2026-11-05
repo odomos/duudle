@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "doodles",
+      "fieldPath": "strokes",
+      "indexes": []
+    }
+  ]
+}

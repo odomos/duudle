@@ -584,6 +584,10 @@ Use the **new Duudle Staging** (check App info shows `com.arnavchauhan.duudle.st
 - [ ] Draw > Flash cards shows 6 cards (no 01, 02, 05); sending one works
 - [ ] An old doodle in the Vault that used card 01, 02 or 05 (if any) shows "This flash card
       is no longer available"
+- [ ] A doodle pop-up's **Draw** button opens Draw with "To: <their real username>" (the name
+      is now looked up, not passed along); offline it still opens, titled "Draw"
+- [ ] Each doodle pops up once (repeat pushes are dropped); a snoozed doodle still comes back
+      when the snooze ends
 
 ## Phase 7 Monitoring (staging 2026-11-02; not live yet)
 

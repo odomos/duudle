@@ -211,6 +211,7 @@ A successful FCM send does not prove a device received or displayed a message. T
 - [ ] Define minimal event names, for example `doodle_created`, `push_attempted`, `push_send_accepted`, `push_send_failed`, `device_received` (where measurable), `overlay_displayed`, `fallback_displayed`, `overlay_actioned`.
 - [ ] Use a stable doodle/message/event ID so duplicate triggers do not lead to duplicate pushes or duplicate metrics.
 - [ ] Avoid showing duplicate overlays/notifications if the same event reaches a device more than once.
+  - **Implemented, tests passed** _(hardening, 2026-11-02)_: the phone remembers the last 100 doodle ids it handled and drops a repeat push (`PushDedupe.kt`, 3 unit tests). The function has no retries configured; duplicates come only from at-least-once trigger delivery.
 - [ ] Handle invalid/expired FCM tokens and token refresh.
 - [ ] Add overlay permission failure and fallback outcomes, so a push that reaches the app but cannot draw over other apps is visible in metrics.
 - [ ] Do not mark a message “seen” just because a push API call succeeded. Delivery acknowledgements may never arrive when offline or force-stopped.
@@ -222,6 +223,7 @@ A successful FCM send does not prove a device received or displayed a message. T
 - [ ] Review snapshot listeners for correct lifecycle ownership and cleanup; test recomposition/navigation does not multiply listeners.
 - [ ] Keep histories bounded and use cursor pagination; the documented chat screen loads the newest 50 messages.
 - [ ] Review indexes and exempt large stroke/map/array fields from indexing if not queried on those fields.
+  - **On staging** _(hardening, 2026-11-02)_: `firestore.indexes.json` (now in `firebase.json`) exempts `doodles.strokes`, which nothing queries. Live had no index config at all. Deploy to live with `--only firestore:indexes` after approval.
 - [ ] Monitor reads/writes/deletes, stored bytes, hot documents, query latency and cost per active user.
 - [ ] Load-test likely traffic patterns; do not infer scalability solely from a passing unit-test suite.
 - [ ] Decide backup/export retention and perform a test restore to non-production.
@@ -240,6 +242,7 @@ Official guidance: [Cloud Firestore best practices](https://firebase.google.com/
 - [ ] Test both target and minimum supported device environments, including Android 8+, current Android versions, notification permission, Doze, battery optimization, reboot, app update, rotation, split screen and OEM restrictions.
 - [ ] Verify all window operations run on the main thread, windows are removed on dismissal/error and no Activity/context/window leaks occur.
 - [ ] Check message/notification taps and exported `MainActivity` intents cannot be spoofed to open a forged UID/recipient. Validate extras and only trust authenticated/authorized state fetched from Firebase.
+  - **Implemented, builds pass** _(hardening, 2026-11-02)_: uids were already validated and chat ignored the name extra; the overlay's Draw (reply) path now also looks the recipient's name up in `users/{uid}` instead of trusting `reply_to_username` (another app could have labelled a friend's uid "Mom"). Rules still limit doodles to real friends. Snooze receiver accepts only system broadcasts.
 - [ ] Verify notification channels, lock-screen privacy, PendingIntent flags, service lifecycle and accessibility.
 - [ ] Keep snooze state/rescheduling robust after reboot, app update, permission changes and process death; test cancellation and duplicate alarms.
 
