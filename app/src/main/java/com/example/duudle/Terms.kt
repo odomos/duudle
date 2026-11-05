@@ -58,12 +58,15 @@ val TERMS_SECTIONS: List<Pair<String, String>> = listOf(
         "Doodles only float over other apps if you turn on \"Display over other apps\" for Duudle, and only " +
         "from friends you've accepted. You can mute a friend, snooze pop-ups or turn the permission off anytime.",
     "Your account" to
-        "Your account lives on this phone. Uninstalling Duudle or clearing its data starts a new account.",
+        "Your account lives on this phone unless you link it to Google (Me > Account > Link Google account). " +
+        "Without a link, uninstalling Duudle or clearing its data starts a new account; with one, sign in with " +
+        "Google to get it back on any phone. You can delete your account anytime in Me > Account > Delete account.",
     "The service" to
         "Duudle is provided as is, without guarantees that it's always available or that every doodle arrives. " +
         "We may change these Terms; if the change matters, the app will ask you to agree again.",
     "Contact" to
-        "Questions, safety concerns or account deletion requests: doodlebyarnav425@gmail.com."
+        "Questions, safety concerns or account deletion requests: doodlebyarnav425@gmail.com. " +
+        "How we handle your data: duudle-296a9.web.app/privacy."
 )
 
 fun hasAcceptedCurrentTerms(context: Context): Boolean =
