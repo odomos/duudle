@@ -568,6 +568,19 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 6b App Check, monitor-only (staging 2026-11-02; not live yet)
+
+The app now attaches an App Check token to its Firebase requests: dev builds (debug,
+staging) with a debug secret I register per install, release builds with Play Integrity.
+Nothing is refused: Firebase only records verified vs unverified requests. Enforcement is
+switched on in the console after the Play release (Phase 8). App Check API enabled and
+allowed on the staging key 2026-11-02.
+
+Use **Duudle Staging** (test together with 6a below):
+- [ ] The app opens, signs in and everything in 6a works exactly as before
+- [ ] A doodle pops up with the app swiped away (App Check starts with the app)
+- [ ] (I check) the staging App Check metrics show this phone's requests as verified
+
 ## Phase 6a Rate limits (on staging 2026-11-02; not live yet)
 
 Every doodle or flash card, chat message (and theme change), friend request and report is

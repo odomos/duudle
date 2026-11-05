@@ -74,6 +74,10 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
+    // App Check (Phase 6b): Play Integrity in release, the debug provider in dev builds.
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
+    "stagingImplementation"("com.google.firebase:firebase-appcheck-debug")
     // Sign in with Google, to link the anonymous account (Phase 5b).
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
