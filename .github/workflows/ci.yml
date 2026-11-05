@@ -21,10 +21,10 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build and run JVM unit tests
+      - name: Build, unit tests and the release bundle (unsigned on CI)
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug testDebugUnitTest --no-daemon
+          ./gradlew assembleDebug testDebugUnitTest bundleRelease --no-daemon
 
   firestore-rules:
     name: Firestore rules (emulator)

@@ -22,6 +22,7 @@ Duudle's documented baseline is a Kotlin + Jetpack Compose Android app using Fir
 - [ ] **Implement server-side abuse/rate limiting** for content and push-triggering actions; add App Check with a monitored rollout.
 - [ ] **Verify overlay safety and fallback behaviour** across OS versions and devices, including revoked/missing permission.
 - [ ] **Replace watermarked flash-card assets 01, 02 and 05** with original or properly licensed material.
+  - **Implemented, tests passed** _(Phase 8b, 2026-11-02)_: removed from the app (ids reserved; old doodles show "no longer available"). Rights to cards 03, 04, 06–09 still need confirming.
 - [ ] **Create staging separate from production**, automated security/function tests and a rollback process.
 - [ ] **Verify Play Store declarations and release build**, including target API 36, privacy policy, Data safety, content rating, account deletion URL and correct UGC controls.
 
@@ -118,7 +119,7 @@ Reference: [Google Play — User Generated Content](https://support.google.com/g
 **Finding from architecture:** auth is anonymous-only; uninstalling/clearing app data may create a new UID and lose the old identity. No account deletion flow is documented.
 
 - [ ] Choose a supported account-linking/recovery method and link the existing anonymous Firebase account to it without changing its UID where possible.
-  - **Implemented, tests passed, owner-verified on staging** _(Phase 5b, 2026-11-02)_: Google via Credential Manager (`GoogleLink.kt`). Me > Account > Link Google account calls `linkWithCredential`, so the uid stays the same. Welcome > "Already linked your account to Google? Sign in" restores it; Terms already accepted aren't asked again. Live needs Google sign-in enabled in `duudle-296a9` and a new `app/google-services.json`; until then the live build hides the Google options.
+  - **Live, owner-verified** _(Phase 5b, 2026-11-02; live in 2ca445e)_: Google via Credential Manager (`GoogleLink.kt`). Me > Account > Link Google account calls `linkWithCredential`, so the uid stays the same. Welcome > "Already linked your account to Google? Sign in" restores it; Terms already accepted aren't asked again. Live since 2026-11-02: Google sign-in enabled in `duudle-296a9`, the debug SHA-1 on its Android app and the new `app/google-services.json` committed. Builds without OAuth clients hide the Google options.
 - [ ] Handle credential conflicts, linking interruption, sign-in from a second device and migration/recovery UX.
   - **Implemented, tests passed, owner-verified on staging** _(Phase 5b, 2026-11-02)_: a Google account already linked elsewhere is refused with a message; signing in with an unlinked Google account deletes the empty account it would create; cancelling the picker is silent; linked accounts can Sign out. Not yet: the character (avatar) is stored only on the phone, so it doesn't come back on a new phone.
 - [ ] Explain the anonymous-account limitation until recovery is available.
@@ -295,6 +296,7 @@ The documented code currently uses one `MainActivity`, a plain screen enum, Comp
 - [ ] Replace watermarked flash-card assets **01, 02 and 05**, explicitly flagged in the README, with original artwork or assets whose licence permits the intended distribution.
 - [ ] Keep attribution/licence evidence for all third-party assets, fonts, sounds and other content included in the app.
 - [ ] Publish a privacy policy that accurately describes anonymous/linked accounts, user-generated doodles/chat, data storage, notifications, analytics/crash SDKs, retention, reports, account deletion and contact/support route.
+  - **Drafted** _(Phase 8d, 2026-11-02)_: `hosting/privacy.html` (to be `duudle-296a9.web.app/privacy`), linked from the home page. Not published; owner to confirm the report (1 year) and crash (90 days) retention.
 - [ ] Provide a support/contact channel and a clear route for policy/privacy requests.
 - [ ] Verify public profile fields and app analytics do not expose private data or tokens.
 
@@ -306,9 +308,11 @@ The README says **min SDK 26, target/compile SDK 36**. Google Play's current tar
 
 - [ ] Verify `compileSdk`, `targetSdk` and `minSdk` in the actual Gradle files and merged manifest.
 - [ ] Build a signed Android App Bundle (AAB) for Play, not only a debug APK.
+  - **Implemented, builds pass** _(Phase 8c, 2026-11-02)_: `bundleRelease` signs with the upload key from the git-ignored `keystore.properties` (unsigned without it); CI builds the bundle. App ID is now `com.arnavchauhan.duudle` (Phase 8a). Steps in `RELEASE.md`; upload key not created yet (owner).
 - [ ] Verify the AAB's effective target SDK and package ID in the release artifact/Play Console.
 - [ ] Test API 36 behaviour and regression-test overlays, exact/inexact alarms, notification permission, background execution and exported components.
 - [ ] Store signing credentials safely and document key ownership/recovery. Do not commit keystores/passwords to source control.
+  - **Documented** _(Phase 8c, 2026-11-02)_: `RELEASE.md` (upload key outside the repo, two backups, Play App Signing); `keystore.properties`, `*.jks`, `*.keystore` git-ignored.
 - [ ] Check app name, icon, version code/name, crash diagnostics and privacy policy URL.
 - [ ] Confirm any relevant policy exception/extension only if required; do not assume one is granted.
 
@@ -317,6 +321,7 @@ Reference: [Google Play target API level requirements](https://support.google.co
 ### 9.2 Play Console policy forms and store listing
 
 - [ ] Create/verify Play Console app record, package name and ownership.
+  - **Prepared** _(Phase 8, 2026-11-02)_: personal developer account; app ID `com.arnavchauhan.duudle` registered in both Firebase projects (staging `com.arnavchauhan.duudle.staging`), debug SHA-1 added, API keys allow old and new IDs. Draft Data safety, content rating and closed-test plan in `RELEASE.md`.
 - [ ] Complete the Data safety form accurately (including all collected/shared data, Firebase/analytics/crash SDK behaviour, security practices and deletion details).
 - [ ] Provide a public privacy policy that loads and matches actual behaviour.
 - [ ] Complete content rating questionnaire, including UGC/chat/social interaction and relevant audience questions.

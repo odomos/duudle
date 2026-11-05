@@ -36,16 +36,19 @@ data class FlashCard(val id: String, @DrawableRes val res: Int, @DrawableRes val
  * Labels are display-only and can change.
  */
 val FlashCardCatalog: List<FlashCard> = listOf(
-    FlashCard("card01", R.drawable.flashcard_01, R.drawable.flashcard_01_thumb, "Grinning girl with a flower"),
-    FlashCard("card02", R.drawable.flashcard_02, R.drawable.flashcard_02_thumb, "Wide-eyed girl"),
     FlashCard("card03", R.drawable.flashcard_03, R.drawable.flashcard_03_thumb, "Big-eyed white-haired kid"),
     FlashCard("card04", R.drawable.flashcard_04, R.drawable.flashcard_04_thumb, "Shocked drooling girl"),
-    FlashCard("card05", R.drawable.flashcard_05, R.drawable.flashcard_05_thumb, "Cat-eared girl"),
     FlashCard("card06", R.drawable.flashcard_06, R.drawable.flashcard_06_thumb, "Pink-haired girl with candy"),
     FlashCard("card07", R.drawable.flashcard_07, R.drawable.flashcard_07_thumb, "Pointing girl with GAY text"),
     FlashCard("card08", R.drawable.flashcard_08, R.drawable.flashcard_08_thumb, "Pixel cat in front of a fire"),
     FlashCard("card09", R.drawable.flashcard_09, R.drawable.flashcard_09_thumb, "Grinning girl with a trident")
 )
+
+/**
+ * Cards taken out for good (Phase 8b: the images carried third-party watermarks). Their ids
+ * stay reserved; doodles that used them show "no longer available" instead of "update".
+ */
+val RetiredFlashCardIds: Set<String> = setOf("card01", "card02", "card05")
 
 /** Null for a missing id or one this build doesn't have (a newer app sent it). */
 fun flashCardById(id: String?): FlashCard? = if (id == null) null else FlashCardCatalog.firstOrNull { it.id == id }
@@ -62,9 +65,11 @@ fun isEmptyStrokesPayload(json: String?): Boolean = json != null && json.trim().
 fun flashCardSentLine(senderUsername: String): String = "@$senderUsername sent you a flash card"
 
 /** Shown instead of a card this build doesn't have. [senderUsername] null = I sent it. */
-fun unknownFlashCardText(senderUsername: String?): String =
-    if (senderUsername == null) "Update Duudle to see this flash card"
-    else "@$senderUsername sent a flash card — update Duudle to see it"
+fun unknownFlashCardText(cardId: String, senderUsername: String?): String = when {
+    cardId in RetiredFlashCardIds -> "This flash card is no longer available"
+    senderUsername == null -> "Update Duudle to see this flash card"
+    else -> "@$senderUsername sent a flash card — update Duudle to see it"
+}
 
 /**
  * What's inside a doodle frame: the strokes, or the flash card image when [cardId] is set
@@ -109,7 +114,7 @@ fun DoodleOrCard(
                 )
             } else {
                 Text(
-                    unknownFlashCardText(placeholderName),
+                    unknownFlashCardText(cardId, placeholderName),
                     color = DuudleColors.Muted,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,

@@ -15,6 +15,10 @@
 .cxx
 local.properties
 *.pem
+# Release signing (Phase 8c): the upload key and its passwords never go in git.
+keystore.properties
+*.jks
+*.keystore
 serviceAccountKey.json
 node_modules/
 # Claude Code: share the project-partner team (agents + skill) through Git;

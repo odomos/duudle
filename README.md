@@ -4,8 +4,8 @@ Duudle is an Android app for sending hand-drawn doodles, ready-made flash cards 
 messages to friends. A doodle or flash card doesn't land in an inbox: it **pops up as a
 floating overlay on the friend's screen**, even when Duudle is closed.
 
-- **Client:** Kotlin + Jetpack Compose, one `MainActivity` (package `com.example.duudle`,
-  minSdk 26, target/compile SDK 36).
+- **Client:** Kotlin + Jetpack Compose, one `MainActivity` (app ID `com.arnavchauhan.duudle`;
+  the Kotlin package is still `com.example.duudle`; minSdk 26, target/compile SDK 36).
 - **Backend:** Firebase project `duudle-296a9`: Anonymous Authentication, Cloud Firestore,
   Cloud Functions (2nd gen, Node.js 24) and Firebase Cloud Messaging (FCM).
 
@@ -109,7 +109,7 @@ Both doodles and flash cards live here.
 | `senderId`, `senderUsername` | string | |
 | `receiverId`, `receiverUsername` | string | |
 | `strokes` | array | `[{ points: [{x, y}], color, width }]`; empty for a flash card |
-| `cardId` | string, optional | Present only for a flash card: `"card01"` … `"card09"` |
+| `cardId` | string, optional | Present only for a flash card: `"card01"` … `"card09"` (01, 02, 05 retired) |
 | `createdAt` | number | client ms |
 | `status` | string | `"unseen"` when sent, `"removed"` once the receiver removes it or replies |
 
@@ -194,9 +194,10 @@ back-filled once.
    "@name sent you a doodle!". The Vault listens for everything sent or received.
 
 ### 4.4 Flash cards
-- The 9 images ship inside the app (`res/drawable-nodpi/flashcard_0N.jpg`, plus small
-  `_thumb.jpg` versions for grids). Each has a **stable id** (`card01`…`card09`) that never
-  changes or gets reused.
+- The 6 images ship inside the app (`res/drawable-nodpi/flashcard_0N.jpg`, plus small
+  `_thumb.jpg` versions for grids). Each has a **stable id** (`card03`…`card09`) that never
+  changes or gets reused. `card01`, `card02` and `card05` were retired in Phase 8b (watermarked
+  images); doodles that used them show "This flash card is no longer available".
 - **Sending** adds a normal `doodles` doc with `strokes: []` and `cardId`. Because it's a
   doodle, mute, Vault, stats, snooze and Draw reply all work with no extra backend.
 - `onDoodleCreated` adds `cardId` to the push. The receiver shows the card image in the same
@@ -382,7 +383,7 @@ firebase deploy --only functions
 If the functions deploy times out during discovery, set `FUNCTIONS_DISCOVERY_TIMEOUT=120`.
 Deploy a single function with e.g. `--only functions:onChatMessageCreated`.
 
-- **Staging build:** `./gradlew assembleStaging` builds **Duudle Staging** (`com.example.duudle.staging`), which installs next to the normal app and uses the `duudle-staging` Firebase project (`app/src/staging/google-services.json`). Deploy there with an explicit project, e.g. `firebase deploy --only firestore:rules,functions --project duudle-staging`; `.firebaserc`'s default is still the live project.
+- **Staging build:** `./gradlew assembleStaging` builds **Duudle Staging** (`com.arnavchauhan.duudle.staging`), which installs next to the normal app and uses the `duudle-staging` Firebase project (`app/src/staging/google-services.json`). Deploy there with an explicit project, e.g. `firebase deploy --only firestore:rules,functions --project duudle-staging`; `.firebaserc`'s default is still the live project.
 - **Cloud sessions** get the Android SDK from `scripts/cloud-setup.sh`; they have no emulator,
   phone or Firebase credentials.
 
@@ -425,6 +426,6 @@ git-ignored.
 - There's no chat inbox list yet; chats open from Friends or a notification.
 - Chat notifications use the default launcher icon; Duudle has no monochrome notification
   icon yet.
-- Flash card images 01, 02 and 05 carry third-party watermarks or signatures. They're fine
-  for testing with friends, but a public release needs rights to every image.
+- Flash cards 01, 02 and 05 (watermarked) were removed in Phase 8b. A public release still
+  needs confirmed rights to the remaining six images.
 - Some earlier redesign and Profile checks in `PHONE_TEST_CHECKLIST.md` are still unticked.

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -11,7 +13,9 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.duudle"
+        // The Play app ID (Phase 8a); permanent once uploaded. Play rejects com.example IDs.
+        // The Kotlin package/namespace stays com.example.duudle, which Play never sees.
+        applicationId = "com.arnavchauhan.duudle"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -20,8 +24,27 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release signing (Phase 8c): the upload key and its passwords live in keystore.properties
+    // next to settings.gradle.kts, which git ignores (see RELEASE.md). Without that file,
+    // release builds come out unsigned, as on CI.
+    val keystoreFile = rootProject.file("keystore.properties")
+    val uploadKey = if (keystoreFile.exists()) {
+        Properties().apply { keystoreFile.inputStream().use { load(it) } }
+    } else null
+    signingConfigs {
+        if (uploadKey != null) {
+            create("upload") {
+                storeFile = rootProject.file(uploadKey.getProperty("storeFile"))
+                storePassword = uploadKey.getProperty("storePassword")
+                keyAlias = uploadKey.getProperty("keyAlias")
+                keyPassword = uploadKey.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (uploadKey != null) signingConfig = signingConfigs.getByName("upload")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

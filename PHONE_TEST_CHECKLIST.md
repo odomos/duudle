@@ -568,6 +568,23 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
 - [ ] Release build only (needs signing, Phase 8): "Overlay off" on Home opens Profile;
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere
 
+## Phase 8 New app ID + Play prep (staging 2026-11-02)
+
+The app ID is now `com.arnavchauhan.duudle` (Play rejects `com.example`). The new
+**Duudle Staging** is a separate app on the phone (installed 2026-11-02, App Check secret
+registered); the old staging and live apps stay until you remove them. All the 6a, 6b and
+7 checks above apply to the new staging app too.
+
+Use the **new Duudle Staging** (check App info shows `com.arnavchauhan.duudle.staging`):
+- [ ] Welcome > "Sign in with Google" brings back your staging account (arnav222): same
+      friends, Vault and chats
+- [ ] Sending and receiving a doodle works, and the pop-up shows (grant "Display over other
+      apps" again: it's a new app)
+- [ ] Notifications and chat pushes arrive (allow notifications again)
+- [ ] Draw > Flash cards shows 6 cards (no 01, 02, 05); sending one works
+- [ ] An old doodle in the Vault that used card 01, 02 or 05 (if any) shows "This flash card
+      is no longer available"
+
 ## Phase 7 Monitoring (staging 2026-11-02; not live yet)
 
 Crashlytics now reports crashes, freezes and failed doodle pop-ups. Alerts email

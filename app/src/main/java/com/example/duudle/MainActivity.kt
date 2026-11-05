@@ -778,7 +778,7 @@ private fun flashCardOverlayView(context: Context, cardId: String): View {
     } else {
         TextView(context).apply {
             // The title line above already names the sender.
-            text = unknownFlashCardText(null)
+            text = unknownFlashCardText(cardId, null)
             setTextColor(Color.DKGRAY)
             textSize = 15f
             gravity = Gravity.CENTER

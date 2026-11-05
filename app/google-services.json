@@ -7,6 +7,43 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:88004700400:android:ca007467f15238cacb3a35",
+        "android_client_info": {
+          "package_name": "com.arnavchauhan.duudle"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "88004700400-m74rnclbt5umidij09t2plhhb7rln1d0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.arnavchauhan.duudle",
+            "certificate_hash": "d59683c7e31b8f4c21314312604d2368ceeaf5ce"
+          }
+        },
+        {
+          "client_id": "88004700400-maq7ia1m5hlaok485at24l92927b1ov1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYPn9N9pZFnM3GZNMkkCmahf9QLbbOhcU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "88004700400-maq7ia1m5hlaok485at24l92927b1ov1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:88004700400:android:b77095b39db4cb4bcb3a35",
         "android_client_info": {
           "package_name": "com.example.duudle"

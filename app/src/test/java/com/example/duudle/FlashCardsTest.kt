@@ -9,8 +9,14 @@ import org.junit.Test
 class FlashCardsTest {
 
     @Test
-    fun catalogHasTheNineCards() {
-        assertEquals((1..9).map { "card%02d".format(it) }, FlashCardCatalog.map { it.id })
+    fun catalogHasTheSixShippableCards() {
+        assertEquals(listOf("card03", "card04", "card06", "card07", "card08", "card09"), FlashCardCatalog.map { it.id })
+    }
+
+    @Test
+    fun retiredCardsAreGoneAndTheirIdsNeverReused() {
+        assertEquals(setOf("card01", "card02", "card05"), RetiredFlashCardIds)
+        RetiredFlashCardIds.forEach { assertNull(flashCardById(it)) }
     }
 
     @Test
@@ -29,8 +35,8 @@ class FlashCardsTest {
 
     @Test
     fun lookupById() {
-        assertEquals("card01", flashCardById("card01")?.id)
-        assertEquals(FlashCardCatalog[8], flashCardById("card09"))
+        assertEquals("card03", flashCardById("card03")?.id)
+        assertEquals(FlashCardCatalog.last(), flashCardById("card09"))
     }
 
     @Test
@@ -38,7 +44,7 @@ class FlashCardsTest {
         assertNull(flashCardById(null))
         assertNull(flashCardById(""))
         assertNull(flashCardById("card99")) // a newer app's card
-        assertNull(flashCardById("CARD01"))
+        assertNull(flashCardById("CARD03"))
     }
 
     @Test
@@ -63,7 +69,9 @@ class FlashCardsTest {
     @Test
     fun textLines() {
         assertEquals("@maya sent you a flash card", flashCardSentLine("maya"))
-        assertEquals("@maya sent a flash card — update Duudle to see it", unknownFlashCardText("maya"))
-        assertEquals("Update Duudle to see this flash card", unknownFlashCardText(null))
+        assertEquals("@maya sent a flash card — update Duudle to see it", unknownFlashCardText("card42", "maya"))
+        assertEquals("Update Duudle to see this flash card", unknownFlashCardText("card42", null))
+        assertEquals("This flash card is no longer available", unknownFlashCardText("card02", "maya"))
+        assertEquals("This flash card is no longer available", unknownFlashCardText("card05", null))
     }
 }
