@@ -14,8 +14,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 /**
- * Fallback for when "Display over other apps" is off: without it the overlay can't be
- * shown, so the doodle would otherwise arrive silently and only sit in the Vault.
+ * Fallback for when "Display over other apps" is off (without it the overlay can't be
+ * shown, so the doodle would otherwise arrive silently and only sit in the Vault), or
+ * when the user turned pop-ups off in Profile.
  */
 object DoodleNotification {
     private const val TAG = "DuudleFCM"
@@ -23,7 +24,7 @@ object DoodleNotification {
     /** MainActivity extra: open the Vault. */
     const val EXTRA_OPEN_VAULT = "open_vault"
 
-    fun show(context: Context, senderUid: String, senderUsername: String, isFlashCard: Boolean) {
+    fun show(context: Context, senderUid: String, senderUsername: String, isFlashCard: Boolean, popUpsTurnedOff: Boolean = false) {
         val appContext = context.applicationContext
         val manager = NotificationManagerCompat.from(appContext)
         if (!manager.areNotificationsEnabled() ||
@@ -32,7 +33,7 @@ object DoodleNotification {
                 PackageManager.PERMISSION_GRANTED)
         ) {
             // Nothing else can be shown; the doodle is still in the Vault.
-            Log.w(TAG, "No overlay permission and notifications are off, doodle only in the Vault")
+            Log.w(TAG, "No pop-up and notifications are off, doodle only in the Vault")
             return
         }
         appContext.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
@@ -47,7 +48,7 @@ object DoodleNotification {
             appContext, notificationId, openIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val text = doodleNotificationText(isFlashCard)
+        val text = doodleNotificationText(isFlashCard, popUpsTurnedOff)
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(doodleNotificationTitle(senderUsername, isFlashCard))
@@ -76,8 +77,10 @@ object DoodleNotification {
 fun doodleNotificationTitle(senderUsername: String, isFlashCard: Boolean): String =
     "@$senderUsername sent you a ${if (isFlashCard) "flash card" else "doodle"}"
 
-fun doodleNotificationText(isFlashCard: Boolean): String =
-    "Tap to see it in your Vault. To have ${if (isFlashCard) "cards" else "doodles"} pop up on screen, " +
+/** [popUpsTurnedOff]: the user chose notifications, so don't nag them about the setting. */
+fun doodleNotificationText(isFlashCard: Boolean, popUpsTurnedOff: Boolean = false): String =
+    if (popUpsTurnedOff) "Tap to see it in your Vault."
+    else "Tap to see it in your Vault. To have ${if (isFlashCard) "cards" else "doodles"} pop up on screen, " +
         "turn on \"Show over other apps\" in Profile."
 
 /** One notification per sender: a newer doodle from the same friend replaces the older one. */

@@ -37,4 +37,31 @@ function decideDoodlePush(facts) {
   return {send: true, reason: "ok"};
 }
 
-module.exports = {displayName, decideDoodlePush, MAX_NAME_LENGTH};
+const DEFAULT_WIDTH = 8;
+const round3 = (n) => Math.round(n * 1000) / 1000;
+
+/**
+ * The doodle's strokes in the compact push format [{c, w, p: [[x, y], ...]}], keeping what
+ * the app's own parser (parseDoodleDoc) would keep: a stroke needs a points list and a
+ * numeric colour, a point needs finite x and y, a missing width becomes 8. Anything else
+ * is dropped instead of crashing the function or embedding nulls the app can't parse.
+ * @returns {{strokes: Array, pointCount: number}}
+ */
+function compactStrokes(raw) {
+  const strokes = [];
+  let pointCount = 0;
+  for (const s of Array.isArray(raw) ? raw : []) {
+    if (!s || typeof s !== "object" || !Array.isArray(s.points) || !Number.isFinite(s.color)) continue;
+    const p = [];
+    for (const pt of s.points) {
+      if (pt && Number.isFinite(pt.x) && Number.isFinite(pt.y)) p.push([round3(pt.x), round3(pt.y)]);
+    }
+    if (p.length === 0) continue;
+    const w = Number.isFinite(s.width) && s.width > 0 ? s.width : DEFAULT_WIDTH;
+    strokes.push({c: s.color | 0, w, p}); // | 0: a 32-bit ARGB int, like the app writes
+    pointCount += p.length;
+  }
+  return {strokes, pointCount};
+}
+
+module.exports = {displayName, decideDoodlePush, compactStrokes, MAX_NAME_LENGTH};

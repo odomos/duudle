@@ -99,6 +99,7 @@ fun HomeScreen(
     var showAbout by remember { mutableStateOf(false) }
     var showHowTo by remember { mutableStateOf(false) }
     val overlayGranted = remember { Settings.canDrawOverlays(context) }
+    val popUpsOn = remember { PopUps.isOn(context) }
     val gaze = rememberFaceGaze()
     val scrollState = rememberScrollState()
 
@@ -117,7 +118,7 @@ fun HomeScreen(
                 .then(if (compact) Modifier.verticalScroll(scrollState) else Modifier)
         ) {
             Spacer(Modifier.height(12.dp))
-            HomeHeader(overlayGranted = overlayGranted, onOverlayPillClick = onOverlayDebugClick)
+            HomeHeader(overlayGranted = overlayGranted, popUpsOn = popUpsOn, onOverlayPillClick = onOverlayDebugClick)
 
             Spacer(Modifier.height(20.dp))
             Text(
@@ -224,7 +225,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(overlayGranted: Boolean, onOverlayPillClick: () -> Unit) {
+private fun HomeHeader(overlayGranted: Boolean, popUpsOn: Boolean, onOverlayPillClick: () -> Unit) {
+    // Pop-ups turned off in Profile is the user's choice: say so, but don't nag (no Fix link).
+    val needsFix = popUpsOn && !overlayGranted
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -247,7 +250,7 @@ private fun HomeHeader(overlayGranted: Boolean, onOverlayPillClick: () -> Unit) 
                 .minimumInteractiveComponentSize()
                 .clip(PillShape)
                 .background(DuudleColors.PillGrey)
-                .clickable(enabled = !overlayGranted, onClick = onOverlayPillClick)
+                .clickable(enabled = needsFix, onClick = onOverlayPillClick)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -255,11 +258,21 @@ private fun HomeHeader(overlayGranted: Boolean, onOverlayPillClick: () -> Unit) 
                 modifier = Modifier
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(if (overlayGranted) DuudleColors.Mint.base else DuudleColors.Coral.base)
+                    .background(
+                        when {
+                            !popUpsOn -> DuudleColors.Muted
+                            overlayGranted -> DuudleColors.Mint.base
+                            else -> DuudleColors.Coral.base
+                        }
+                    )
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text = if (overlayGranted) "Overlay on" else "Overlay off",
+                text = when {
+                    !popUpsOn -> "Pop-ups off"
+                    overlayGranted -> "Overlay on"
+                    else -> "Overlay off"
+                },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = DuudleColors.Ink

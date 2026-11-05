@@ -20,6 +20,11 @@ class DoodleNotificationTest {
     }
 
     @Test
+    fun noSettingHintWhenTheUserTurnedPopUpsOff() {
+        assertEquals("Tap to see it in your Vault.", doodleNotificationText(isFlashCard = true, popUpsTurnedOff = true))
+    }
+
+    @Test
     fun oneNotificationPerSender() {
         assertEquals(doodleNotificationId("alice"), doodleNotificationId("alice"))
         assertNotEquals(doodleNotificationId("alice"), doodleNotificationId("bob"))

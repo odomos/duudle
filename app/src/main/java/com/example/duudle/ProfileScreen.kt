@@ -15,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -95,6 +98,7 @@ fun ProfileScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasOverlayPermission by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var popUpsOn by remember { mutableStateOf(PopUps.isOn(context)) }
     var isBatteryUnrestricted by remember { mutableStateOf(readBatteryUnrestricted(context)) }
     var hasExactAlarms by remember { mutableStateOf(readExactAlarmsAllowed(context)) }
 
@@ -234,6 +238,11 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(20.dp))
                 PhoneSetupCard(
+                    popUpsOn = popUpsOn,
+                    onPopUpsChange = { on ->
+                        PopUps.setOn(context, on)
+                        popUpsOn = on
+                    },
                     hasOverlayPermission = hasOverlayPermission,
                     isBatteryUnrestricted = isBatteryUnrestricted,
                     hasExactAlarms = hasExactAlarms,
@@ -389,6 +398,8 @@ private fun StatTile(label: String, value: String, accent: Color, modifier: Modi
 
 @Composable
 private fun PhoneSetupCard(
+    popUpsOn: Boolean,
+    onPopUpsChange: (Boolean) -> Unit,
     hasOverlayPermission: Boolean,
     isBatteryUnrestricted: Boolean,
     hasExactAlarms: Boolean,
@@ -412,17 +423,63 @@ private fun PhoneSetupCard(
             fontSize = 13.sp,
             color = DuudleColors.Muted
         )
-        Spacer(Modifier.height(8.dp))
-        SetupRow(label = "Show over other apps", isOn = hasOverlayPermission, onFix = onFixOverlay)
+        Spacer(Modifier.height(10.dp))
+        // The whole row toggles, so the label and the switch are one 48dp+ target (as in Friends).
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(DuudleColors.Cream)
+                .toggleable(value = popUpsOn, role = Role.Switch, onValueChange = onPopUpsChange)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Pop-ups",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = DuudleColors.Ink,
+                modifier = Modifier.weight(1f)
+            )
+            Switch(
+                checked = popUpsOn,
+                onCheckedChange = null,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = DuudleColors.Paper,
+                    checkedTrackColor = DuudleColors.Ink,
+                    checkedBorderColor = DuudleColors.Ink,
+                    uncheckedThumbColor = DuudleColors.Muted,
+                    uncheckedTrackColor = DuudleColors.Paper,
+                    uncheckedBorderColor = DuudleColors.Muted
+                )
+            )
+        }
+        if (!popUpsOn) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Off: doodles from friends arrive as a notification and wait in your Vault.",
+                fontSize = 13.sp,
+                color = DuudleColors.Muted
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        // Without pop-ups the overlay permission doesn't matter, so don't ask for it.
+        if (popUpsOn) SetupRow(label = "Show over other apps", isOn = hasOverlayPermission, onFix = onFixOverlay)
         SetupRow(label = "Unrestricted battery", isOn = isBatteryUnrestricted, onFix = onFixBattery)
         // Android 12+ only: without it a snoozed doodle can come back much later than chosen.
         val exactAlarmsApply = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         if (exactAlarmsApply) {
             SetupRow(label = "Exact snooze timing", isOn = hasExactAlarms, onFix = onFixExactAlarms)
         }
-        if (hasOverlayPermission && isBatteryUnrestricted && (!exactAlarmsApply || hasExactAlarms)) {
+        if ((!popUpsOn || hasOverlayPermission) && isBatteryUnrestricted && (!exactAlarmsApply || hasExactAlarms)) {
             Spacer(Modifier.height(6.dp))
-            Text("All set! Doodles can pop up even when Duudle is closed.", fontSize = 13.sp, color = DuudleColors.Muted)
+            Text(
+                if (popUpsOn) "All set! Doodles can pop up even when Duudle is closed."
+                else "All set! Doodles arrive even when Duudle is closed.",
+                fontSize = 13.sp,
+                color = DuudleColors.Muted
+            )
         } else if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
             Spacer(Modifier.height(6.dp))
             Text(

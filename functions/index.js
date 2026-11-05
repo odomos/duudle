@@ -5,7 +5,7 @@ const {getAuth} = require("firebase-admin/auth");
 const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 const {getMessaging} = require("firebase-admin/messaging");
 const logger = require("firebase-functions/logger");
-const {decideDoodlePush, displayName} = require("./doodlePush");
+const {decideDoodlePush, displayName, compactStrokes} = require("./doodlePush");
 const {isDeadTokenError, readPushToken, forgetDeadToken} = require("./pushTokens");
 const {deleteAccountData, deleteAuthUser, bearerToken} = require("./accountDeletion");
 
@@ -22,19 +22,6 @@ async function cleanUpDeadToken(userRef, token, logContext) {
   }
 }
 
-function serializeStrokes(strokes) {
-  // Round coordinates to keep the payload small and fast to deliver
-  const compact = (strokes || []).map((s) => ({
-    c: s.color,
-    w: s.width,
-    p: (s.points || []).map((pt) => [
-      Math.round(pt.x * 1000) / 1000,
-      Math.round(pt.y * 1000) / 1000,
-    ]),
-  }));
-  return JSON.stringify(compact);
-}
-
 exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) => {
   const snapshot = event.data;
   if (!snapshot) {
@@ -49,6 +36,15 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
 
   if (!receiverId || !senderId || receiverId === senderId) {
     logger.warn("Doodle has no valid sender/receiver, exiting", {doodleId});
+    return;
+  }
+
+  // Checked before any lookups: a doodle with nothing drawable (only a modified client can
+  // write one; the app refuses to send an empty canvas) gets no push. A flash card has no strokes.
+  const cardId = typeof doodle.cardId === "string" && doodle.cardId ? doodle.cardId.slice(0, 32) : "";
+  const {strokes, pointCount} = compactStrokes(doodle.strokes);
+  if (!cardId && strokes.length === 0) {
+    logger.warn("Doodle has nothing to draw, skipping push", {doodleId});
     return;
   }
 
@@ -101,10 +97,9 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   // which the sender wrote and could have labelled with anyone's name.
   const senderUsername = displayName(senderDoc.exists ? senderDoc.data().username : undefined);
 
-  const strokesJson = serializeStrokes(doodle.strokes);
+  const strokesJson = JSON.stringify(strokes);
   // FCM data messages cap at 4KB total; leave ~500 bytes for the other fields.
   const MAX_STROKES_BYTES = 3600;
-  const pointCount = (doodle.strokes || []).reduce((n, s) => n + ((s.points || []).length), 0);
   const strokesSize = Buffer.byteLength(strokesJson, "utf8");
 
   const data = {
@@ -116,7 +111,7 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
     senderId: senderId,
     senderUsername: senderUsername,
   };
-  if (typeof doodle.cardId === "string" && doodle.cardId) data.cardId = doodle.cardId.slice(0, 32);
+  if (cardId) data.cardId = cardId;
 
   if (strokesSize <= MAX_STROKES_BYTES) {
     data.strokes = strokesJson;

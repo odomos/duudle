@@ -146,6 +146,7 @@ Reference: [Google Play — Account deletion requirements](https://support.googl
 - [ ] Add server-enforced rate limiting/quotas for registration, username lookups, friend requests, doodle sends, chat messages and actions that trigger pushes.
   - **Implemented, tests passed, on staging** _(Phase 6a, 2026-11-02)_: doodles+cards (60/hour), chat messages incl. theme changes (300/hour), friend requests (30/day) and reports (20/day) are each written in one batch with a private counter `users/{uid}/limits/{kind}` `{count, windowStart, lastId}`; the rules refuse a send without its counter step or past the limit, and `lastId` makes one step pay for exactly one doc (`RateLimits.kt`, `firestore.rules`, `firestore-tests/test/rate-limits.test.js`, mutation-checked). Not covered: sign-ups (Firebase Auth's own per-IP limit) and username lookups (reads can't be rate-limited by rules; App Check, 6b). Live order: app first, then rules (older apps can't send under the new rules).
 - [ ] Reject malformed or over-sized payloads before expensive work.
+  - **Implemented, tests passed, on staging** _(hardening, 2026-11-04)_: `onDoodleCreated` cleans the strokes first (`compactStrokes` in `functions/doodlePush.js`, same leniency as the app's `parseDoodleDoc`, 3 tests) and skips a doodle with nothing drawable before any lookup; a malformed one used to crash the function. Checked on staging with a labelled test doc (logged "nothing to draw", then deleted). Size is already capped by the rules (500 strokes) and the 1 MB doc limit; chat text is cut to 200 characters.
 - [ ] Configure App Check for the Android app using Play Integrity where appropriate.
   - **Implemented, on staging, monitor-only** _(Phase 6b, 2026-11-02)_: `DuudleApp` installs App Check before any Firebase call; release builds use Play Integrity, debug/staging builds the debug provider (per-build-type `AppCheckProvider.kt`; the debug library isn't in the release APK). The App Check API had to be added to the restricted Android API keys. Nothing is enforced. Still to do: register Play Integrity (SHA-256 + Play Console link) and the release signing key at Phase 8, then enforce Firestore/Auth gradually; `deleteAccount` (an HTTPS function) would need its own token check.
 - [ ] Begin by monitoring App Check metrics and validating test devices/real traffic; enable enforcement gradually for supported services after validating legitimate traffic.
@@ -236,6 +237,7 @@ Official guidance: [Cloud Firestore best practices](https://firebase.google.com/
 - [ ] Inspect `AndroidManifest.xml` for `SYSTEM_ALERT_WINDOW`, services, receivers, exported components, permissions and intent filters.
 - [ ] Explain overlay value before directing a user to “Display over other apps”; request permission only after a clear user action.
 - [ ] Provide settings to disable overlays and easy dismissal.
+  - **Implemented, tests passed** _(hardening, 2026-11-04)_: Profile's setup card has a **Pop-ups** switch (`PopUps.kt`, on by default, kept on this phone). Off = doodles arrive as the normal notification without the "turn on Show over other apps" hint, and Home stops flagging the overlay. Dismissal: the overlay already has Back, Snooze, Remove and Draw.
 - [ ] Handle missing/revoked permission with no crash, no infinite permission nagging, and a fallback such as a notification or in-app Vault.
   - **Implemented, tests passed, verified on the emulator (staging)** _(Phase 3, F13, 2026-10-27)_: without "Display over other apps" a doodle or flash card shows a normal notification ("@name sent you a doodle", one per sender, lock-screen private) that opens the Vault (`DoodleNotification.kt`, 3 unit tests). Owner-verified on the A34 + emulator 2026-10-27; in the app on the owner's devices.
 - [ ] Verify the overlay does not impersonate system UI, trap input, block essential app controls or behave deceptively.
@@ -280,6 +282,7 @@ The documented code currently uses one `MainActivity`, a plain screen enum, Comp
 ### Privacy requirements
 
 - [ ] Do not log chat text, private doodle strokes, raw FCM tokens, authentication secrets or unnecessary sensitive IDs.
+  - **Checked** _(2026-11-04)_: no app or function log prints chat text, strokes, tokens or usernames; Crashlytics gets no user id or custom keys. Logs do carry uids/doodle ids (needed to trace a lost push). Release builds aren't minified yet, so `Log.d` lines ship; turning on R8 (which can strip them) needs a release-build phone test, best done with the upload key.
 - [ ] Set access controls and retention for logs/reports/analytics and document relevant SDKs/data collection.
 - [ ] Make Play Console Data safety answers match the production implementation, not intended future behaviour.
 

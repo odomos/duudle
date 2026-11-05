@@ -83,9 +83,10 @@ class DuudleMessagingService : FirebaseMessagingService() {
             return
         }
 
-        if (!Settings.canDrawOverlays(applicationContext)) {
-            Log.w("DuudleFCM", "No overlay permission, showing a notification instead")
-            DoodleNotification.show(applicationContext, senderUid, senderUsername, isFlashCard = cardId != null)
+        val popUpsOn = PopUps.isOn(applicationContext)
+        if (!showsAsPopUp(popUpsOn, Settings.canDrawOverlays(applicationContext))) {
+            Log.w("DuudleFCM", if (popUpsOn) "No overlay permission, showing a notification instead" else "Pop-ups turned off, showing a notification")
+            DoodleNotification.show(applicationContext, senderUid, senderUsername, isFlashCard = cardId != null, popUpsTurnedOff = !popUpsOn)
             return
         }
 

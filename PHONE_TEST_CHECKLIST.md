@@ -588,6 +588,12 @@ Use the **new Duudle Staging** (check App info shows `com.arnavchauhan.duudle.st
       is now looked up, not passed along); offline it still opens, titled "Draw"
 - [ ] Each doodle pops up once (repeat pushes are dropped); a snoozed doodle still comes back
       when the snooze ends
+- [ ] Profile > "Make sure doodles pop up" has a **Pop-ups** switch. Turn it off: the "Show
+      over other apps" row goes away, Home's pill says "Pop-ups off" (grey, not tappable), and a
+      friend's doodle arrives as a notification ("Tap to see it in your Vault.") instead of
+      popping up. Turn it back on: doodles pop up again. TalkBack reads it as a switch
+- [ ] Doodles and flash cards still pop up normally after the function update (it now
+      checks the strokes before anything else; staging only)
 
 ## Phase 7 Monitoring (staging 2026-11-02; not live yet)
 
