@@ -581,6 +581,10 @@ API keys allow), installed over the live app on the A34, against live:
 - [x] Release-only: "Test a pop-up" shows the sample, "Overlay off" opens Profile
 - [ ] Repeat once on the Play-signed build from internal testing (Google sign-in needs the
       Play signing SHA-1 in Firebase first)
+- [x] New sample pop-up (looks like a real one: square canvas with a smiley, "A sample: this
+      is how friends' doodles pop up.", Snooze/Remove/Draw close it): checked on the A34 through
+      the debug test screen, which calls the same code (2026-11-05)
+- [ ] On the Play build: Profile > Test a pop-up shows that sample
 
 ## Phase 8 New app ID + Play prep (staging 2026-11-02; new live app on the owner's devices 2026-11-05)
 

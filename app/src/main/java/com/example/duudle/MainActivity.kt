@@ -700,21 +700,41 @@ fun OverlayTestScreen(modifier: Modifier = Modifier, onBack: () -> Unit = {}) {
 
 private var overlayView: View? = null
 
+/**
+ * A sample pop-up that looks like a real one (same frame, square canvas and buttons as
+ * [showRealDoodleOverlay]) with a built-in doodle. Any button just closes it.
+ */
 fun showTestOverlay(context: Context) {
     if (overlayView != null) return
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     val layout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setBackgroundColor(Color.parseColor("#D8C7F5"))
+        setBackgroundColor(Color.parseColor("#F5F0FB"))
         setPadding(32, 32, 32, 32)
     }
     layout.addView(TextView(context).apply {
         text = "🖍 Doodle from a friend"
         setTextColor(Color.BLACK)
         textSize = 16f
+        setPadding(0, 0, 0, 4)
     })
-    val buttonRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+    val canvasSize = dpToPx(context, 260)
+    // As wide as the canvas, so the line wraps instead of being cut off.
+    layout.addView(TextView(context).apply {
+        text = "A sample: this is how friends' doodles pop up."
+        setTextColor(Color.DKGRAY)
+        textSize = 13f
+        setPadding(0, 0, 0, 16)
+    }, LinearLayout.LayoutParams(canvasSize, LinearLayout.LayoutParams.WRAP_CONTENT))
+    layout.addView(
+        DoodleCanvasView(context, sampleDoodleStrokes()).apply { setBackgroundColor(Color.WHITE) },
+        LinearLayout.LayoutParams(canvasSize, canvasSize)
+    )
+    val buttonRow = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, 16, 0, 0)
+    }
     listOf("Snooze", "Remove", "Draw").forEach { label ->
         buttonRow.addView(Button(context).apply {
             text = label
@@ -730,9 +750,7 @@ fun showTestOverlay(context: Context) {
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
         PixelFormat.TRANSLUCENT
     ).apply {
-        gravity = Gravity.TOP or Gravity.START
-        x = 0
-        y = 200
+        gravity = Gravity.CENTER
     }
 
     windowManager.addView(layout, params)
