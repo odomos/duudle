@@ -1,0 +1,452 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Duudle promo</title>
+<!--
+  Duudle promo: the whole 44 s film as one deterministic timeline.
+  window.renderFrame(n) lays out frame n (30 fps); render.mjs screenshots each frame.
+  Open this file in Chrome to scrub it by hand: add #play to the URL to preview in real time.
+  The app UI is never redrawn here: phones only ever show the real screenshots in
+  assets/screens and real screen-recording frames in assets/clips.
+-->
+<style>
+  @font-face { font-family: "Roboto"; src: url("assets/fonts/Roboto-VF.ttf"); font-weight: 100 900; }
+  :root { --ink:#141414; --cream:#F4F3F0; --yellow:#FFC800; --sun:#FFC933; }
+  html, body { margin:0; background:#000; }
+  #stage { position:relative; width:1080px; height:1920px; overflow:hidden; background:var(--ink);
+           font-family:"Roboto", sans-serif; color:var(--ink); }
+  #stage * { box-sizing:border-box; }
+  .abs { position:absolute; left:0; top:0; }
+  .full { position:absolute; left:0; top:0; width:1080px; height:1920px; }
+  .orb { position:absolute; border-radius:50%; filter:blur(110px); }
+  .shape { position:absolute; left:0; top:0; width:220px; height:220px; margin:-110px 0 0 -110px; will-change:transform; }
+  .shape svg { width:100%; height:100%; overflow:visible; filter:drop-shadow(0 14px 18px rgba(20,20,20,.10)); }
+
+  /* phone mockup */
+  #world { perspective:2600px; perspective-origin:540px 960px; }
+  .phone { position:absolute; left:0; top:0; width:632px; height:1217px; margin:-608.5px 0 0 -316px;
+           border-radius:74px; background:#101010; transform-style:preserve-3d;
+           box-shadow: 0 0 0 2px #2b2b2b inset, 0 0 0 3px #000, 0 50px 90px rgba(20,20,20,.28), 0 18px 30px rgba(20,20,20,.18); }
+  .phone .screen { position:absolute; left:16px; top:16px; width:600px; height:1185px; border-radius:58px; overflow:hidden; background:#fff; }
+  .phone .screen img { position:absolute; left:0; display:block; }
+  .phone .screen img.still { top:-40.65px; width:600px; height:1300.81px; }
+  .phone .screen img.clip { top:0; width:600px; height:1185px; }
+  .phone .glare { position:absolute; inset:0; border-radius:58px; pointer-events:none;
+                  background:linear-gradient(125deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 100%); }
+  .tap { position:absolute; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%;
+         border:7px solid var(--sun); background:rgba(255,201,51,.28); opacity:0; }
+  .ring { position:absolute; border:7px solid var(--sun); border-radius:60px; opacity:0; box-shadow:0 0 0 5px rgba(20,20,20,.9), 0 10px 30px rgba(0,0,0,.25); }
+
+  /* captions */
+  .cap { position:absolute; left:0; width:1080px; text-align:center; font-weight:900; letter-spacing:-0.035em; line-height:1.02; }
+  .cap .w { display:inline-block; white-space:pre; will-change:transform; }
+
+  /* schematic "their phone" used only for the pop-up metaphor: deliberately generic, not app UI */
+  #their { position:absolute; left:0; top:0; width:540px; height:1060px; margin:-530px 0 0 -270px; border-radius:66px; background:#101010;
+           box-shadow:0 50px 90px rgba(20,20,20,.30); }
+  #their .scr { position:absolute; inset:14px; border-radius:54px; background:linear-gradient(180deg,#fbfaf7,#eceae5); overflow:hidden; }
+  #their .ic { position:absolute; width:92px; height:92px; border-radius:26px; }
+  #card { position:absolute; left:0; top:0; width:600px; height:600px; margin:-300px 0 0 -300px; background:#fff; border-radius:64px;
+          box-shadow:0 40px 80px rgba(20,20,20,.30), 0 0 0 3px rgba(20,20,20,.06); }
+  #card img { position:absolute; left:5%; top:5%; width:90%; height:90%; }
+  .burst { position:absolute; left:0; top:0; width:14px; height:54px; margin:-27px 0 0 -7px; border-radius:7px; background:var(--ink); }
+
+  #wordmark { position:absolute; left:0; top:520px; width:1080px; text-align:center; font-weight:900; font-size:288px; letter-spacing:-0.05em; line-height:1; }
+  #cta { position:absolute; left:50%; top:1040px; height:104px; line-height:104px; padding:0 58px; border-radius:52px; background:var(--ink); color:#fff;
+         font-weight:700; font-size:44px; letter-spacing:-0.01em; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- hook, part 1 (white on ink) sits under the cream reveal -->
+  <div id="hook1" class="full"></div>
+  <div id="bgCream" class="full" style="background:var(--cream)"></div>
+  <div id="bgYellow" class="full" style="background:var(--yellow)"></div>
+  <div id="bgCream2" class="full" style="background:var(--cream)"></div>
+  <div id="orbs" class="full">
+    <div class="orb" id="orb0" style="width:760px;height:760px;background:#FBC9E8"></div>
+    <div class="orb" id="orb1" style="width:820px;height:820px;background:#C6E3FF"></div>
+    <div class="orb" id="orb2" style="width:700px;height:700px;background:#FFEDB3"></div>
+  </div>
+  <div id="decor" class="full"></div>
+  <div id="hook2" class="full"></div>
+  <div id="world" class="full">
+    <div id="their"><div class="scr" id="theirScr"></div></div>
+    <div id="collage"></div>
+    <div id="phone" class="phone">
+      <div class="screen" id="screen">
+        <img class="clip" id="clip" alt="">
+        <div class="tap" id="tap"></div>
+        <div class="ring" id="ring"></div>
+        <div class="glare"></div>
+      </div>
+      
+    </div>
+    <div id="card"><img src="assets/doodle_yo_sam.png" alt=""></div>
+    <div id="bursts"></div>
+  </div>
+  <div id="caps" class="full"></div>
+  <div id="brand" class="full">
+    <div id="wordmark">Duudle</div>
+    <svg id="brandLine" class="abs" style="left:190px;top:800px" width="700" height="70" viewBox="0 0 700 70">
+      <path id="brandLinePath" d="M12,40 C70,8 110,66 170,38 S270,10 330,38 S430,66 490,36 S610,12 688,34" fill="none" stroke="#FFC800" stroke-width="20" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    </svg>
+    <div id="tagline" class="cap" style="top:900px;font-size:66px;font-weight:700;letter-spacing:-0.02em">Say it with a doodle.</div>
+    <div id="cta">Coming soon on Android</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const FPS = 30, DURATION = 44;
+window.TOTAL_FRAMES = FPS * DURATION;
+const $ = (id) => document.getElementById(id);
+const K = 600 / 738;                       // screenshot px -> phone-screen px
+
+// ---------- easing / helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+const E = {
+  lin: (p) => p,
+  out: (p) => 1 - Math.pow(1 - p, 3),
+  in: (p) => p * p * p,
+  io: (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2),
+  back: (p) => { const c = 1.55; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); },
+  spring: (p) => (p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(11 * p)),
+};
+const prog = (t, t0, dur, ease = 'out') => E[ease](clamp((t - t0) / dur));
+/** keyframes: [[time, [values...], easeIntoThisKey], ...] -> interpolated values */
+function kf(t, keys) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    if (t <= keys[i][0]) {
+      const [t0, a] = keys[i - 1], [t1, b, ease] = keys[i];
+      const p = E[ease || 'io'](clamp((t - t0) / Math.max(1e-6, t1 - t0)));
+      return a.map((v, j) => lerp(v, b[j], p));
+    }
+  }
+  return keys[keys.length - 1][1];
+}
+const show = (el, on) => { el.style.display = on ? '' : 'none'; };
+
+// ---------- mascots (original shapes in the app's palette) ----------
+const INK = '#141414';
+const eye = (x, y) => `<circle cx="${x}" cy="${y}" r="21" fill="#fff"/><circle cx="${x - 4}" cy="${y + 3}" r="11" fill="${INK}"/>`;
+const line = (d, w = 8) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const SHAPES = {
+  green: `<circle cx="100" cy="100" r="96" fill="#9BE27A"/>${line('M50,86 q15,15 30,0')}${line('M120,86 q15,15 30,0')}${line('M78,122 q22,20 44,0')}`,
+  pink: `<circle cx="100" cy="100" r="96" fill="#F895D2"/>${eye(66, 90)}${eye(134, 90)}${line('M86,134 q14,12 28,0')}`,
+  bolt: `<polygon points="122,8 38,112 92,112 66,192 166,80 108,80" fill="#FFD25E" stroke="#FFD25E" stroke-width="18" stroke-linejoin="round"/>${line('M70,96 q10,-12 20,0', 7)}${line('M108,90 q10,-12 20,0', 7)}${line('M86,118 q14,14 28,0', 7)}`,
+  orange: `<rect x="14" y="14" width="172" height="172" rx="42" fill="#FFA66B"/>${eye(68, 86)}${eye(134, 86)}${line('M86,134 q14,12 28,0')}`,
+  coral: `<path d="M100,24 L182,172 L18,172 Z" fill="#FF8A80" stroke="#FF8A80" stroke-width="26" stroke-linejoin="round"/>${line('M62,112 l18,10 l-18,10', 7)}${line('M138,112 l-18,10 l18,10', 7)}${line('M88,152 q12,10 24,0', 7)}`,
+  blue: `<path d="M100,8 C160,8 196,60 190,116 C184,170 140,194 96,192 C44,190 8,160 10,110 C12,54 44,8 100,8Z" fill="#7FBDF7"/>${line('M48,92 q15,15 30,0')}${line('M118,92 q15,15 30,0')}<ellipse cx="98" cy="134" rx="9" ry="12" fill="none" stroke="${INK}" stroke-width="8"/>`,
+  lilac: `<circle cx="100" cy="100" r="96" fill="#E7D7FB"/><path d="M100,100 m-8,6 a14,14 0 1 1 22,-10 a36,36 0 1 1 -58,22 a60,60 0 1 1 104,26" fill="none" stroke="#C4A4F5" stroke-width="22" stroke-linecap="round"/><circle cx="78" cy="82" r="7" fill="${INK}"/><circle cx="126" cy="80" r="7" fill="${INK}"/><ellipse cx="104" cy="112" rx="6" ry="9" fill="none" stroke="${INK}" stroke-width="6"/>`,
+};
+// Per-shape keyframes: [t, [x, y, scale, rot]]. Scale 0 = hidden.
+const H = 0, popAt = (t0, v) => [[t0, [v[0], v[1], H, v[3] - 40]], [t0 + 0.45, v, 'back']];
+const DECOR = {
+  green:  [...popAt(2.40, [185, 430, 1.25, -8]),  [3.6, [185, 430, 1.25, -8]],  [4.6, [62, 560, 0.95, 6]],   [19.7, [62, 560, 0.95, 6]],   [20.4, [95, 620, 0.8, -10]],  [23.5, [95, 620, 0.8, -10]],  [24.4, [62, 560, 0.95, 6]],   [37.4, [62, 560, 0.95, 6]],   [38.5, [190, 330, 1.25, -8], 'back']],
+  pink:   [...popAt(2.55, [905, 390, 1.05, 10]),  [3.6, [905, 390, 1.05, 10]],  [4.6, [1022, 790, 0.85, -8]], [19.7, [1022, 790, 0.85, -8]], [20.4, [1000, 560, 0.7, 12]], [23.5, [1000, 560, 0.7, 12]], [24.4, [1022, 790, 0.85, -8]], [37.4, [1022, 790, 0.85, -8]], [38.6, [120, 1400, 1.35, -10], 'back']],
+  bolt:   [...popAt(2.70, [880, 1470, 1.35, 8]),  [3.6, [880, 1470, 1.35, 8]],  [4.6, [1005, 1500, 1.0, 10]], [19.7, [1005, 1500, 1.0, 10]], [20.2, [1005, 1500, 0, 40]],  [23.9, [1005, 1500, 0, 40]],  [24.5, [1005, 1500, 1.0, 10]], [37.4, [1005, 1500, 1.0, 10]], [38.7, [530, 1520, 1.7, 6], 'back']],
+  orange: [...popAt(2.85, [170, 1410, 1.15, -12]), [3.6, [170, 1410, 1.15, -12]], [4.6, [70, 1390, 0.85, -14]], [19.7, [70, 1390, 0.85, -14]], [20.4, [80, 1480, 0.75, 10]],  [23.5, [80, 1480, 0.75, 10]], [24.4, [70, 1390, 0.85, -14]], [37.4, [70, 1390, 0.85, -14]], [38.8, [945, 1360, 1.25, 10], 'back']],
+  blue:   [...popAt(3.00, [540, 1690, 1.3, 4]),   [3.6, [540, 1690, 1.3, 4]],   [4.6, [925, 1815, 1.15, 8]],  [7.2, [925, 1815, 1.15, 8]], [7.9, [1075, 1900, 0.9, 8]], [11.7, [1075, 1900, 0.9, 8]], [12.4, [925, 1815, 1.15, 8]], [19.7, [925, 1815, 1.15, 8]],  [20.4, [985, 1730, 0.9, -6]], [23.5, [985, 1730, 0.9, -6]], [24.4, [925, 1815, 1.15, 8]],  [37.4, [925, 1815, 1.15, 8]],  [38.9, [235, 1750, 1.75, -4], 'back']],
+  coral:  [...popAt(3.10, [975, 1150, 0.85, 14]), [3.6, [975, 1150, 0.85, 14]],  [4.6, [150, 1800, 1.0, -8]],  [7.2, [150, 1800, 1.0, -8]], [7.9, [10, 1895, 0.9, -8]], [11.7, [10, 1895, 0.9, -8]], [12.4, [150, 1800, 1.0, -8]], [19.7, [150, 1800, 1.0, -8]],  [20.4, [110, 1745, 0.8, 8]],  [23.5, [110, 1745, 0.8, 8]],  [24.4, [150, 1800, 1.0, -8]],  [37.4, [150, 1800, 1.0, -8]],  [39.0, [860, 1740, 1.6, 8], 'back']],
+  lilac:  [...popAt(3.20, [105, 1160, 0.8, -10]), [3.6, [105, 1160, 0.8, -10]],  [4.6, [985, 345, 0.72, 8]],   [19.7, [985, 345, 0.72, 8]],   [20.2, [985, 345, 0, 8]],     [23.9, [985, 345, 0, 8]],     [24.5, [985, 345, 0.72, 8]],   [37.4, [985, 345, 0.72, 8]],   [38.55, [880, 300, 0.95, 10], 'back']],
+};
+const shapeEls = {};
+Object.keys(SHAPES).forEach((name) => {
+  const d = document.createElement('div'); d.className = 'shape';
+  d.innerHTML = `<svg viewBox="0 0 200 200">${SHAPES[name]}</svg>`;
+  $('decor').appendChild(d); shapeEls[name] = d;
+});
+
+// ---------- hook text ----------
+$('hook1').innerHTML = `
+  <div class="cap" id="h1a" style="top:720px;font-size:136px;color:#fff">Texting is</div>
+  <div class="cap" id="h1b" style="top:872px;font-size:176px;color:#fff">boring.</div>
+  <svg class="abs" style="left:215px;top:860px" width="650" height="230" viewBox="0 0 650 230">
+    <path id="strike" d="M24,96 L610,58 L60,128 L626,104 L40,170 L560,150" fill="none" stroke="#FFC800" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+  </svg>`;
+$('hook2').innerHTML = `
+  <div class="cap" id="h2a" style="top:690px;font-size:124px">Send a</div>
+  <div class="cap" id="h2b" style="top:812px;font-size:224px">doodle</div>
+  <svg class="abs" style="left:205px;top:1034px" width="670" height="70" viewBox="0 0 700 70">
+    <path id="h2line" d="M12,40 C70,8 110,66 170,38 S270,10 330,38 S430,66 490,36 S610,12 688,34" fill="none" stroke="#FFC800" stroke-width="20" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+  </svg>
+  <div class="cap" id="h2c" style="top:1110px;font-size:124px">instead.</div>`;
+
+// ---------- captions ----------
+const CAPS = [
+  { t0: 4.55, t1: 6.15, y: 150, size: 100, lines: ['You got', 'a doodle!'] },
+  { t0: 6.40, t1: 7.25, y: 200, size: 108, lines: ['Open it.'] },
+  { t0: 8.00, t1: 8.85, y: 1630, size: 120, lines: ['Snooze it.'] },
+  { t0: 9.00, t1: 9.85, y: 1630, size: 120, lines: ['Remove it.'] },
+  { t0: 10.00, t1: 11.65, y: 1630, size: 120, lines: ['Or draw back.'] },
+  { t0: 12.35, t1: 17.35, y: 150, size: 108, lines: ['Draw', 'anything.'] },
+  { t0: 17.60, t1: 19.60, y: 200, size: 116, lines: ['Send it.'] },
+  { t0: 20.45, t1: 23.40, y: 120, size: 100, lines: ['It pops up', 'on their screen.'] },
+  { t0: 21.30, t1: 23.40, y: 1690, size: 56, weight: 700, lines: ['Even when Duudle is closed.'] },
+  { t0: 24.45, t1: 27.80, y: 150, size: 100, lines: ['Build your', 'character.'] },
+  { t0: 28.10, t1: 31.80, y: 150, size: 100, lines: ['Give your chats', 'a vibe.'] },
+  { t0: 32.10, t1: 33.80, y: 150, size: 100, lines: ['Keep every', 'doodle.'] },
+  { t0: 34.35, t1: 37.30, y: 150, size: 100, lines: ['Saying hi', 'just got fun.'] },
+];
+CAPS.forEach((c) => {
+  const d = document.createElement('div'); d.className = 'cap';
+  d.style.top = c.y + 'px'; d.style.fontSize = c.size + 'px';
+  if (c.weight) { d.style.fontWeight = c.weight; d.style.letterSpacing = '-0.015em'; }
+  c.words = [];
+  c.lines.forEach((ln) => {
+    const row = document.createElement('div');
+    ln.split(' ').forEach((w, i, arr) => {
+      const s = document.createElement('span'); s.className = 'w'; s.textContent = w + (i < arr.length - 1 ? ' ' : '');
+      row.appendChild(s); c.words.push(s);
+    });
+    d.appendChild(row);
+  });
+  $('caps').appendChild(d); c.el = d;
+});
+
+// ---------- phone screens ----------
+const STILLS = ['profile', 'edit_outfits', 'edit_hair', 'edit_face', 'edit_extras', 'themes', 'chat', 'vault', 'home'];
+const stillEls = {};
+STILLS.forEach((n) => {
+  const im = new Image(); im.className = 'still'; im.src = `assets/screens/${n}.png`; im.style.display = 'none';
+  $('screen').insertBefore(im, $('tap')); stillEls[n] = im;
+});
+const clipName = (set, n) => `assets/clips/${set}_${String(Math.round(n)).padStart(4, '0')}.jpg`;
+/** What the main phone shows at time t. Stills are the user's screenshots; clips are the screen recording. */
+function screenAt(t) {
+  if (t < 6.3) {                       // home: "@emulator3 sent you a doodle!" (ping-pong over the clean stretch)
+    const n = Math.round((t - 4.0) * FPS), per = 54, m = ((n % per) + per) % per;
+    return { clip: clipName('a', 69 + (m < 27 ? m : per - m)) };
+  }
+  if (t < 12.0) return { clip: clipName('a', 40) };                     // the received doodle, with Snooze / Remove / Draw
+  if (t < 12.6) return { clip: clipName('b', clamp(57 - (12.6 - t) * FPS, 30, 57)) };
+  if (t < 17.0) return { clip: clipName('b', 57 + (t - 12.6) * FPS) };  // drawing "yo! Sam", real speed
+  if (t < 18.0) return { clip: clipName('b', 189 + (t - 17.0) * 14) };
+  if (t < 23.0) return { clip: clipName('b', clamp(203 + (t - 18.0) * FPS, 203, 258)) }; // Send -> "Send to..."
+  if (t < 25.5) return { still: 'profile' };
+  if (t < 26.0) return { still: 'edit_outfits' };
+  if (t < 26.5) return { still: 'edit_hair' };
+  if (t < 27.0) return { still: 'edit_face' };
+  if (t < 28.0) return { still: 'edit_extras' };
+  if (t < 30.0) return { still: 'themes' };
+  if (t < 32.0) return { still: 'chat' };
+  return { still: 'vault' };
+}
+const CUTS = [6.3, 12.0, 25.5, 26.0, 26.5, 27.0, 28.0, 30.0, 32.0];
+// taps: [time, x, y] in recording/screenshot-crop pixels (738 x 1458)
+const TAPS = [[6.0, 376, 413], [11.5, 593, 1383], [18.0, 655, 68], [19.4, 300, 599], [29.5, 544, 322]];
+// highlight rings around the real Snooze / Remove / Draw buttons
+const RINGS = [[8.0, 9.0, 157, 1383], [9.0, 10.0, 383, 1383], [10.0, 11.6, 593, 1383]];
+
+const PHONE = [
+  [4.0, [540, 2500, 0.9, 32, 0, -8]],
+  [4.85, [540, 1035, 1, 0, 0, 0], 'out'],
+  [7.15, [540, 1035, 1, 0, 0, 0]],
+  [7.95, [540, 640, 1.3, 0, 0, 0], 'io'],
+  [11.65, [540, 640, 1.3, 0, 0, 0]],
+  [12.4, [540, 1035, 1, 0, 0, 0], 'io'],
+  [19.55, [540, 1035, 1, 0, 0, 0]],
+  [20.25, [540, 2800, 0.8, -24, 0, 10], 'in'],
+  [23.55, [540, 2800, 0.8, -24, 0, 10]],
+  [23.56, [1750, 1035, 0.9, 0, -50, 8]],
+  [24.5, [540, 1035, 1, 0, 0, 0], 'out'],
+  [33.95, [540, 1035, 1, 0, 0, 0]],
+  [34.75, [540, 1030, 0.62, 0, 0, 0], 'io'],
+  [37.3, [540, 1030, 0.62, 0, 0, 0]],
+  [38.0, [540, 2700, 0.45, 24, 0, -12], 'in'],
+];
+const setPhone = (el, [x, y, s, rx, ry, rz]) => {
+  el.style.transform = `translate3d(${x}px,${y}px,0) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`;
+};
+
+// collage phones (scene "the experience"): [name, src, final x, y, scale, rotZ, rotY, delay]
+const COLLAGE = [
+  ['profile', 'assets/screens/profile.png', 'still', 232, 1560, 0.44, -9, 14, 0.15],
+  ['draw', 'assets/clips/b_0192.jpg', 'clip', 848, 1560, 0.44, 9, -14, 0.30],
+  ['home', 'assets/screens/home.png', 'still', 178, 830, 0.46, -7, 16, 0.00],
+  ['chat', 'assets/screens/chat.png', 'still', 902, 830, 0.46, 7, -16, 0.45],
+].map(([name, src, kind, x, y, s, rz, ry, delay]) => {
+  const p = document.createElement('div'); p.className = 'phone';
+  p.innerHTML = `<div class="screen"><img class="${kind}" src="${src}" alt=""><div class="glare"></div></div>`;
+  $('collage').appendChild(p);
+  return { el: p, x, y, s, rz, ry, delay };
+});
+
+// schematic phone icons + burst ticks
+(() => {
+  const scr = $('theirScr'), cols = ['#E4E2DC', '#DAD8D2', '#E9E7E2'];
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 4; c++) {
+    const d = document.createElement('div'); d.className = 'ic';
+    d.style.left = 40 + c * 116 + 'px'; d.style.top = 120 + r * 136 + 'px'; d.style.background = cols[(r * 3 + c) % 3];
+    scr.appendChild(d);
+  }
+  for (let i = 0; i < 10; i++) { const b = document.createElement('div'); b.className = 'burst'; $('bursts').appendChild(b); }
+})();
+
+const circle = (el, x, y, r) => { el.style.clipPath = `circle(${Math.max(0, r)}px at ${x}px ${y}px)`; };
+function words(el) {            // split a .cap's text into animated word spans (used for hook + tagline)
+  const txt = el.textContent; el.textContent = '';
+  return txt.split(' ').map((w, i, a) => { const s = document.createElement('span'); s.className = 'w'; s.textContent = w + (i < a.length - 1 ? ' ' : ''); el.appendChild(s); return s; });
+}
+const h1a = words($('h1a')), h1b = words($('h1b')), h2a = words($('h2a')), h2b = words($('h2b')), h2c = words($('h2c')), tagW = words($('tagline'));
+function popWords(ws, t, t0, stagger = 0.07, tOut = 1e9, rise = 70) {
+  ws.forEach((s, i) => {
+    const p = prog(t, t0 + i * stagger, 0.42, 'back'), o = clamp((t - tOut) / 0.22);
+    s.style.transform = `translateY(${(1 - p) * rise - o * 40}px) scale(${0.86 + 0.14 * p})`;
+    s.style.opacity = Math.min(clamp((t - t0 - i * stagger) / 0.14), 1 - o);
+  });
+}
+
+let lastClip = '';
+window.renderFrame = async function (f) {
+  const t = f / FPS;
+
+  // ----- backgrounds -----
+  circle($('bgCream'), 540, 960, prog(t, 2.0, 0.55, 'out') * 1300);
+  circle($('bgYellow'), 540, 1000, prog(t, 19.85, 0.5, 'out') * 1500);
+  circle($('bgCream2'), 1080, 1035, prog(t, 23.5, 0.55, 'io') * 1750);
+  const creamOn = Math.min(prog(t, 2.2, 0.5, 'lin'), t < 21 ? 1 - prog(t, 19.8, 0.3, 'lin') : prog(t, 23.8, 0.5, 'lin'));
+  $('orbs').style.opacity = 0.75 * creamOn;
+  [[250, 420, 0.21, 0.0], [820, 1150, 0.17, 2.1], [330, 1640, 0.25, 4.2]].forEach(([x, y, sp, ph], i) => {
+    $('orb' + i).style.transform = `translate(${x - 380 + 150 * Math.sin(t * sp + ph)}px, ${y - 380 + 130 * Math.cos(t * sp * 1.3 + ph)}px)`;
+  });
+
+  // ----- hook -----
+  show($('hook1'), t < 2.7);
+  popWords(h1a, t, -0.3); popWords(h1b, t, 0.5, 0.07, 1e9, 110);
+  $('strike').setAttribute('stroke-dashoffset', 1 - prog(t, 1.08, 0.6, 'io'));
+  const shake = t > 1.08 && t < 1.7 ? Math.sin(t * 70) * 5 * (1 - (t - 1.08) / 0.62) : 0;
+  $('hook1').style.transform = `translateX(${shake}px) scale(${1 + 0.035 * clamp(t / 2)})`;
+  show($('hook2'), t >= 2.0 && t < 4.1);
+  popWords(h2a, t, 2.1); popWords(h2b, t, 2.28, 0.07, 1e9, 120); popWords(h2c, t, 2.5);
+  $('h2line').setAttribute('stroke-dashoffset', 1 - prog(t, 2.6, 0.5, 'io'));
+  const hx = prog(t, 3.62, 0.38, 'in');
+  $('hook2').style.transform = `scale(${1 + 0.02 * clamp((t - 2) / 2) + 0.35 * hx})`;
+  $('hook2').style.opacity = 1 - hx;
+
+  // ----- mascots -----
+  Object.keys(DECOR).forEach((name, i) => {
+    const [x, y, s, r] = kf(t, DECOR[name]);
+    const el = shapeEls[name];
+    show(el, s > 0.01);
+    el.style.transform = `translate(${x}px,${y + 12 * Math.sin(t * 1.5 + i * 1.7)}px) rotate(${r + 5 * Math.sin(t * 1.1 + i * 2.3)}deg) scale(${s})`;
+  });
+
+  // ----- main phone -----
+  const phone = $('phone');
+  const phoneOn = t >= 4.0 && t < 38.0 && !(t >= 20.25 && t < 23.56);
+  show(phone, phoneOn);
+  if (phoneOn) {
+    const v = kf(t, PHONE).slice();
+    const calm = t > 7.1 && t < 12.4 ? 0.25 : 1;                         // keep the zoomed view steady
+    v[1] += 7 * Math.sin(t * 1.25) * calm;
+    v[3] += 1.6 * Math.sin(t * 0.8 + 1) * calm;
+    v[4] += 5.5 * Math.sin(t * 0.62) * calm;
+    let punch = 0; CUTS.forEach((c) => { if (t >= c) punch += 0.035 * Math.exp(-(t - c) * 11); });
+    v[2] *= 1 + punch;
+    setPhone(phone, v);
+    const sc = screenAt(t);
+    STILLS.forEach((n) => show(stillEls[n], sc.still === n));
+    show($('clip'), !!sc.clip);
+    if (sc.clip && sc.clip !== lastClip) { $('clip').src = sc.clip; lastClip = sc.clip; await $('clip').decode().catch(() => {}); }
+    // tap ripple
+    const tap = $('tap'); let tapOn = false;
+    TAPS.forEach(([tt, x, y]) => {
+      const p = (t - tt + 0.08) / 0.5;
+      if (p >= 0 && p <= 1) {
+        tapOn = true; tap.style.left = x * K + 'px'; tap.style.top = y * K + 'px';
+        tap.style.transform = `scale(${0.35 + 1.0 * E.out(p)})`; tap.style.opacity = p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8;
+      }
+    });
+    if (!tapOn) tap.style.opacity = 0;
+    // highlight ring
+    const ring = $('ring'); let ringOn = false;
+    RINGS.forEach(([a, b, x, y]) => {
+      if (t >= a && t < b) {
+        ringOn = true; const w = 196 * K, h = 96 * K, p = prog(t, a, 0.35, 'back');
+        ring.style.width = w + 'px'; ring.style.height = h + 'px';
+        ring.style.left = x * K - w / 2 + 'px'; ring.style.top = y * K - h / 2 + 'px';
+        ring.style.transform = `scale(${1.6 - 0.6 * p + 0.03 * Math.sin((t - a) * 12)})`;
+        ring.style.opacity = Math.min(clamp((t - a) / 0.1), clamp((b - t) / 0.12));
+      }
+    });
+    if (!ringOn) ring.style.opacity = 0;
+  }
+
+  // ----- pop-up metaphor: the doodle leaves the phone and lands on "their" screen -----
+  const their = $('their'), card = $('card');
+  const yOn = t >= 19.9 && t < 24.2;
+  show(their, yOn);
+  const outP = prog(t, 23.45, 0.55, 'in');
+  if (yOn) {
+    const inP = prog(t, 19.95, 0.75, 'back');
+    their.style.transform = `translate3d(${540 - 1300 * outP}px,${lerp(2500, 1090, inP) + 6 * Math.sin(t * 1.3)}px,0) rotateZ(${lerp(10, 0, inP) - 14 * outP}deg) rotateY(${4 * Math.sin(t * 0.7)}deg)`;
+  }
+  const cardOn = t >= 19.62 && t < 24.2;
+  show(card, cardOn);
+  if (cardOn) {
+    const fly = prog(t, 19.62, 0.7, 'io');                 // from the Draw canvas to the other phone
+    const land = E.spring(clamp((t - 20.28) / 0.9));        // little bounce as it "pops up"
+    const s0 = lerp(1.0, 0.62, fly), s = s0 * (t < 20.28 ? 1 : 0.8 + 0.2 * land) * (t < 20.28 ? 1 : 1.0);
+    const y = lerp(990, 900, fly) - Math.sin(fly * Math.PI) * 140 + 6 * Math.sin(t * 1.3);
+    const rot = lerp(0, -5, fly) + 2 * Math.sin(t * 0.9);
+    card.style.transform = `translate3d(${540 - 1300 * outP}px,${y}px,60px) rotateZ(${rot - 14 * outP}deg) scale(${s * (1 + 0.16 * (t >= 20.28 ? 1 : 0) * (land > 0 ? 1 : 0))})`;
+    card.style.opacity = clamp((t - 19.62) / 0.12);
+  }
+  [...$('bursts').children].forEach((b, i) => {
+    const p = clamp((t - 20.3) / 0.55), a = (i / 10) * Math.PI * 2 + 0.3, r = lerp(300, 400, E.out(p));
+    show(b, p > 0 && p < 1);
+    b.style.transform = `translate3d(${540 + Math.cos(a) * r}px,${900 + Math.sin(a) * r}px,70px) rotate(${a * 180 / Math.PI + 90}deg) scaleY(${1 - p})`;
+  });
+
+  // ----- collage -----
+  COLLAGE.forEach((c) => {
+    const on = t >= 34.0 + c.delay && t < 38.0;
+    show(c.el, on);
+    if (!on) return;
+    const p = prog(t, 34.0 + c.delay, 0.7, 'back'), o = prog(t, 37.3, 0.7, 'in');
+    const drift = Math.sin(t * 0.9 + c.x) * 8;
+    setPhone(c.el, [lerp(540, c.x, p) + (c.x - 540) * 2.2 * o, lerp(1030, c.y, p) + drift + 900 * o, c.s * (0.5 + 0.5 * p), 0, c.ry * p + 4 * Math.sin(t * 0.6 + c.y), c.rz * p + c.rz * 2 * o]);
+    c.el.style.opacity = clamp((t - 34.0 - c.delay) / 0.15);
+  });
+
+  // ----- captions -----
+  CAPS.forEach((c) => {
+    const on = t >= c.t0 && t < c.t1 + 0.3;
+    show(c.el, on);
+    if (on) popWords(c.words, t, c.t0, 0.06, c.t1);
+  });
+
+  // ----- brand reveal -----
+  const bOn = t >= 37.95;
+  show($('brand'), bOn);
+  if (bOn) {
+    const p = prog(t, 38.0, 0.5, 'back');
+    $('wordmark').style.transform = `scale(${lerp(2.4, 1, p) * (1 + 0.012 * Math.sin((t - 38) * 1.4))})`;
+    $('wordmark').style.opacity = clamp((t - 37.95) / 0.12);
+    $('brandLinePath').setAttribute('stroke-dashoffset', 1 - prog(t, 38.7, 0.6, 'io'));
+    popWords(tagW, t, 39.3, 0.08);
+    const cp = prog(t, 40.3, 0.5, 'back');
+    $('cta').style.transform = `translateX(-50%) scale(${cp * (1 + 0.02 * Math.sin((t - 40.3) * 3.2))})`;
+    $('cta').style.opacity = clamp((t - 40.3) / 0.12);
+  }
+};
+
+(async () => {
+  await document.fonts.load('900 100px Roboto'); await document.fonts.load('700 50px Roboto'); await document.fonts.ready;
+  await Promise.all([...document.images].filter((i) => i.src).map((i) => i.decode().catch(() => {})));
+  await window.renderFrame(0);
+  window.__ready = true;
+  if (location.hash === '#play') {            // real-time preview (no audio)
+    const t0 = performance.now();
+    const tick = async () => { const f = Math.floor(((performance.now() - t0) / 1000 * FPS) % window.TOTAL_FRAMES); await window.renderFrame(f); requestAnimationFrame(tick); };
+    tick();
+  }
+})();
+</script>
+</body>
+</html>

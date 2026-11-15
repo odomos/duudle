@@ -37,3 +37,7 @@ firebase-debug.log
 
 # Firebase Hosting deploy cache
 .firebase/
+
+# Promo video: rendered output is rebuilt from promo/ (see promo/README.md)
+promo/*.mp4
+promo/**/soundtrack.wav

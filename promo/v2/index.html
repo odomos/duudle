@@ -1,0 +1,802 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Duudle promo v2</title>
+<!--
+  Duudle promo V2: one deterministic 46 s timeline (30 fps).
+  window.renderFrame(n) lays out frame n; render.mjs screenshots each frame.
+  Add #play to the URL for a real-time preview (no sound).
+
+  What is real and what is illustration:
+  - Duudle screens are only ever the screenshots in ../assets/screens and the screen-recording
+    frames in ../assets/clips.
+  - The pop-up (.ov) is rebuilt 1:1 from showRealDoodleOverlay() in MainActivity.kt (colours,
+    260dp square canvas, title line, Snooze / Remove / Draw, the snooze choices), because the
+    only screenshot of it is 320 px wide. The doodles inside are real ones from the app.
+  - The photo feed and the music player are made-up "other apps" for context. They are not
+    any real product.
+-->
+<style>
+  @font-face { font-family: "Roboto"; src: url("../assets/fonts/Roboto-VF.ttf"); font-weight: 100 900; }
+  :root { --ink:#141414; --cream:#F4F3F0; --yellow:#FFC800; --sun:#FFC933; --purple:#6750A4; }
+  html, body { margin:0; background:#000; }
+  #stage { position:relative; width:1080px; height:1920px; overflow:hidden; background:#0B0D1C;
+           font-family:"Roboto", sans-serif; color:var(--ink); }
+  #stage * { box-sizing:border-box; }
+  .abs { position:absolute; left:0; top:0; }
+  .full { position:absolute; left:0; top:0; width:1080px; height:1920px; }
+  .orb { position:absolute; border-radius:50%; filter:blur(110px); }
+  .shape { position:absolute; left:0; top:0; width:220px; height:220px; margin:-110px 0 0 -110px; }
+  .shape svg { width:100%; height:100%; overflow:visible; filter:drop-shadow(0 14px 18px rgba(20,20,20,.12)); }
+  #bgLav { background-color:#E6DBFB; background-image:radial-gradient(rgba(103,80,164,.20) 3px, transparent 3.6px); background-size:54px 54px; }
+
+  /* phone mockup */
+  #world { perspective:2600px; perspective-origin:540px 960px; }
+  .phone { position:absolute; left:0; top:0; width:632px; height:1217px; margin:-608.5px 0 0 -316px;
+           border-radius:74px; background:#101010;
+           box-shadow: 0 0 0 2px #2b2b2b inset, 0 0 0 3px #000, 0 50px 90px rgba(20,20,20,.28), 0 18px 30px rgba(20,20,20,.18); }
+  .phone .screen { position:absolute; left:16px; top:16px; width:600px; height:1185px; border-radius:58px; overflow:hidden; background:#fff; }
+  .phone .screen > img { position:absolute; left:0; display:block; }
+  .phone .screen > img.still { top:-40.65px; width:600px; height:1300.81px; }
+  .phone .screen > img.clip { top:0; width:600px; height:1185px; }
+  .phone .glare { position:absolute; inset:0; border-radius:58px; pointer-events:none;
+                  background:linear-gradient(125deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 100%); }
+  .tap { position:absolute; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%;
+         border:7px solid var(--sun); background:rgba(255,201,51,.30); opacity:0; }
+  .ring { position:absolute; border:7px solid var(--sun); border-radius:60px; opacity:0; box-shadow:0 0 0 5px rgba(20,20,20,.9), 0 10px 30px rgba(0,0,0,.25); }
+  .swipe { position:absolute; width:92px; height:92px; margin:-46px 0 0 -46px; border-radius:50%; background:rgba(20,20,20,.22);
+           border:4px solid rgba(255,255,255,.85); box-shadow:0 6px 18px rgba(0,0,0,.25); opacity:0; }
+  #glow { position:absolute; left:0; top:0; width:1500px; height:2000px; margin:-1000px 0 0 -750px; pointer-events:none;
+          background: radial-gradient(closest-side at 38% 58%, rgba(58,110,255,.60), transparent 70%),
+                      radial-gradient(closest-side at 66% 36%, rgba(255,64,200,.42), transparent 68%); filter:blur(40px); }
+
+  /* the real pop-up, rebuilt from showRealDoodleOverlay(): 1 dp = 600/360 px */
+  .ov { position:absolute; left:65.5px; width:469px; background:#F5F0FB; padding:17.8px; transform-origin:50% 50%;
+        box-shadow:0 26px 60px rgba(10,10,30,.34), 0 4px 12px rgba(10,10,30,.16); }
+  .ov .ttl { font-size:26.7px; line-height:31.3px; color:#000; padding-bottom:8.9px; font-weight:400; }
+  .ov .em { font-family:"Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+  .ov .cv { width:433.4px; height:433.4px; background:#fff; position:relative; overflow:hidden; }
+  .ov .cv img { position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover; }
+  .ov .rows { padding-top:8.9px; }
+  .ov .row { display:flex; }
+  .ov .btn { flex:0 0 146.7px; height:80px; padding:10px 6.67px; min-width:0; }
+  .ov .btn.last, .ov .btn.eq { flex:1 1 0; }
+  .ov .btn.wide { flex:1 1 100%; }
+  .ov .pill { height:60px; border-radius:30px; background:#D9D7D8; display:flex; align-items:center; justify-content:center;
+              font-weight:500; font-size:23.3px; letter-spacing:.03em; text-transform:uppercase; color:#1D1B20; white-space:nowrap;
+              box-shadow:0 2px 4px rgba(0,0,0,.22); }
+  .toast { position:absolute; left:50%; bottom:150px; transform:translateX(-50%); padding:18px 30px; border-radius:40px; background:rgba(50,50,54,.94);
+           color:#fff; font-size:23px; white-space:nowrap; opacity:0; box-shadow:0 8px 20px rgba(0,0,0,.25); }
+  #morph { position:absolute; background:#fff; opacity:0; overflow:hidden; }
+  #morph img { position:absolute; left:0; top:0; width:100%; height:100%; }
+
+  /* illustrative "other apps" */
+  .app { position:absolute; inset:0; overflow:hidden; z-index:0; }
+  .app .status { position:absolute; left:0; top:0; width:600px; height:54px; padding:20px 34px 0; display:flex; justify-content:space-between; font-weight:600; font-size:22px; z-index:3; }
+  .app .status .ic { display:flex; gap:8px; align-items:center; }
+  .feed { background:#fff; color:#17171a; }
+  .feed .top { position:absolute; left:0; top:0; width:600px; height:128px; background:#fff; z-index:2; border-bottom:1px solid #ececec; }
+  .feed .bar { position:absolute; left:0; top:58px; width:600px; height:68px; padding:0 30px; display:flex; align-items:center; justify-content:space-between; }
+  .feed .brand { font-weight:800; font-size:38px; letter-spacing:-0.04em; }
+  .feed .scroll { position:absolute; left:0; top:128px; width:600px; }
+  .feed .stories { display:flex; gap:22px; padding:22px 26px 18px; border-bottom:1px solid #f0f0f0; }
+  .feed .story { width:96px; text-align:center; font-size:17px; color:#55555c; }
+  .feed .story i { display:block; width:96px; height:96px; border-radius:50%; border:5px solid; padding:5px; margin-bottom:8px; }
+  .feed .story i b { display:block; width:100%; height:100%; border-radius:50%; }
+  .feed .ph { height:84px; padding:0 24px; display:flex; align-items:center; gap:16px; font-weight:700; font-size:23px; }
+  .feed .ph i { width:52px; height:52px; border-radius:50%; }
+  .feed .ph s { margin-left:auto; text-decoration:none; letter-spacing:3px; color:#777; }
+  .feed .pic { width:600px; height:600px; display:block; }
+  .feed .acts { height:72px; padding:0 22px; display:flex; align-items:center; gap:22px; }
+  .feed .acts svg:last-child { margin-left:auto; }
+  .feed .meta { padding:0 24px 26px; font-size:21px; line-height:1.45; }
+  .feed .meta b { font-weight:700; }
+  .feed .meta u { display:block; text-decoration:none; height:14px; border-radius:7px; background:#e9e9ee; margin-top:12px; }
+  .feed .nav { position:absolute; left:0; bottom:0; width:600px; height:92px; background:#fff; border-top:1px solid #ececec; display:flex; align-items:center; justify-content:space-around; padding:0 20px 8px; z-index:2; }
+  .music { background:linear-gradient(180deg,#221a3a 0%, #15121f 55%, #0f0d17 100%); color:#fff; }
+  .music .np { position:absolute; top:92px; width:600px; text-align:center; font-size:19px; letter-spacing:.22em; color:#b9b2d6; font-weight:600; }
+  .music .tt { position:absolute; top:138px; width:600px; text-align:center; font-size:44px; font-weight:800; letter-spacing:-0.03em; }
+  .music .ar { position:absolute; top:198px; width:600px; text-align:center; font-size:24px; color:#b9b2d6; }
+  .music .art { position:absolute; left:70px; top:300px; width:460px; height:460px; border-radius:40px; overflow:hidden;
+                background:conic-gradient(from 20deg at 50% 50%, #FF8A80, #FFC933, #9BE27A, #7FBDF7, #C4A4F5, #F895D2, #FF8A80); }
+  .music .art::after { content:""; position:absolute; inset:150px; border-radius:50%; background:#15121f; box-shadow:0 0 0 30px rgba(255,255,255,.18); }
+  .music .eq { position:absolute; left:0; top:800px; width:600px; height:70px; display:flex; gap:9px; justify-content:center; align-items:flex-end; }
+  .music .eq i { width:12px; border-radius:6px; background:#C4A4F5; }
+  .music .prog { position:absolute; left:50px; top:918px; width:500px; height:8px; border-radius:4px; background:rgba(255,255,255,.18); }
+  .music .prog i { display:block; height:8px; border-radius:4px; background:#fff; position:relative; }
+  .music .prog i::after { content:""; position:absolute; right:-9px; top:-6px; width:20px; height:20px; border-radius:50%; background:#fff; }
+  .music .tm { position:absolute; left:50px; top:938px; width:500px; display:flex; justify-content:space-between; font-size:18px; color:#b9b2d6; }
+  .music .ctl { position:absolute; left:0; top:985px; width:600px; display:flex; justify-content:center; align-items:center; gap:56px; }
+  .music .play { width:112px; height:112px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; }
+
+  /* captions */
+  .cap { position:absolute; left:0; width:1080px; text-align:center; font-weight:900; letter-spacing:-0.035em; line-height:1.04; }
+  .cap .ln { display:block; }
+  .cap.mask .ln { overflow:hidden; padding:0 20px 0.08em; }
+  .cap .w { display:inline-block; white-space:pre; }
+  .cap .w.hl { background-repeat:no-repeat; background-position:0 86%; padding:0 .08em; margin:0 -.08em; }
+
+  /* flash cards + flying doodle card */
+  .fc { position:absolute; left:0; top:0; width:600px; height:600px; margin:-300px 0 0 -300px; border-radius:72px; overflow:hidden; background:#fff;
+        box-shadow:0 34px 70px rgba(40,20,90,.34), 0 0 0 3px rgba(20,20,20,.08); backface-visibility:hidden; }
+  .fc img { width:100%; height:100%; object-fit:cover; display:block; }
+  #fly { position:absolute; left:0; top:0; width:600px; height:600px; margin:-300px 0 0 -300px; background:#fff; overflow:hidden;
+         box-shadow:0 40px 80px rgba(20,20,20,.30), 0 0 0 3px rgba(20,20,20,.06); }
+  #fly img { position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover; }
+  .cf { position:absolute; left:0; top:0; width:26px; height:26px; margin:-13px 0 0 -13px; }
+
+  #wordmark { position:absolute; left:0; top:520px; width:1080px; text-align:center; font-weight:900; font-size:288px; letter-spacing:-0.05em; line-height:1; }
+  #wordmark span { display:inline-block; }
+  #cta { position:absolute; left:50%; top:1040px; height:104px; line-height:104px; padding:0 58px; border-radius:52px; background:var(--ink); color:#fff;
+         font-weight:700; font-size:44px; letter-spacing:-0.01em; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bgDark" class="full">
+    <div class="orb" style="left:-260px;top:900px;width:900px;height:900px;background:#1f3fd0;opacity:.55"></div>
+    <div class="orb" style="left:520px;top:-200px;width:820px;height:820px;background:#c81fa8;opacity:.38"></div>
+  </div>
+  <div id="bgCream" class="full" style="background:var(--cream)"></div>
+  <div id="bgYellow" class="full" style="background:var(--yellow)"></div>
+  <div id="bgLav" class="full"></div>
+  <div id="bgCream2" class="full" style="background:var(--cream)"></div>
+  <div id="orbs" class="full">
+    <div class="orb" id="orb0" style="width:760px;height:760px;background:#FBC9E8"></div>
+    <div class="orb" id="orb1" style="width:820px;height:820px;background:#C6E3FF"></div>
+    <div class="orb" id="orb2" style="width:700px;height:700px;background:#FFEDB3"></div>
+  </div>
+  <svg id="scribbles" class="full" viewBox="0 0 1080 1920"></svg>
+  <svg id="ringBack" class="full" viewBox="0 0 1080 1920"></svg>
+  <div id="decor" class="full"></div>
+  <div id="world" class="full">
+    <div id="glow"></div>
+    <div id="phone2" class="phone"><div class="screen" id="screen2"></div></div>
+    <div id="collage"></div>
+    <div id="phone" class="phone"><div class="screen" id="screen"></div></div>
+    <div id="cards"></div>
+    <div id="fly"><img id="flyImg" src="../assets/doodle_yo_sam_canvas.png" alt=""></div>
+  </div>
+  <svg id="ringFront" class="full" viewBox="0 0 1080 1920"></svg>
+  <div id="fx" class="full"></div>
+  <div id="caps" class="full"></div>
+  <div id="brand" class="full">
+    <div id="wordmark"></div>
+    <svg id="brandLine" class="abs" style="left:190px;top:800px" width="700" height="70" viewBox="0 0 700 70">
+      <path id="brandLinePath" d="M12,40 C70,8 110,66 170,38 S270,10 330,38 S430,66 490,36 S610,12 688,34" fill="none" stroke="#FFC800" stroke-width="20" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    </svg>
+    <div id="tagline" class="cap" style="top:900px;font-size:66px;font-weight:700;letter-spacing:-0.02em">Say it with a doodle.</div>
+    <div id="cta">Coming soon on Android</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const FPS = 30, DURATION = 46;
+window.TOTAL_FRAMES = FPS * DURATION;
+const $ = (id) => document.getElementById(id);
+const K = 600 / 738;                       // screenshot px -> phone-screen px
+const SH = 1185;
+
+// ---------- easing / helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+const E = {
+  lin: (p) => p,
+  out: (p) => 1 - Math.pow(1 - p, 3),
+  out5: (p) => 1 - Math.pow(1 - p, 5),
+  in: (p) => p * p * p,
+  io: (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2),
+  back: (p) => { const c = 1.55; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); },
+  spring: (p) => (p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(11 * p)),
+};
+const prog = (t, t0, dur, ease = 'out') => E[ease](clamp((t - t0) / dur));
+function kf(t, keys) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    if (t <= keys[i][0]) {
+      const [t0, a] = keys[i - 1], [t1, b, ease] = keys[i];
+      const p = E[ease || 'io'](clamp((t - t0) / Math.max(1e-6, t1 - t0)));
+      return a.map((v, j) => lerp(v, b[j], p));
+    }
+  }
+  return keys[keys.length - 1][1];
+}
+const show = (el, on) => { el.style.display = on ? '' : 'none'; };
+const rnd = (i, salt = 0) => { const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return x - Math.floor(x); };
+const el = (tag, cls, html) => { const d = document.createElement(tag); if (cls) d.className = cls; if (html) d.innerHTML = html; return d; };
+const circle = (node, x, y, r) => { node.style.clipPath = `circle(${Math.max(0, r)}px at ${x}px ${y}px)`; };
+const setPhone = (node, [x, y, s, rx, ry, rz]) => {
+  node.style.transform = `translate3d(${x}px,${y}px,0) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`;
+};
+
+// ---------- mascots (original shapes in the app's palette) ----------
+const INK = '#141414';
+const eye = (x, y) => `<circle cx="${x}" cy="${y}" r="21" fill="#fff"/><circle cx="${x - 4}" cy="${y + 3}" r="11" fill="${INK}"/>`;
+const line = (d, w = 8) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const SHAPES = {
+  green: `<circle cx="100" cy="100" r="96" fill="#9BE27A"/>${line('M50,86 q15,15 30,0')}${line('M120,86 q15,15 30,0')}${line('M78,122 q22,20 44,0')}`,
+  pink: `<circle cx="100" cy="100" r="96" fill="#F895D2"/>${eye(66, 90)}${eye(134, 90)}${line('M86,134 q14,12 28,0')}`,
+  bolt: `<polygon points="122,8 38,112 92,112 66,192 166,80 108,80" fill="#FFD25E" stroke="#FFD25E" stroke-width="18" stroke-linejoin="round"/>${line('M70,96 q10,-12 20,0', 7)}${line('M108,90 q10,-12 20,0', 7)}${line('M86,118 q14,14 28,0', 7)}`,
+  orange: `<rect x="14" y="14" width="172" height="172" rx="42" fill="#FFA66B"/>${eye(68, 86)}${eye(134, 86)}${line('M86,134 q14,12 28,0')}`,
+  coral: `<path d="M100,24 L182,172 L18,172 Z" fill="#FF8A80" stroke="#FF8A80" stroke-width="26" stroke-linejoin="round"/>${line('M62,112 l18,10 l-18,10', 7)}${line('M138,112 l-18,10 l18,10', 7)}${line('M88,152 q12,10 24,0', 7)}`,
+  blue: `<path d="M100,8 C160,8 196,60 190,116 C184,170 140,194 96,192 C44,190 8,160 10,110 C12,54 44,8 100,8Z" fill="#7FBDF7"/>${line('M48,92 q15,15 30,0')}${line('M118,92 q15,15 30,0')}<ellipse cx="98" cy="134" rx="9" ry="12" fill="none" stroke="${INK}" stroke-width="8"/>`,
+  lilac: `<circle cx="100" cy="100" r="96" fill="#E7D7FB"/><path d="M100,100 m-8,6 a14,14 0 1 1 22,-10 a36,36 0 1 1 -58,22 a60,60 0 1 1 104,26" fill="none" stroke="#C4A4F5" stroke-width="22" stroke-linecap="round"/><circle cx="78" cy="82" r="7" fill="${INK}"/><circle cx="126" cy="80" r="7" fill="${INK}"/><ellipse cx="104" cy="112" rx="6" ry="9" fill="none" stroke="${INK}" stroke-width="6"/>`,
+};
+// positions per phase: [x, y, scale, rot]
+const POS = {
+  //        pop (they jump out from behind the phone)   main (screen edges)        yellow scene              brand pile
+  green:  { pop: [118, 560, 1.15, -10], main: [62, 560, 0.95, 6],     yel: [95, 620, 0.8, -10],  brand: [190, 330, 1.25, -8] },
+  pink:   { pop: [962, 700, 1.0, 12],   main: [1022, 790, 0.85, -8],  yel: [1000, 560, 0.7, 12], brand: [120, 1400, 1.35, -10] },
+  bolt:   { pop: [968, 1480, 1.2, 10],  main: [1005, 1500, 1.0, 10],  yel: null,                 brand: [530, 1520, 1.7, 6] },
+  orange: { pop: [108, 1330, 1.05, -14], main: [70, 1390, 0.85, -14], yel: [80, 1480, 0.75, 10], brand: [945, 1360, 1.25, 10] },
+  blue:   { pop: [860, 1800, 1.15, 6],  main: [925, 1815, 1.15, 8],   yel: [985, 1730, 0.9, -6], brand: [235, 1750, 1.75, -4] },
+  coral:  { pop: [215, 1770, 1.0, -10], main: [150, 1800, 1.0, -8],   yel: [110, 1745, 0.8, 8],  brand: [860, 1740, 1.6, 8] },
+  lilac:  { pop: [905, 360, 0.85, 10],  main: [985, 345, 0.72, 8],    yel: null,                 brand: [880, 300, 0.95, 10] },
+};
+const DECOR = {}, shapeEls = {};
+Object.keys(SHAPES).forEach((name, i) => {
+  const P = POS[name], d = i * 0.07, zero = (v) => [v[0], v[1], 0, v[3] - 30];
+  const yel = P.yel || zero(P.main);
+  const k = [
+    [2.0 + d, [540, 1050, 0, P.pop[3] - 50]], [2.5 + d, P.pop, 'back'], [4.0, P.pop], [4.75, P.main],
+  ];
+  if (name === 'blue' || name === 'coral') {           // clear the lower third while captions sit there
+    const off = name === 'blue' ? [1085, 1905, 0.85, 8] : [0, 1900, 0.85, -8];
+    k.push([5.8, P.main], [6.4, off], [7.75, off], [8.35, P.main]);
+  }
+  k.push([17.45, P.main], [18.1, yel], [21.5, yel], [21.95, zero(yel)], [29.95 + d, zero(P.main)], [30.5 + d, P.main, 'back'],
+         [39.4, P.main], [40.25 + d * 2, P.brand, 'back']);
+  DECOR[name] = k;
+  const s = el('div', 'shape', `<svg viewBox="0 0 200 200">${SHAPES[name]}</svg>`);
+  $('decor').appendChild(s); shapeEls[name] = s;
+});
+
+// ---------- illustrative photo feed ("another app") ----------
+const ICON = {
+  heart: '<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7.5 2.5c0 5.4-7.5 10-7.5 10z"/></svg>',
+  bubble: '<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.3-4A8 8 0 1 1 20 11.5z"/></svg>',
+  plane: '<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2" stroke-linejoin="round"><path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5 21 3z"/></svg>',
+  mark: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2" stroke-linejoin="round"><path d="M6 3.5h12v17l-6-4.5-6 4.5v-17z"/></svg>',
+  home: '<svg width="44" height="44" viewBox="0 0 24 24" fill="#17171a"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3V11z"/></svg>',
+  search: '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>',
+  plus: '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8v8M8 12h8"/></svg>',
+  play: '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#17171a" stroke-width="2.2" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M10 8.5v7l6-3.5-6-3.5z"/></svg>',
+  sig: (c) => `<svg width="74" height="22" viewBox="0 0 74 22" fill="${c}"><rect x="0" y="12" width="4" height="8" rx="1"/><rect x="6" y="8" width="4" height="12" rx="1"/><rect x="12" y="4" width="4" height="16" rx="1"/><rect x="18" y="0" width="4" height="20" rx="1"/><path d="M30 8a10 10 0 0 1 14 0l-2 2a7 7 0 0 0-10 0zM37 16l-3-3a4.5 4.5 0 0 1 6 0z"/><rect x="50" y="3" width="20" height="15" rx="4" fill="none" stroke="${c}" stroke-width="2"/><rect x="53" y="6" width="12" height="9" rx="2"/><rect x="71" y="8" width="2.5" height="6" rx="1"/></svg>`,
+};
+const PICS = [
+  // sunset over hills
+  `<defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6C3FC4"/><stop offset=".5" stop-color="#FF5E8A"/><stop offset="1" stop-color="#FFB36B"/></linearGradient></defs><rect width="600" height="600" fill="url(#g1)"/><circle cx="300" cy="380" r="120" fill="#FFE08A"/><path d="M0,430 C120,350 220,470 340,410 S520,360 600,420 V600 H0Z" fill="#4A2A8C"/><path d="M0,500 C140,440 260,540 400,480 S540,470 600,500 V600 H0Z" fill="#2E1A5E"/>`,
+  // coffee from above
+  `<rect width="600" height="600" fill="#F2E3D0"/><path d="M0,470 H600 M0,130 H600" stroke="#E6D2B8" stroke-width="6"/><circle cx="300" cy="310" r="210" fill="#fff"/><circle cx="300" cy="310" r="150" fill="#FBF6EF" stroke="#E9DFD2" stroke-width="8"/><circle cx="300" cy="310" r="124" fill="#A8703F"/><path d="M300,378 C228,330 232,262 274,262 C290,262 300,276 300,286 C300,276 310,262 326,262 C368,262 372,330 300,378Z" fill="#F4E2C9"/><rect x="446" y="286" width="96" height="48" rx="24" fill="#fff" stroke="#E9DFD2" stroke-width="8"/>`,
+  // night mountains
+  `<defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#141B45"/><stop offset="1" stop-color="#4257B8"/></linearGradient></defs><rect width="600" height="600" fill="url(#g3)"/><circle cx="450" cy="140" r="56" fill="#FFF3C4"/><g fill="#fff"><circle cx="90" cy="90" r="4"/><circle cx="200" cy="160" r="3"/><circle cx="300" cy="70" r="4"/><circle cx="540" cy="260" r="3"/><circle cx="130" cy="240" r="3"/><circle cx="360" cy="210" r="3"/></g><path d="M0,600 L170,300 L300,500 L420,330 L600,600Z" fill="#26357A"/><path d="M170,300 L130,370 L160,355 L185,385 L212,366Z M420,330 L390,376 L415,366 L440,392 L455,378Z" fill="#E9EEFF"/><path d="M0,600 L110,470 L240,600 M320,600 L500,450 L600,540 V600Z" fill="#0F1738"/>`,
+  // plant
+  `<rect width="600" height="600" fill="#C7EBD6"/><rect y="470" width="600" height="130" fill="#B1DCC3"/><g fill="#2E9E6B"><ellipse cx="300" cy="240" rx="54" ry="120"/><ellipse cx="210" cy="290" rx="48" ry="104" transform="rotate(-34 210 290)"/><ellipse cx="390" cy="290" rx="48" ry="104" transform="rotate(34 390 290)"/></g><g fill="#237A52"><ellipse cx="250" cy="330" rx="34" ry="80" transform="rotate(-16 250 330)"/><ellipse cx="350" cy="330" rx="34" ry="80" transform="rotate(16 350 330)"/></g><path d="M210,390 H390 L366,530 H234Z" fill="#E8845C"/><rect x="198" y="372" width="204" height="40" rx="14" fill="#F29A74"/>`,
+  // beach
+  `<rect width="600" height="600" fill="#9BD9FF"/><circle cx="110" cy="110" r="56" fill="#FFE27A"/><rect y="300" width="600" height="130" fill="#2EA7E0"/><path d="M0,330 q50,-22 100,0 t100,0 t100,0 t100,0 t100,0 t100,0" fill="none" stroke="#7FD0F5" stroke-width="8"/><rect y="420" width="600" height="180" fill="#FFE2A8"/><path d="M400,470 V250" stroke="#8A5A3C" stroke-width="10"/><path d="M250,270 A150,110 0 0 1 550,270Z" fill="#FF6B6B"/><path d="M325,270 A75,110 0 0 1 400,160 A75,110 0 0 1 475,270Z" fill="#fff"/><rect x="120" y="480" width="170" height="40" rx="12" fill="#FF8FB5"/>`,
+  // city
+  `<defs><linearGradient id="g6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFC1DD"/><stop offset="1" stop-color="#C9B4FF"/></linearGradient><pattern id="win" width="34" height="40" patternUnits="userSpaceOnUse"><rect x="8" y="10" width="16" height="20" rx="3" fill="#FFE9A6"/></pattern></defs><rect width="600" height="600" fill="url(#g6)"/><circle cx="470" cy="150" r="70" fill="#fff" opacity=".7"/><g fill="#5B3FA8"><rect x="30" y="250" width="130" height="350"/><rect x="190" y="150" width="150" height="450"/><rect x="370" y="300" width="110" height="300"/><rect x="500" y="220" width="100" height="380"/></g><g fill="url(#win)"><rect x="30" y="250" width="130" height="350"/><rect x="190" y="150" width="150" height="450"/><rect x="370" y="300" width="110" height="300"/><rect x="500" y="220" width="100" height="380"/></g>`,
+  // donut
+  `<rect width="600" height="600" fill="#7FE0D0"/><circle cx="300" cy="320" r="200" fill="#E9A96B"/><circle cx="300" cy="300" r="190" fill="#FF8FC2"/><circle cx="300" cy="300" r="64" fill="#7FE0D0"/><g stroke-width="14" stroke-linecap="round"><path d="M190,220 l22,-20" stroke="#fff"/><path d="M400,200 l18,24" stroke="#FFE27A"/><path d="M430,330 l26,8" stroke="#7FBDF7"/><path d="M360,430 l8,-26" stroke="#fff"/><path d="M210,400 l24,12" stroke="#9BE27A"/><path d="M160,300 l26,-4" stroke="#FFE27A"/><path d="M290,180 l4,-26" stroke="#7FBDF7"/></g>`,
+];
+const USERS = [['mira.k', '#FF8A80'], ['slowmornings', '#C89B6A'], ['nightowl', '#5B6FD8'], ['leafy.co', '#2E9E6B'], ['beach.day', '#2EA7E0'], ['city.walks', '#8A63D2'], ['donut.daily', '#FF8FC2']];
+function buildFeed() {
+  const app = el('div', 'app feed');
+  const stories = [['#FF8A80', 'you'], ['#FFC933', 'mira'], ['#9BE27A', 'leafy'], ['#7FBDF7', 'sam'], ['#C4A4F5', 'june']]
+    .map(([c, n]) => `<div class="story"><i style="border-color:${c}"><b style="background:${c}55"></b></i>${n}</div>`).join('');
+  const posts = [0, 1, 2, 3, 4, 5, 6, 0].map((i, n) => `
+    <div class="ph"><i style="background:${USERS[i][1]}"></i>${USERS[i][0]}<s>•••</s></div>
+    <svg class="pic" viewBox="0 0 600 600">${PICS[i].replace(/id="(\w+)"/g, `id="$1_${n}"`).replace(/url\(#(\w+)\)/g, `url(#$1_${n})`)}</svg>
+    <div class="acts">${ICON.heart}${ICON.bubble}${ICON.plane}${ICON.mark}</div>
+    <div class="meta"><b>${(1204 + i * 371).toLocaleString('en-US')} likes</b><u style="width:${78 - i * 6}%"></u><u style="width:${46 + i * 4}%"></u></div>`).join('');
+  app.innerHTML = `
+    <div class="top"><div class="status"><span id="clock">10:30</span><span class="ic">${ICON.sig('#17171a')}</span></div>
+      <div class="bar"><span class="brand">moments</span><span style="display:flex;gap:22px">${ICON.heart}${ICON.plane}</span></div></div>
+    <div class="scroll" id="feedScroll"><div class="stories">${stories}</div>${posts}</div>
+    <div class="nav">${ICON.home}${ICON.search}${ICON.plus}${ICON.play}<i style="width:44px;height:44px;border-radius:50%;background:#FFC933;display:block"></i></div>`;
+  return app;
+}
+function buildMusic() {
+  const app = el('div', 'app music');
+  const tri = (d) => `<svg width="56" height="56" viewBox="0 0 24 24" fill="#fff"><path d="${d}"/></svg>`;
+  app.innerHTML = `
+    <div class="status"><span>10:42</span><span class="ic">${ICON.sig('#ffffff')}</span></div>
+    <div class="np">NOW PLAYING</div><div class="tt">Sunday Loops</div><div class="ar">The Paper Planes</div>
+    <div class="art" id="art"></div>
+    <div class="eq" id="eq">${Array.from({ length: 22 }, () => '<i></i>').join('')}</div>
+    <div class="prog"><i id="prog"></i></div><div class="tm"><span>1:12</span><span>3:40</span></div>
+    <div class="ctl">${tri('M6 5h2.5v14H6zM20 5v14l-10-7z')}<div class="play"><svg width="50" height="50" viewBox="0 0 24 24" fill="#15121f"><rect x="6" y="5" width="4.5" height="14" rx="1"/><rect x="13.5" y="5" width="4.5" height="14" rx="1"/></svg></div>${tri('M15.5 5H18v14h-2.5zM4 5v14l10-7z')}</div>`;
+  return app;
+}
+
+// ---------- the real pop-up ----------
+function buildOverlay(id) {
+  const pill = (t) => `<span class="pill">${t}</span>`;
+  const ov = el('div', 'ov', `
+    <div class="ttl"><span class="em">🖍</span> <span class="tx"></span></div>
+    <div class="cv"><img alt=""></div>
+    <div class="rows main"><div class="row"><div class="btn">${pill('Snooze')}</div><div class="btn">${pill('Remove')}</div><div class="btn last">${pill('Draw')}</div></div></div>
+    <div class="rows panel" style="display:none"><div class="row"><div class="btn eq">${pill('5 min')}</div><div class="btn eq">${pill('15 min')}</div><div class="btn eq">${pill('1 hour')}</div></div><div class="row"><div class="btn wide">${pill('Back')}</div></div></div>`);
+  ov.id = id;
+  const pills = ov.querySelectorAll('.pill');
+  return { ov, tx: ov.querySelector('.tx'), img: ov.querySelector('.cv img'), cv: ov.querySelector('.cv'), main: ov.querySelector('.main'), panel: ov.querySelector('.panel'),
+           snooze: pills[0], remove: pills[1], draw: pills[2], five: pills[3] };
+}
+/** rect of an overlay child in phone-screen px */
+const rectOf = (o, node, fb) => (node.offsetWidth ? { x: o.ov.offsetLeft + node.offsetLeft, y: o.ov.offsetTop + node.offsetTop, w: node.offsetWidth, h: node.offsetHeight }
+  : { x: fb[0], y: fb[1], w: 0, h: 0 });
+function placeOverlay(o, on, scale, opacity, par) {
+  show(o.ov, on);
+  if (!on) return;
+  o.ov.style.top = (SH - o.ov.offsetHeight) / 2 + 'px';             // Gravity.CENTER
+  o.ov.style.transform = `translate(${par[0]}px,${par[1]}px) scale(${scale})`;
+  o.ov.style.opacity = opacity;
+}
+
+// ---------- phone 1 (you) ----------
+const screen = $('screen');
+const feed = buildFeed(); screen.appendChild(feed);
+const clip = new Image(); clip.className = 'clip'; clip.style.display = 'none'; screen.appendChild(clip);
+const STILLS = ['draw', 'flashcards', 'profile', 'edit_outfits', 'edit_hair', 'edit_face', 'edit_extras', 'themes', 'chat', 'vault'];
+const stillEls = {};
+STILLS.forEach((n) => { const im = new Image(); im.className = 'still'; im.src = `../assets/screens/${n}.png`; im.style.display = 'none'; screen.appendChild(im); stillEls[n] = im; });
+const morph = el('div', '', '<img src="../assets/doodle_sup.png" alt="">'); morph.id = 'morph'; screen.appendChild(morph);
+const ovA = buildOverlay('ovA'); ovA.tx.textContent = 'Doodle from emulator3'; ovA.img.src = '../assets/doodle_sup.png'; screen.appendChild(ovA.ov);
+const toast = el('div', 'toast', 'Pop-ups paused until 10:35'); screen.appendChild(toast);
+const swipe = el('div', 'swipe'); screen.appendChild(swipe);
+const tap = el('div', 'tap'); screen.appendChild(tap);
+const ring = el('div', 'ring'); screen.appendChild(ring);
+screen.appendChild(el('div', 'glare'));
+
+// ---------- phone 2 (your friend) ----------
+const screen2 = $('screen2');
+const music = buildMusic(); screen2.appendChild(music);
+const ovB = buildOverlay('ovB'); screen2.appendChild(ovB.ov);
+screen2.appendChild(el('div', 'glare'));
+
+const clipName = (set, n) => `../assets/clips/${set}_${String(Math.round(n)).padStart(4, '0')}.jpg`;
+/** What phone 1 shows once it is inside Duudle. Stills = screenshots, clip = screen recording. */
+function screenAt(t) {
+  if (t < 11.7) return {};
+  if (t < 12.5) return { clip: clipName('b', clamp(57 - (12.5 - t) * FPS, 40, 57)) };
+  if (t < 15.9) return { clip: clipName('b', 57 + (t - 12.5) * 38.8) };          // drawing "yo! Sam", 1.3x
+  if (t < 16.3) return { clip: clipName('b', 189 + (t - 15.9) * 35) };
+  if (t < 21.0) return { clip: clipName('b', clamp(203 + (t - 16.3) * FPS, 203, 258)) }; // Send -> "Send to..."
+  if (t < 23.2) return { still: 'draw' };
+  if (t < 29.0) return { still: 'flashcards' };
+  if (t < 31.0) return { still: 'profile' };
+  if (t < 31.5) return { still: 'edit_outfits' };
+  if (t < 32.0) return { still: 'edit_hair' };
+  if (t < 32.5) return { still: 'edit_face' };
+  if (t < 33.0) return { still: 'edit_extras' };
+  if (t < 34.25) return { still: 'themes' };
+  if (t < 35.5) return { still: 'chat' };
+  return { still: 'vault' };
+}
+const CUTS = [2.0, 10.0, 23.2, 31.0, 31.5, 32.0, 32.5, 34.25];
+const FLICKS = [[0.2, 520], [1.05, 600], [8.0, 560], [8.7, 600]];
+// taps in phone-screen px; a function means "centre of that pop-up button"
+const TAPS = [
+  [6.7, () => rectOf(ovA, ovA.snooze, [156.7, 833.8])], [7.4, () => rectOf(ovA, ovA.five, [155.5, 793.8])], [11.55, () => rectOf(ovA, ovA.draw, [446.7, 833.8])],
+  [16.3, 532, 55], [17.05, 244, 487], [23.1, 434, 157], [34.0, 442, 262],
+];
+const RINGS = [
+  [6.2, 6.75, () => rectOf(ovA, ovA.snooze, [156.7, 833.8])], [6.95, 7.45, () => rectOf(ovA, ovA.five, [155.5, 793.8])], [10.95, 11.6, () => rectOf(ovA, ovA.draw, [446.7, 833.8])],
+  [22.7, 23.2, () => ({ x: 310, y: 118, w: 248, h: 78 })],
+];
+const PHONE = [
+  [0.0, [575, 1105, 1.1, 17, -27, 5]],
+  [1.98, [556, 1090, 1.1, 13, -19, 4], 'lin'],
+  [2.6, [540, 1085, 1.1, 4, -7, 0], 'back'],
+  [4.0, [540, 1085, 1.1, 3, -4, 0]],
+  [4.7, [540, 1035, 1, 0, 0, 0]],
+  [5.75, [540, 1035, 1, 0, 0, 0]],
+  [6.35, [540, 860, 1.18, 0, 0, 0]],
+  [7.75, [540, 860, 1.18, 0, 0, 0]],
+  [8.3, [540, 1035, 1, 0, 0, 0]],
+  [12.5, [540, 1035, 1, 0, 0, 0]],
+  [13.3, [540, 1078, 1.14, 0, 0, 0]],
+  [15.75, [540, 1078, 1.14, 0, 0, 0]],
+  [16.3, [540, 1035, 1, 0, 0, 0]],
+  [17.2, [540, 1035, 1, 0, 0, 0]],
+  [17.9, [540, 2800, 0.8, -24, 0, 10], 'in'],
+  [21.85, [540, 2800, 0.8, -24, 0, 10]],
+  [21.86, [540, 1035, 0.86, 0, -96, 0]],
+  [22.6, [540, 1035, 1, 0, 0, 0], 'out'],
+  [23.25, [540, 1035, 1, 0, 0, 0]],
+  [23.95, [540, 1170, 1.16, 0, 0, 0]],
+  [24.7, [540, 1640, 0.86, 30, 0, 0]],
+  [27.0, [540, 1640, 0.86, 30, 0, 0]],
+  [27.6, [540, 2900, 0.8, 34, 0, 0], 'in'],
+  [29.85, [540, 2900, 0.8, 34, 0, 0]],
+  [29.86, [540, 2500, 0.9, 30, 0, -8]],
+  [30.6, [540, 1035, 1, 0, 0, 0], 'out'],
+  [37.0, [540, 1035, 1, 0, 0, 0]],
+  [37.7, [540, 1030, 0.62, 0, 0, 0]],
+  [39.4, [540, 1030, 0.62, 0, 0, 0]],
+  [40.0, [540, 2700, 0.45, 24, 0, -12], 'in'],
+];
+const FLIPS = [33.0, 35.5];                  // phone turns over to the next feature
+const PHONE2 = [
+  [17.4, [540, 2600, 0.9, 30, 0, 6]],
+  [18.0, [540, 1090, 1, 0, 0, 0], 'out'],
+  [21.45, [540, 1090, 1, 0, 0, 0]],
+  [22.0, [-700, 1090, 0.9, 0, 40, -12], 'in'],
+  [27.3, [-700, 1090, 0.9, 0, 40, -12]],
+  [27.31, [1750, 1090, 0.9, 0, -50, 8]],
+  [28.0, [540, 1090, 1, 0, 0, 0], 'out'],
+  [29.5, [540, 1090, 1, 0, 0, 0]],
+  [30.05, [540, 2800, 0.85, -24, 0, -10], 'in'],
+];
+
+// collage phones
+const COLLAGE = [
+  ['../assets/screens/profile.png', 'still', 232, 1560, 0.44, -9, 14, 0.15],
+  ['../assets/clips/b_0192.jpg', 'clip', 848, 1560, 0.44, 9, -14, 0.30],
+  ['../assets/screens/home.png', 'still', 178, 830, 0.46, -7, 16, 0.00],
+  ['../assets/screens/chat.png', 'still', 902, 830, 0.46, 7, -16, 0.45],
+].map(([src, kind, x, y, s, rz, ry, delay]) => {
+  const p = el('div', 'phone', `<div class="screen"><img class="${kind}" src="${src}" alt=""><div class="glare"></div></div>`);
+  $('collage').appendChild(p);
+  return { el: p, x, y, s, rz, ry, delay };
+});
+
+// ---------- flash cards (the app's real card images) ----------
+// cell = centre of that card in the real Flash cards grid (phone-screen px); fan = where it floats to
+const CARDS = [
+  { id: '03', cell: [110.2, 365.4], fan: [154, 842, -24], z: 5, deck: -6 },
+  { id: '04', cell: [299.6, 365.4], fan: [343, 776, -12], z: 1, deck: 5 },
+  { id: '08', cell: [299.6, 555.7], fan: [540, 752, 0], z: 2, deck: 0 },
+  { id: '06', cell: [489.0, 365.4], fan: [737, 776, 12], z: 4, deck: 4 },
+  { id: '09', cell: [489.0, 555.7], fan: [926, 842, 24], z: 3, deck: -3 },
+];
+const FLICK_ORDER = { '03': [25.5, -1], '06': [26.0, 1], '09': [26.5, -1] };   // card id -> [time, direction]
+CARDS.forEach((c) => { c.el = el('div', 'fc', `<img src="../assets/cards/flashcard_${c.id}.jpg" alt="">`); c.el.style.zIndex = c.z; $('cards').appendChild(c.el); });
+const CELL = 170.7;
+
+// ---------- confetti ----------
+const CONF_COL = ['#FF8A80', '#FFC933', '#9BE27A', '#7FBDF7', '#C4A4F5', '#F895D2', '#FFA66B'];
+const confEls = Array.from({ length: 34 }, (_, i) => {
+  const d = el('div', 'cf'); d.style.background = CONF_COL[i % CONF_COL.length];
+  d.style.borderRadius = i % 3 === 0 ? '50%' : i % 3 === 1 ? '6px' : '0'; if (i % 3 === 2) d.style.clipPath = 'polygon(50% 0,100% 100%,0 100%)';
+  $('fx').appendChild(d); return d;
+});
+const BURSTS = [[2.0, 540, 1010, 1.0], [10.0, 540, 1010, 0.8], [18.0, 540, 1060, 1.0], [28.0, 540, 1080, 0.9], [40.0, 540, 660, 1.25]];
+
+// ---------- hand-drawn strokes ----------
+const SCRIB = [
+  // [path, colour, width, in, out]
+  ['M70,300 l44,-52 l32,58 l44,-58 l32,58 l40,-46', '#FF8FD0', 14, 12.8, 15.7],
+  ['M880,300 m0,-10 a10,10 0 1 1 -10,10 a26,26 0 1 1 26,-26 a44,44 0 1 1 -44,44', '#7FBDF7', 13, 13.2, 15.7],
+].map(([d, c, w, t0, t1]) => {
+  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', c); p.setAttribute('stroke-width', w);
+  p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); p.setAttribute('pathLength', '1'); p.setAttribute('stroke-dasharray', '1');
+  $('scribbles').appendChild(p); return { p, t0, t1 };
+});
+// orbit ring that wraps around the phone when a doodle lands (back half behind it, front half over it)
+const ringDefs = `<defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7FBDF7"/><stop offset=".5" stop-color="#C4A4F5"/><stop offset="1" stop-color="#F895D2"/></linearGradient></defs>`;
+$('ringBack').innerHTML = `${ringDefs}<path id="rb" d="M40,0 A500,170 0 0 1 1040,0" fill="none" stroke="url(#rg)" stroke-width="16" stroke-linecap="round" pathLength="1" stroke-dasharray="1"/>`;
+$('ringFront').innerHTML = `<defs><linearGradient id="rg2" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#F895D2"/><stop offset=".5" stop-color="#FFC933"/><stop offset="1" stop-color="#7FBDF7"/></linearGradient></defs><path id="rf" d="M1040,0 A500,170 0 0 1 40,0" fill="none" stroke="url(#rg2)" stroke-width="16" stroke-linecap="round" pathLength="1" stroke-dasharray="1"/>`;
+const ORBITS = [[2.05, 4.6, 1410], [18.1, 21.4, 1425]];
+
+// ---------- captions ----------
+// "*word" = accent word. fx: pop (default) | mask.  accent: hl (highlighter sweep) | a colour
+const CAPS = [
+  { t0: 0.0, t1: 1.8, y: 130, size: 116, color: '#fff', lines: ['You’re', 'scrolling.'] },
+  { t0: 2.2, t1: 3.8, y: 130, size: 116, color: '#fff', accent: '#FFC800', lines: ['A *doodle', 'shows up.'] },
+  { t0: 4.25, t1: 5.7, y: 150, size: 100, lines: ['Right on top', 'of *any *app.'] },
+  { t0: 6.05, t1: 6.7, y: 1640, size: 112, lines: ['Not now?'] },
+  { t0: 7.0, t1: 7.75, y: 1640, size: 112, lines: ['*Snooze *it.'] },
+  { t0: 8.2, t1: 8.8, y: 200, size: 104, lines: ['Keep scrolling.'] },
+  { t0: 9.05, t1: 9.75, y: 215, size: 84, weight: 700, lines: ['5 minutes later…'] },
+  { t0: 10.1, t1: 10.75, y: 200, size: 116, lines: ['It’s *back.'] },
+  { t0: 11.0, t1: 11.65, y: 200, size: 116, lines: ['Draw back.'] },
+  { t0: 12.5, t1: 15.75, y: 150, size: 108, lines: ['Draw', '*anything.'] },
+  { t0: 16.1, t1: 17.2, y: 200, size: 116, lines: ['Send it.'] },
+  { t0: 18.2, t1: 21.3, y: 120, size: 100, accent: '#ffffff', lines: ['It pops up', 'on *their *screen.'] },
+  { t0: 19.2, t1: 21.3, y: 1720, size: 56, weight: 700, lines: ['Even when Duudle is closed.'] },
+  { t0: 22.25, t1: 23.85, y: 150, size: 104, fx: 'mask', lines: ['No time', 'to draw?'] },
+  { t0: 24.1, t1: 26.75, y: 190, size: 128, fx: 'mask', lines: ['Flash a *card.'] },
+  { t0: 27.0, t1: 27.85, y: 190, size: 128, fx: 'mask', lines: ['One tap.'] },
+  { t0: 28.15, t1: 29.5, y: 150, size: 100, fx: 'mask', lines: ['Pops up on', '*their *screen.'] },
+  { t0: 30.45, t1: 32.85, y: 150, size: 100, lines: ['Build your', '*character.'] },
+  { t0: 33.25, t1: 35.3, y: 150, size: 100, lines: ['Give your chats', 'a *vibe.'] },
+  { t0: 35.75, t1: 36.85, y: 150, size: 100, lines: ['Keep every', '*doodle.'] },
+  { t0: 37.2, t1: 39.35, y: 150, size: 100, lines: ['Saying hi', 'just got *fun.'] },
+];
+CAPS.forEach((c) => {
+  const d = el('div', 'cap' + (c.fx === 'mask' ? ' mask' : ''));
+  d.style.top = c.y + 'px'; d.style.fontSize = c.size + 'px'; if (c.color) d.style.color = c.color;
+  if (c.weight) { d.style.fontWeight = c.weight; d.style.letterSpacing = '-0.015em'; }
+  c.words = [];
+  c.lines.forEach((ln) => {
+    const row = el('span', 'ln');
+    ln.split(' ').forEach((w, i, arr) => {
+      const acc = w[0] === '*', s = el('span', 'w'); s.textContent = (acc ? w.slice(1) : w) + (i < arr.length - 1 ? ' ' : '');
+      const hex = c.accent || '#FFC800';
+      if (acc && c.color) s.style.color = hex;                       // on dark: coloured word
+      else if (acc) { s.classList.add('hl'); s.style.backgroundImage = `linear-gradient(${hex},${hex})`; s.dataset.hl = '1'; }
+      row.appendChild(s); c.words.push(s);
+    });
+    d.appendChild(row);
+  });
+  $('caps').appendChild(d); c.el = d;
+});
+function animWords(ws, t, t0, tOut = 1e9, fx = 'pop', stagger = 0.06, rise = 70) {
+  ws.forEach((s, i) => {
+    const st = t0 + i * stagger, o = clamp((t - tOut) / 0.22);
+    if (fx === 'mask') {
+      const p = prog(t, st, 0.5, 'out5');
+      s.style.transform = `translateY(${(1 - p) * 115 - o * 115}%)`; s.style.opacity = 1;
+    } else {
+      const p = prog(t, st, 0.42, 'back');
+      s.style.transform = `translateY(${(1 - p) * rise - o * 40}px) scale(${0.86 + 0.14 * p})`;
+      s.style.opacity = Math.min(clamp((t - st) / 0.14), 1 - o);
+    }
+    if (s.dataset.hl) s.style.backgroundSize = `${prog(t, st + 0.3, 0.4, 'io') * 100}% 34%`;
+  });
+}
+function words(node) {
+  const txt = node.textContent; node.textContent = '';
+  return txt.split(' ').map((w, i, a) => { const s = el('span', 'w'); s.textContent = w + (i < a.length - 1 ? ' ' : ''); node.appendChild(s); return s; });
+}
+const tagW = words($('tagline'));
+const letters = [...'Duudle'].map((ch) => { const s = el('span'); s.textContent = ch; $('wordmark').appendChild(s); return s; });
+
+let lastClip = '';
+window.renderFrame = async function (f) {
+  const t = f / FPS;
+
+  // ----- worlds -----
+  circle($('bgCream'), 540, 1010, prog(t, 4.0, 0.6, 'out') * 1500);
+  circle($('bgYellow'), 540, 1000, prog(t, 17.45, 0.55, 'out') * 1500);
+  circle($('bgLav'), 0, 1035, prog(t, 21.55, 0.6, 'io') * 2400);
+  circle($('bgCream2'), 540, 1035, prog(t, 29.65, 0.6, 'io') * 1500);
+  const creamOn = t < 20 ? Math.min(prog(t, 4.15, 0.5, 'lin'), 1 - prog(t, 17.4, 0.3, 'lin')) : prog(t, 29.9, 0.5, 'lin');
+  $('orbs').style.opacity = 0.75 * creamOn;
+  [[250, 420, 0.21, 0.0], [820, 1150, 0.17, 2.1], [330, 1640, 0.25, 4.2]].forEach(([x, y, sp, ph], i) => {
+    $('orb' + i).style.transform = `translate(${x - 380 + 150 * Math.sin(t * sp + ph)}px, ${y - 380 + 130 * Math.cos(t * sp * 1.3 + ph)}px)`;
+  });
+  SCRIB.forEach(({ p, t0, t1 }) => {
+    const a = prog(t, t0, 0.7, 'io'), b = prog(t, t1, 0.35, 'in');
+    p.style.display = a > 0 && b < 1 ? '' : 'none';
+    p.setAttribute('stroke-dashoffset', 1 - a); p.style.opacity = 0.9 * (1 - b);
+  });
+
+  // ----- mascots -----
+  Object.keys(DECOR).forEach((name, i) => {
+    const [x, y, s, r] = kf(t, DECOR[name]);
+    const node = shapeEls[name];
+    show(node, s > 0.01 && t >= 2.0);
+    node.style.transform = `translate(${x}px,${y + 12 * Math.sin(t * 1.5 + i * 1.7)}px) rotate(${r + 5 * Math.sin(t * 1.1 + i * 2.3)}deg) scale(${s})`;
+  });
+
+  // ----- phone 1 -----
+  const phone = $('phone');
+  const phoneOn = t < 40.0 && !(t >= 17.9 && t < 21.86) && !(t >= 27.6 && t < 29.86);
+  show(phone, phoneOn);
+  let pv = kf(t, PHONE).slice();
+  if (phoneOn) {
+    const calm = (t > 5.7 && t < 8.3) || (t > 23.2 && t < 27.6) ? 0.2 : t < 4 ? 0.5 : 1;
+    pv[1] += 7 * Math.sin(t * 1.25) * calm;
+    pv[3] += 1.6 * Math.sin(t * 0.8 + 1) * calm;
+    pv[4] += 5.5 * Math.sin(t * 0.62) * calm;
+    let punch = 0; CUTS.forEach((c) => { if (t >= c) punch += 0.035 * Math.exp(-(t - c) * 11); });
+    pv[2] *= 1 + punch;
+    FLIPS.forEach((tc) => {                                           // turn over: edge-on exactly at tc
+      if (t > tc - 0.24 && t < tc) { const p = E.in((t - tc + 0.24) / 0.24); pv[4] += 90 * p; pv[2] *= 1 - 0.08 * p; }
+      else if (t >= tc && t < tc + 0.3) { const p = E.out((t - tc) / 0.3); pv[4] += -90 * (1 - p); pv[2] *= 0.92 + 0.08 * p; }
+    });
+    if (t > 9.0 && t < 10.0) pv[5] += 2.2 * Math.sin((t - 9) * Math.PI * 4) * Math.sin((t - 9) * Math.PI);   // time-skip wobble
+    setPhone(phone, pv);
+    $('glow').style.transform = `translate(${pv[0]}px,${pv[1]}px)`;
+
+    // feed (the "other app")
+    const feedOn = t < 12.05;
+    show(feed, feedOn);
+    if (feedOn) {
+      let sy = 0; FLICKS.forEach(([t0, d]) => { sy += d * prog(t, t0, 0.85, 'out5'); });
+      sy += 1500 * prog(t, 9.05, 0.85, 'io');
+      $('feedScroll').style.transform = `translateY(${-sy}px)`;
+      $('clock').textContent = t < 9.5 ? '10:30' : '10:35';
+      let sw = 0;
+      FLICKS.forEach(([t0]) => { const p = (t - t0 + 0.06) / 0.34; if (p >= 0 && p <= 1) { sw = Math.sin(p * Math.PI); swipe.style.left = 440 - 14 * p + 'px'; swipe.style.top = 860 - 400 * E.io(p) + 'px'; } });
+      swipe.style.opacity = sw;
+    } else swipe.style.opacity = 0;
+
+    // Duudle screens
+    const sc = screenAt(t);
+    STILLS.forEach((n) => show(stillEls[n], sc.still === n));
+    show(clip, !!sc.clip);
+    if (sc.clip) {
+      if (sc.clip !== lastClip) { clip.src = sc.clip; lastClip = sc.clip; await clip.decode().catch(() => {}); }
+      clip.style.opacity = prog(t, 11.72, 0.28, 'lin');
+    }
+
+    // pop-up A: "Sup!" from emulator3
+    const par = [-pv[4] * 0.9, pv[3] * 0.9];
+    const panel = t >= 6.8 && t < 7.8;
+    show(ovA.main, !panel); show(ovA.panel, panel);
+    let on = false, sc1 = 1, op = 1;
+    if (t >= 2.0 && t < 7.5) { on = true; sc1 = 0.55 + 0.45 * E.spring((t - 2.0) / 0.85); op = clamp((t - 2.0) / 0.08); }
+    else if (t >= 7.5 && t < 7.72) { on = true; const p = (t - 7.5) / 0.22; sc1 = 1 - 0.2 * E.in(p); op = 1 - p; }
+    else if (t >= 10.0 && t < 11.62) { on = true; sc1 = 0.55 + 0.45 * E.spring((t - 10.0) / 0.85); op = clamp((t - 10.0) / 0.08); }
+    else if (t >= 11.62 && t < 11.74) { on = true; op = 1 - (t - 11.62) / 0.12; }
+    placeOverlay(ovA, on, sc1, op, par);
+    toast.style.opacity = Math.min(clamp((t - 7.62) / 0.15), clamp((9.0 - t) / 0.25));
+
+    // morph: the pop-up's canvas grows into Duudle's own canvas
+    const mOn = t >= 11.62 && t < 12.25;
+    show(morph, mOn);
+    if (mOn) {
+      const p = prog(t, 11.62, 0.42, 'io');
+      const r0 = { x: 65.5 + 17.8, y: (SH - 598) / 2 + 58, w: 433.4, h: 433.4 }, r1 = { x: 0, y: 259.3, w: 600, h: 599 };
+      morph.style.left = lerp(r0.x, r1.x, p) + 'px'; morph.style.top = lerp(r0.y, r1.y, p) + 'px';
+      morph.style.width = lerp(r0.w, r1.w, p) + 'px'; morph.style.height = lerp(r0.h, r1.h, p) + 'px';
+      morph.style.opacity = 1 - prog(t, 12.05, 0.2, 'lin');
+      morph.firstChild.style.opacity = 1 - prog(t, 11.66, 0.25, 'lin');
+    }
+
+    // taps + rings
+    let tapOn = false;
+    TAPS.forEach(([tt, a, b]) => {
+      const p = (t - tt + 0.08) / 0.5;
+      if (p >= 0 && p <= 1) {
+        let x = a, y = b; if (typeof a === 'function') { const r = a(); x = r.x + r.w / 2; y = r.y + r.h / 2; }
+        tapOn = true; tap.style.left = x + 'px'; tap.style.top = y + 'px';
+        tap.style.transform = `scale(${0.35 + 1.0 * E.out(p)})`; tap.style.opacity = p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8;
+      }
+    });
+    if (!tapOn) tap.style.opacity = 0;
+    let ringOn = false;
+    RINGS.forEach(([a, b, fn]) => {
+      if (t >= a && t < b) {
+        const r = fn(), pad = 14, p = prog(t, a, 0.35, 'back');
+        ringOn = true;
+        ring.style.left = r.x - pad + 'px'; ring.style.top = r.y - pad + 'px'; ring.style.width = r.w + pad * 2 + 'px'; ring.style.height = r.h + pad * 2 + 'px';
+        ring.style.transform = `scale(${1.6 - 0.6 * p + 0.03 * Math.sin((t - a) * 12)})`;
+        ring.style.opacity = Math.min(clamp((t - a) / 0.1), clamp((b - t) / 0.12));
+      }
+    });
+    if (!ringOn) ring.style.opacity = 0;
+  }
+  $('glow').style.opacity = t < 4.6 ? 1 - prog(t, 4.0, 0.5, 'lin') : 0;
+
+  // ----- phone 2 (your friend, in another app) -----
+  const p2On = (t >= 17.4 && t < 22.0) || (t >= 27.31 && t < 30.05);
+  show($('phone2'), p2On);
+  let p2 = kf(t, PHONE2).slice();
+  if (p2On) {
+    p2[1] += 6 * Math.sin(t * 1.3); p2[4] += 4 * Math.sin(t * 0.7);
+    [18.0, 28.0].forEach((c) => { if (t >= c) p2[2] *= 1 + 0.04 * Math.exp(-(t - c) * 10); });
+    setPhone($('phone2'), p2);
+    const flash = t >= 25;
+    ovB.tx.textContent = flash ? '@arnav111 sent you a flash card' : 'Doodle from arnav111';
+    const src = flash ? '../assets/cards/flashcard_08.jpg' : '../assets/doodle_yo_sam_canvas.png';
+    if (!ovB.img.src.endsWith(src.slice(2))) { ovB.img.src = src; await ovB.img.decode().catch(() => {}); }
+    const t0 = flash ? 28.0 : 18.0, tEnd = flash ? 30.1 : 22.1;
+    placeOverlay(ovB, t >= t0 && t < tEnd, 0.7 + 0.3 * E.spring((t - t0) / 0.85), clamp((t - t0) / 0.06), [-p2[4] * 0.9, p2[3] * 0.9]);
+    $('art').style.transform = `rotate(${t * 14}deg)`;
+    [...$('eq').children].forEach((b, i) => { b.style.height = 12 + 52 * Math.abs(Math.sin(t * (5 + rnd(i) * 5) + i)) * (0.5 + 0.5 * rnd(i, 2)) + 'px'; });
+    $('prog').style.width = 30 + (t % 30) * 0.6 + '%';
+  }
+  // canvas centre of pop-up B in stage px (phone 2 is upright and at scale 1 whenever this is used)
+  const ovBTarget = () => [p2[0] - 300 + ovB.ov.offsetLeft + ovB.cv.offsetLeft + 216.7, p2[1] - 592.5 + ovB.ov.offsetTop + ovB.cv.offsetTop + 216.7];
+
+  // ----- the doodle flies from your canvas to their screen -----
+  const fly = $('fly'), flyOn = t >= 17.2 && t < 18.03;
+  show(fly, flyOn);
+  if (flyOn) {
+    const p = prog(t, 17.2, 0.8, 'io');
+    const y1 = 1090 - 592.5 + (SH - 598) / 2 + 58 + 216.7;
+    const s = lerp(1, 433.4 / 600, p), y = lerp(1001, y1, p) - Math.sin(p * Math.PI) * 190;
+    fly.style.transform = `translate3d(540px,${y}px,0) rotate(${-10 * Math.sin(p * Math.PI)}deg) scale(${s})`;
+    fly.style.opacity = clamp((t - 17.2) / 0.1);
+  }
+
+  // ----- flash cards: out of the grid, into a fan, into a deck, one gets sent -----
+  CARDS.forEach((c, i) => {
+    const on = t >= 24.0 && t < (c.id === '08' ? 28.03 : 27.7);
+    show(c.el, on);
+    if (!on) return;
+    const d = i * 0.07;
+    // where the card sits in the real grid, following the phone
+    const ps = pv[2], x0 = pv[0] + (c.cell[0] - 300) * ps, y0 = pv[1] + (c.cell[1] - 592.5) * ps * Math.cos(pv[3] * Math.PI / 180), s0 = CELL * ps / 600;
+    const a = prog(t, 24.0 + d, 0.65, 'back');                         // lift out into the fan
+    const g = prog(t, 25.0 + (4 - i) * 0.03, 0.42, 'io');              // gather into a deck
+    const fanS = 0.5, wob = Math.sin(t * 2.2 + i) * 1.6 * (1 - g);
+    let x = lerp(lerp(x0, c.fan[0], a), 540, g), y = lerp(lerp(y0, c.fan[1] + Math.sin(t * 1.8 + i) * 8, a), 960, g);
+    let s = lerp(lerp(s0, fanS, a), 1.02, g), rz = lerp(lerp(0, c.fan[2] + wob, a), c.deck, g), ry = 0, op = clamp((t - 24.0 - d) / 0.08);
+    let z = g > 0.5 ? { '03': 5, '06': 4, '09': 3, '08': 2, '04': 1 }[c.id] : c.z;
+    const fl = FLICK_ORDER[c.id];
+    if (fl && t >= fl[0]) {                                            // flicked off the top of the deck
+      const p = clamp((t - fl[0]) / 0.5), e = E.in(p) * 0.6 + p * 0.4;
+      x += fl[1] * 1150 * e; y -= 260 * Math.sin(p * Math.PI * 0.6); rz += fl[1] * 38 * e; ry = fl[1] * 55 * e; op = p > 0.8 ? 1 - (p - 0.8) / 0.2 : 1;
+    }
+    if (c.id === '08') {
+      const top = prog(t, 26.5, 0.3, 'back'); s *= 1 + 0.04 * top;
+      if (t >= 27.1) s *= 1 - 0.05 * Math.sin(clamp((t - 27.1) / 0.18) * Math.PI);   // pressed
+      if (t >= 27.25) {                                                 // sent: flies into the pop-up on their phone
+        const p = prog(t, 27.25, 0.75, 'io'), tg = ovBTarget();
+        x = lerp(x, tg[0], p); y = lerp(y, tg[1], p) - Math.sin(p * Math.PI) * 170; s = lerp(s, 433.4 / 600, p); rz = -8 * Math.sin(p * Math.PI);
+        c.el.style.borderRadius = lerp(72, 0, p) + 'px'; z = 9;
+      } else c.el.style.borderRadius = '72px';
+    }
+    if (c.id === '04' && t >= 27.2) { const p = prog(t, 27.2, 0.45, 'in'); y += 1400 * p; rz += 20 * p; }
+    c.el.style.zIndex = z; c.el.style.opacity = op;
+    c.el.style.transform = `translate3d(${x}px,${y}px,0) rotateZ(${rz}deg) rotateY(${ry}deg) scale(${s})`;
+  });
+
+  // ----- orbit ring + confetti -----
+  let orb = null; ORBITS.forEach((o) => { if (t >= o[0] && t < o[1] + 0.4) orb = o; });
+  show($('ringBack'), !!orb); show($('ringFront'), !!orb);
+  if (orb) {
+    const a = prog(t, orb[0], 0.75, 'io'), o = 1 - prog(t, orb[1], 0.35, 'lin'), tr = `translate(0 ${orb[2] + 8 * Math.sin(t * 1.3)}) rotate(${-13 + 2 * Math.sin(t * 0.9)} 540 0)`;
+    $('rb').setAttribute('transform', tr); $('rf').setAttribute('transform', tr);
+    $('rb').setAttribute('stroke-dashoffset', 1 - clamp(a * 2)); $('rf').setAttribute('stroke-dashoffset', 1 - clamp(a * 2 - 1));
+    $('ringBack').style.opacity = o; $('ringFront').style.opacity = o;
+  }
+  let burst = null; BURSTS.forEach((b) => { if (t >= b[0] && t < b[0] + 1.5) burst = b; });
+  confEls.forEach((d, i) => {
+    show(d, !!burst);
+    if (!burst) return;
+    const tau = t - burst[0], ang = rnd(i, burst[0]) * Math.PI * 2, sp = (520 + 760 * rnd(i, 3 + burst[0])) * burst[3], k2 = (1 - Math.exp(-2.6 * tau)) / 2.6;
+    const r0 = 250 * burst[3];
+    const x = burst[1] + Math.cos(ang) * (r0 + sp * k2), y = burst[2] + Math.sin(ang) * (r0 * 1.25 + sp * k2 * 1.15) + 520 * tau * tau;
+    d.style.transform = `translate(${x}px,${y}px) rotate(${rnd(i, 5) * 900 * tau}deg) scale(${(0.7 + rnd(i, 7)) * clamp(tau / 0.06)})`;
+    d.style.opacity = clamp((1.4 - tau) / 0.5);
+  });
+
+  // ----- collage -----
+  COLLAGE.forEach((c) => {
+    const on = t >= 37.0 + c.delay && t < 40.0;
+    show(c.el, on);
+    if (!on) return;
+    const p = prog(t, 37.0 + c.delay, 0.7, 'back'), o = prog(t, 39.4, 0.6, 'in');
+    const drift = Math.sin(t * 0.9 + c.x) * 8;
+    setPhone(c.el, [lerp(540, c.x, p) + (c.x - 540) * 2.2 * o, lerp(1030, c.y, p) + drift + 900 * o, c.s * (0.5 + 0.5 * p), 0, c.ry * p + 4 * Math.sin(t * 0.6 + c.y), c.rz * p + c.rz * 2 * o]);
+    c.el.style.opacity = clamp((t - 37.0 - c.delay) / 0.15);
+  });
+
+  // ----- captions -----
+  CAPS.forEach((c) => {
+    const on = t >= c.t0 && t < c.t1 + 0.3;
+    show(c.el, on);
+    if (on) animWords(c.words, t, c.t0, c.t1, c.fx || 'pop');
+  });
+
+  // ----- brand reveal -----
+  const bOn = t >= 39.95;
+  show($('brand'), bOn);
+  if (bOn) {
+    letters.forEach((s, i) => {
+      const p = E.spring(clamp((t - 40.0 - i * 0.055) / 0.8));
+      s.style.transform = `translateY(${(1 - p) * -260}px) rotate(${(1 - p) * (i % 2 ? 14 : -14)}deg) scale(${0.6 + 0.4 * p})`;
+      s.style.opacity = clamp((t - 40.0 - i * 0.055) / 0.08);
+    });
+    $('wordmark').style.transform = `scale(${1 + 0.012 * Math.sin((t - 40) * 1.4)})`;
+    $('brandLinePath').setAttribute('stroke-dashoffset', 1 - prog(t, 40.75, 0.6, 'io'));
+    animWords(tagW, t, 41.3, 1e9, 'pop', 0.08);
+    const cp = prog(t, 42.3, 0.5, 'back');
+    $('cta').style.transform = `translateX(-50%) scale(${cp * (1 + 0.02 * Math.sin((t - 42.3) * 3.2))})`;
+    $('cta').style.opacity = clamp((t - 42.3) / 0.12);
+  }
+};
+
+(async () => {
+  await document.fonts.load('900 100px Roboto'); await document.fonts.load('500 20px Roboto'); await document.fonts.load('400 20px Roboto'); await document.fonts.ready;
+  await Promise.all([...document.images].filter((i) => i.src).map((i) => i.decode().catch(() => {})));
+  await window.renderFrame(0);
+  window.__ready = true;
+  if (location.hash === '#play') {
+    const t0 = performance.now();
+    const tick = async () => { const f = Math.floor(((performance.now() - t0) / 1000 * FPS) % window.TOTAL_FRAMES); await window.renderFrame(f); requestAnimationFrame(tick); };
+    tick();
+  }
+})();
+</script>
+</body>
+</html>
