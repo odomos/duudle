@@ -21,7 +21,7 @@ Duudle's documented baseline is a Kotlin + Jetpack Compose Android app using Fir
 - [ ] **Add account recovery/linking** so users are not permanently stranded if anonymous app data is lost.
 - [ ] **Implement server-side abuse/rate limiting** for content and push-triggering actions; add App Check with a monitored rollout.
 - [ ] **Verify overlay safety and fallback behaviour** across OS versions and devices, including revoked/missing permission.
-- [ ] **Replace watermarked flash-card assets 01, 02 and 05** with original or properly licensed material.
+- [x] **Replace watermarked flash-card assets 01, 02 and 05** with original or properly licensed material. _Done 2026-11-15: all nine old image cards are retired and replaced by original sticker packs (`stickers/README.md`)._
   - **Implemented, tests passed** _(Phase 8b, 2026-11-02)_: removed from the app (ids reserved; old doodles show "no longer available"). Rights to cards 03, 04, 06–09 still need confirming.
 - [ ] **Create staging separate from production**, automated security/function tests and a rollback process.
 - [ ] **Verify Play Store declarations and release build**, including target API 36, privacy policy, Data safety, content rating, account deletion URL and correct UGC controls.
@@ -299,7 +299,7 @@ The documented code currently uses one `MainActivity`, a plain screen enum, Comp
 
 ## 8. P2 — Content/assets and privacy documentation
 
-- [ ] Replace watermarked flash-card assets **01, 02 and 05**, explicitly flagged in the README, with original artwork or assets whose licence permits the intended distribution.
+- [x] Replace watermarked flash-card assets **01, 02 and 05**, explicitly flagged in the README, with original artwork or assets whose licence permits the intended distribution. _Done 2026-11-15: original vector sticker packs; every pack records its art source in `stickers/<pack>/PACK.md`._
 - [ ] Keep attribution/licence evidence for all third-party assets, fonts, sounds and other content included in the app.
 - [ ] Publish a privacy policy that accurately describes anonymous/linked accounts, user-generated doodles/chat, data storage, notifications, analytics/crash SDKs, retention, reports, account deletion and contact/support route.
   - **Live 2026-11-05** _(Phase 8d)_: `hosting/privacy.html` at `duudle-296a9.web.app/privacy`, linked from the home page. Retention confirmed by the owner: reports up to 1 year after review, crash reports up to 90 days.
@@ -412,7 +412,7 @@ Do not assume these paths or contents beyond what the documents say; locate them
 - [ ] `MainActivity.kt` and `DuudleMessagingService.kt` — auth/token handling, notification/deep-link validation, payload validation and overlay lifecycle.
 - [ ] Doodle/friend/chat repositories or call sites — authorization assumptions, field validation, bounded queries and listener cleanup.
 - [ ] Account/profile settings UI — account linking/recovery and delete entry points.
-- [ ] Flash-card catalogue/assets 01, 02 and 05 — replace with clean rights-confirmed assets.
+- [x] Flash-card catalogue/assets 01, 02 and 05 — replace with clean rights-confirmed assets. _Done 2026-11-15 (see above)._
 - [ ] `PHONE_TEST_CHECKLIST.md` — update with rules/privacy/moderation/account deletion and OS-specific overlay test cases.
 - [ ] Play Console — developer account type/date, target API, Data safety, content rating, deletion URL, testing track and policy warnings.
 

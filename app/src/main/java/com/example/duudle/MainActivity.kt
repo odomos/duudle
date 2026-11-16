@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -790,15 +791,25 @@ private class DoodleCanvasView(context: Context, private val strokes: List<Doodl
     }
 }
 
-/** The overlay's square frame for a flash card: the image, or a note if this build lacks the card. */
+/**
+ * The overlay's square frame for a sticker: a white frame with the sticker fitted inside (never
+ * cropped), playing its loop; or a note if this build doesn't have the sticker. The loop runs on
+ * the inner image, so the white frame itself stays still.
+ */
 private fun flashCardOverlayView(context: Context, cardId: String): View {
     val card = flashCardById(cardId)
     return if (card != null) {
-        ImageView(context).apply {
-            setImageResource(card.res)
-            scaleType = ImageView.ScaleType.CENTER_CROP
+        FrameLayout(context).apply {
             setBackgroundColor(Color.WHITE)
-            contentDescription = card.label
+            val image = ImageView(context).apply {
+                setImageResource(card.res)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                contentDescription = card.label
+                val pad = dpToPx(context, 8)
+                setPadding(pad, pad, pad, pad)
+            }
+            addView(image, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            attachStickerMotion(image, card.motion)
         }
     } else {
         TextView(context).apply {

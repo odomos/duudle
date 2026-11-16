@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Sleepy face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M10,58a34,34 0 1,0 68,0a34,34 0 1,0 -68,0Z" android:fillColor="#7ABDF6" />
+    <path android:pathData="M26,52Q33,61 40,52" android:strokeColor="#141414" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M48,52Q55,61 62,52" android:strokeColor="#141414" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M39,70Q44,74 49,70" android:strokeColor="#141414" android:strokeWidth="3.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M68,22h9l-9,10h9" android:strokeColor="#141414" android:strokeWidth="3.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M80,8h6l-6,7h6" android:strokeColor="#141414" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

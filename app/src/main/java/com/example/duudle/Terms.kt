@@ -40,7 +40,7 @@ val TERMS_SECTIONS: List<Pair<String, String>> = listOf(
     "Who can use Duudle" to
         "You must be $MINIMUM_AGE or older. By using Duudle you agree to these Terms and the Community Guidelines below.",
     "Community Guidelines" to
-        "Doodles, flash cards and messages must not contain: bullying, harassment or threats; hate speech or " +
+        "Doodles, stickers and messages must not contain: bullying, harassment or threats; hate speech or " +
         "symbols; sexual or nude content; anything that sexualises or endangers children; violence, gore or " +
         "encouraging self-harm; spam, scams or impersonating someone; anything illegal. Don't send pop-ups to " +
         "people who don't want them. We have zero tolerance for content that exploits children: it's removed, " +

@@ -569,6 +569,38 @@ test screen exists only in debug/staging builds. 131 unit tests pass.
       "Test a pop-up" shows the sample pop-up; no overlay test screen anywhere (R8 release
       build on the A34, 2026-11-05)
 
+## Stickers replace flash cards (built 2026-11-15; staging build)
+
+The six old image cards are retired. Draw > **Stickers** now has an original *Everyday* pack of 8
+face stickers (vector art, search by keyword, some wobble/bounce/pulse when shown big). Ids
+`card10`–`card17`, so no rules or function change. Use **Duudle Staging**.
+
+Checked on the emulator (Pixel 7 Pro, 2026-11-15):
+- [x] Draw > Stickers shows the 8 stickers in a grid, sharp, with the grey search box above
+- [x] Search: "zzz" shows only the sleepy sticker; a word with no match says
+      "No stickers match ..."; unit tests cover "love", "joke wink", "everyday"
+- [x] Pick a friend, tap a sticker: it sends straight away ("To: arnav222"), back on Home
+- [x] The sent sticker shows in the Vault as "To @arnav222" (sharp thumbnail); opening it shows
+      it big and it wobbles (the laughing one)
+- [x] With "Remove animations" on, the big view stays still
+
+Needs the A34 (pop-up over other apps; I can't see overlays from the emulator alone):
+- [ ] A friend's sticker pops up over another app, fitted inside the white square (not cropped),
+      with the right title ("@name sent you a sticker"); Snooze / Remove / Draw work on it
+- [ ] The hello sticker bounces, laughing wobbles, heart-eyes pulses in the pop-up; the others
+      stay still. With "Remove animations" on, none move
+- [ ] Snooze a sticker pop-up: it comes back as the same sticker after the snooze
+- [ ] A sticker sent to an **older** Duudle build shows "@name sent a sticker — update Duudle to see
+      it" (the A34's previous staging build did this when I sent the laughing sticker from the
+      emulator; check it says that, then install the new build)
+- [ ] With "Display over other apps" off, a sticker arrives as the notification
+      "@name sent you a sticker"
+- [ ] Both directions A34 <-> emulator; a sticker in a Vault tab on the A34 looks sharp
+- [ ] TalkBack reads a picker cell as "Send Laughing face to @name"; the search box and the
+      Draw / Stickers switch are usable at the largest font size
+- [ ] An old Vault item that used one of the retired cards (if you have any) says
+      "This sticker is no longer available"
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop

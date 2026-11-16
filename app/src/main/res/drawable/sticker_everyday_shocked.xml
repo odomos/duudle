@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Shocked face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M52,10C76,8 92,28 90,52C88,76 70,92 46,90C24,88 8,70 12,46C15,26 32,12 52,10Z" android:fillColor="#C8A6F5" />
+    <path android:pathData="M24,25Q36,18 47,24" android:strokeColor="#141414" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M53,24Q64,18 76,25" android:strokeColor="#141414" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M24.5,43a11.5,11.5 0 1,0 23,0a11.5,11.5 0 1,0 -23,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M32.55,43a3.4499999999999997,3.4499999999999997 0 1,0 6.8999999999999995,0a3.4499999999999997,3.4499999999999997 0 1,0 -6.8999999999999995,0Z" android:fillColor="#141414" />
+    <path android:pathData="M52.5,43a11.5,11.5 0 1,0 23,0a11.5,11.5 0 1,0 -23,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M60.55,43a3.4499999999999997,3.4499999999999997 0 1,0 6.8999999999999995,0a3.4499999999999997,3.4499999999999997 0 1,0 -6.8999999999999995,0Z" android:fillColor="#141414" />
+    <path android:pathData="M43,71a7,9.5 0 1,0 14,0a7,9.5 0 1,0 -14,0Z" android:fillColor="#141414" />
+</vector>

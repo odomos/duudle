@@ -249,7 +249,7 @@ fun SafetyDialogs(actions: SafetyActions, currentUid: String, onBlocked: (uid: S
             title = { Text("Block @$username?") },
             text = {
                 Text(
-                    "They'll be removed from your friends and can't send you doodles, flash cards, " +
+                    "They'll be removed from your friends and can't send you doodles, stickers, " +
                         "messages or friend requests. Their doodles and chat are hidden from you. " +
                         "They aren't told. You can unblock them in Profile."
                 )

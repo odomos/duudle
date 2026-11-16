@@ -105,12 +105,12 @@ flowchart TB
 | Component | File(s) | Role |
 |---|---|---|
 | App shell | `MainActivity.kt` | Screen switching, sign-in and username save, FCM token save, notification-tap handling, **overlay window builder** (`showRealDoodleOverlay`) |
-| Drawing | `DrawScreen.kt` | Square canvas with normalized strokes, zoom, recipient picker, doodle and flash card sending |
+| Drawing | `DrawScreen.kt` | Square canvas with normalized strokes, zoom, recipient picker, doodle and sticker sending, sticker search and pack chips |
 | Friends | `FriendsScreen.kt` | User search, friend requests, friend list with mute, Send doodle and Chat |
 | Vault | `VaultScreen.kt`, `IncomingDoodleScreen.kt` | History of sent/received items, favourites, snoozed items, detail view |
 | Profile | `ProfileScreen.kt`, `Avatar*.kt`, `CharacterEditor*.kt` | Vector character (drawn in code), full-screen editor with draft/saved state, stats |
 | Chat | `Chat.kt`, `ChatRepository.kt`, `ChatScreen.kt`, `ChatThemes.kt` | Real-time 1:1 chat, all Firestore access in the repository |
-| Flash cards | `FlashCards.kt` | Catalogue of bundled images and the shared `DoodleOrCard` renderer |
+| Stickers (stored as flash cards) | `FlashCards.kt`, `StickerMotion.kt`, `stickers/` | Sticker packs (bundled vector art), search, the shared `DoodleOrCard` renderer and the wobble/bounce/pulse loops; `stickers/README.md` has the pack and rights rules |
 | Snooze | `DoodleSnooze.kt` | Snooze files, alarms, re-arming, cancel |
 | Push handling | `DuudleMessagingService.kt` | FCM entry point; stroke JSON parsing |
 | Design system | `DuudleComponents.kt`, `ui/theme/*`, `BottomNav.kt`, `FaceBlobs.kt` | Shared header, tabs, pills, colours, bottom bar, animated characters |

@@ -9,7 +9,7 @@ class DoodleNotificationTest {
     @Test
     fun titleNamesSenderAndKind() {
         assertEquals("@bob sent you a doodle", doodleNotificationTitle("bob", isFlashCard = false))
-        assertEquals("@bob sent you a flash card", doodleNotificationTitle("bob", isFlashCard = true))
+        assertEquals("@bob sent you a sticker", doodleNotificationTitle("bob", isFlashCard = true))
     }
 
     @Test

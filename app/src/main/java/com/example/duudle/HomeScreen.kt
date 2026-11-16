@@ -123,7 +123,7 @@ fun HomeScreen(
             Spacer(Modifier.height(20.dp))
             Text(
                 text = if (newDoodleFromUsername != null && newItemIsFlashCard) {
-                    "@$newDoodleFromUsername sent you a flash card!"
+                    "@$newDoodleFromUsername sent you a sticker!"
                 } else if (newDoodleFromUsername != null) {
                     "@$newDoodleFromUsername sent you a doodle!"
                 } else {

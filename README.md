@@ -1,7 +1,7 @@
 # Duudle
 
-Duudle is an Android app for sending hand-drawn doodles, ready-made flash cards and chat
-messages to friends. A doodle or flash card doesn't land in an inbox: it **pops up as a
+Duudle is an Android app for sending hand-drawn doodles, ready-made stickers and chat
+messages to friends. A doodle or sticker doesn't land in an inbox: it **pops up as a
 floating overlay on the friend's screen**, even when Duudle is closed.
 
 - **Client:** Kotlin + Jetpack Compose, one `MainActivity` (app ID `com.arnavchauhan.duudle`;
@@ -26,7 +26,7 @@ confirmed on the real test phone (Samsung Galaxy A34); the checklist has the det
 | **Friends** | Search users by name (case-insensitive), send, accept and decline friend requests, mute a friend | Yes |
 | **Draw and send a doodle** | Draw on a square canvas (colours, with white working as an eraser; 3 brush sizes; pinch-zoom) and send it to a friend | Yes |
 | **Doodle pop-up** | The friend sees the doodle float over whatever app they're in, with **Snooze**, **Remove** and **Draw** (reply) | Yes |
-| **Flash cards** | On the Draw screen, switch to *Flash cards* and tap one of 9 images to send it instantly; it pops up like a doodle | Yes |
+| **Stickers** | On the Draw screen, switch to *Stickers*, search or pick a pack, and tap one to send it instantly; it pops up like a doodle (some wobble, bounce or pulse) | Yes |
 | **Snooze** | Snooze a pop-up for 5 or 15 minutes; it comes back on time, even after a reboot or an app update; cancel a snooze from the Vault | Yes |
 | **Vault** | Every doodle and card sent or received, with *All*, *Saved* (starred) and *Snoozed* tabs; open one full size, star it, or draw a reply | Yes |
 | **Home** | Animated characters, plus a banner when a new doodle or card is waiting | Yes |
@@ -102,14 +102,14 @@ is found by querying both `userA == me` and `userB == me`. Two crossed requests 
 docs for one pair, so the app counts distinct friend uids.
 
 ### `doodles/{autoId}`
-Both doodles and flash cards live here.
+Doodles and stickers (the stored name is still "flash cards") live here.
 
 | Field | Type | Notes |
 |---|---|---|
 | `senderId`, `senderUsername` | string | |
 | `receiverId`, `receiverUsername` | string | |
-| `strokes` | array | `[{ points: [{x, y}], color, width }]`; empty for a flash card |
-| `cardId` | string, optional | Present only for a flash card: `"card01"` … `"card09"` (01, 02, 05 retired) |
+| `strokes` | array | `[{ points: [{x, y}], color, width }]`; empty for a sticker |
+| `cardId` | string, optional | Present only for a sticker: `"card10"` … `"card99"` (`card01`–`card09`, the old image cards, are all retired) |
 | `createdAt` | number | client ms |
 | `status` | string | `"unseen"` when sent, `"removed"` once the receiver removes it or replies |
 
@@ -193,17 +193,27 @@ back-filled once.
 5. **In the app:** Home listens for `receiverId == me` and `status == "unseen"` to show
    "@name sent you a doodle!". The Vault listens for everything sent or received.
 
-### 4.4 Flash cards
-- The 6 images ship inside the app (`res/drawable-nodpi/flashcard_0N.jpg`, plus small
-  `_thumb.jpg` versions for grids). Each has a **stable id** (`card03`…`card09`) that never
-  changes or gets reused. `card01`, `card02` and `card05` were retired in Phase 8b (watermarked
-  images); doodles that used them show "This flash card is no longer available".
+### 4.4 Stickers (stored as "flash cards")
+- Stickers live in **packs** (`StickerPacks` in `FlashCards.kt`; the first is *Everyday*, 8 faces,
+  `card10`–`card17`). They are original vector art (`res/drawable/sticker_<pack>_<name>.xml`),
+  so they stay sharp at any size, and they ship inside the app: only the id is ever sent, so a
+  pop-up needs no download. Each has a **stable id** that never changes or gets reused; the rules
+  accept `card` plus two digits (`card10`–`card99`). How to add a pack, the art rules and the
+  rights rule are in `stickers/README.md`; every pack has a `stickers/<pack>/PACK.md` recording
+  where its art came from (a unit test enforces it).
+- The picker has a search box (matches label, keywords and pack title) and a row of pack chips
+  once there is more than one pack.
+- A sticker can have a loop (wobble, bounce, pulse) that plays only when it is shown big: the
+  pop-up and the Vault viewer, never in grids, never with "Remove animations" on.
+- `card01`–`card09` were the old image cards: 01, 02 and 05 carried third-party watermarks
+  (Phase 8b) and the rest couldn't be rights-cleared, so all nine are retired. Doodles that used
+  them show "This sticker is no longer available".
 - **Sending** adds a normal `doodles` doc with `strokes: []` and `cardId`. Because it's a
   doodle, mute, Vault, stats, snooze and Draw reply all work with no extra backend.
 - `onDoodleCreated` adds `cardId` to the push. The receiver shows the card image in the same
   overlay frame. For a push without `cardId` but with empty strokes (from before the function
   update), the app fetches the doc to read `cardId`.
-- An unknown card id (a newer app version sent it) shows "Update Duudle to see this flash card".
+- An unknown sticker id (a newer app version sent it) shows "Update Duudle to see this sticker".
 
 ### 4.5 Snooze
 1. Snooze writes `files/snoozed/<doodleId>.json` with the sender, strokes or `cardId` and
@@ -353,7 +363,7 @@ On the owner's Windows laptop, use Android Studio's JDK first:
 `.\gradlew.bat assembleDebug testDebugUnitTest`.
 
 - **Unit tests** (`app/src/test`): 110 JVM tests covering stroke simplification, zoom maths,
-  the avatar format and editor logic, chat helpers, flash cards and snooze timing.
+  the avatar format and editor logic, chat helpers, stickers and snooze timing.
 - **Cloud Function syntax check:** `node --check functions/index.js` (there's no function
   test suite).
 - **Firestore security-rules tests** (`firestore-tests/`, local emulator only, offline
@@ -395,7 +405,7 @@ Deploy a single function with e.g. `--only functions:onChatMessageCreated`.
 app/src/main/java/com/example/duudle/
   MainActivity.kt            screens, navigation, sign-in, overlay window
   WelcomeScreen.kt  HomeScreen.kt  BottomNav.kt  FaceBlobs.kt
-  DrawScreen.kt              drawing, zoom, Flash cards mode, send
+  DrawScreen.kt              drawing, zoom, Stickers mode (search, packs), send
   FriendsScreen.kt           search, requests, friends list, mute, Chat button
   VaultScreen.kt             All / Saved / Snoozed, detail, cancel snooze
   IncomingDoodleScreen.kt    doodle model + parsing, in-app viewer, favourites
@@ -403,11 +413,13 @@ app/src/main/java/com/example/duudle/
   Avatar.kt  AvatarArt.kt  AvatarStore.kt  AvatarPickers.kt
   CharacterEditor.kt  CharacterEditorScreen.kt   full-body character editor
   Chat.kt  ChatRepository.kt  ChatScreen.kt  ChatThemes.kt   in-app chat
-  FlashCards.kt              card catalogue + DoodleOrCard renderer
+  FlashCards.kt              sticker packs + search + DoodleOrCard renderer
+  StickerMotion.kt           wobble / bounce / pulse loops for big stickers
   DoodleSnooze.kt            snooze files, alarms, re-arming
   DuudleMessagingService.kt  FCM handling, stroke JSON
   DuudleComponents.kt  ui/theme/              shared UI and colours
-app/src/main/res/drawable-nodpi/   flash card images
+app/src/main/res/drawable/          sticker vector art (sticker_<pack>_<name>.xml)
+stickers/                          one folder per pack: PACK.md records the art's source
 functions/index.js                 Cloud Functions
 firestore.rules                    security rules
 insights-service/                  separate class-assignment microservice (not used by the app)
@@ -426,6 +438,7 @@ git-ignored.
 - There's no chat inbox list yet; chats open from Friends or a notification.
 - Chat notifications use the default launcher icon; Duudle has no monochrome notification
   icon yet.
-- Flash cards 01, 02 and 05 (watermarked) were removed in Phase 8b. A public release still
-  needs confirmed rights to the remaining six images.
+- The old flash card images (all nine) were removed and replaced by original sticker art, so
+  there are no third-party images left. New packs must follow the rights rule in
+  `stickers/README.md`.
 - Some earlier redesign and Profile checks in `PHONE_TEST_CHECKLIST.md` are still unticked.

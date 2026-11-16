@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Grumpy face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M50,12Q55,12 58,18L88,72Q92,82 82,84L18,84Q8,82 12,72L42,18Q45,12 50,12Z" android:fillColor="#FF8A80" />
+    <path android:pathData="M29.5,59a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M33.75,61a4.25,4.25 0 1,0 8.5,0a4.25,4.25 0 1,0 -8.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M53.5,59a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M57.75,61a4.25,4.25 0 1,0 8.5,0a4.25,4.25 0 1,0 -8.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M30,49L45,56" android:strokeColor="#141414" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M70,49L55,56" android:strokeColor="#141414" android:strokeWidth="5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M40,77Q50,68 60,77" android:strokeColor="#141414" android:strokeWidth="4.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

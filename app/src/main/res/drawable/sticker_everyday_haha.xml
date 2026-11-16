@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Laughing face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group android:rotation="-7" android:pivotX="50" android:pivotY="50">
+      <path android:pathData="M28,13H72Q88,13 88,29V73Q88,89 72,89H28Q12,89 12,73V29Q12,13 28,13Z" android:fillColor="#FFA96B" />
+      <path android:pathData="M28,47Q35,36 42,47" android:strokeColor="#141414" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M58,47Q65,36 72,47" android:strokeColor="#141414" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M33,56Q50,59 67,56Q64,78 50,78Q36,78 33,56Z" android:fillColor="#141414" />
+      <path android:pathData="M41,72Q50,65 59,72Q56,76.5 50,76.5Q44,76.5 41,72Z" android:fillColor="#FF8E8E" />
+    </group>
+</vector>

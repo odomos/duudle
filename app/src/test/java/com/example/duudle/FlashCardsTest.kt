@@ -5,46 +5,75 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class FlashCardsTest {
 
     @Test
-    fun catalogHasTheSixShippableCards() {
-        assertEquals(listOf("card03", "card04", "card06", "card07", "card08", "card09"), FlashCardCatalog.map { it.id })
+    fun theEverydayPackIsTheFirstPack() {
+        assertEquals(listOf("everyday"), StickerPacks.map { it.id })
+        assertEquals((10..17).map { "card$it" }, FlashCardCatalog.map { it.id })
+        assertEquals(StickerPacks.flatMap { it.stickers }, FlashCardCatalog)
     }
 
     @Test
-    fun retiredCardsAreGoneAndTheirIdsNeverReused() {
-        assertEquals(setOf("card01", "card02", "card05"), RetiredFlashCardIds)
+    fun allTheOldCardIdsAreRetiredAndNeverInACatalog() {
+        assertEquals((1..9).map { "card%02d".format(it) }.toSet(), RetiredFlashCardIds)
         RetiredFlashCardIds.forEach { assertNull(flashCardById(it)) }
+        assertTrue(FlashCardCatalog.none { it.id in RetiredFlashCardIds })
     }
 
     @Test
-    fun idsAreUniqueAndWellFormed() {
+    fun idsAreUniqueTwoDigitAndNeverBelowTen() {
         val ids = FlashCardCatalog.map { it.id }
         assertEquals(ids.size, ids.toSet().size)
-        // The Cloud Function trims cardId to 32 chars; these are far shorter.
-        ids.forEach { assertTrue(it, Regex("""^card\d{2}$""").matches(it)) }
+        // The rules accept card + exactly two digits; 01-09 belong to the retired image cards.
+        ids.forEach { assertTrue(it, Regex("""^card([1-9]\d)$""").matches(it)) }
     }
 
     @Test
-    fun eachCardHasItsOwnImageAndLabel() {
+    fun eachStickerHasItsOwnImageLabelAndKeywords() {
         assertEquals(FlashCardCatalog.size, FlashCardCatalog.map { it.res }.toSet().size)
-        assertTrue(FlashCardCatalog.all { it.label.isNotBlank() })
+        for (s in FlashCardCatalog) {
+            assertTrue(s.id, s.label.isNotBlank())
+            assertTrue("${s.id} needs search keywords", s.keywords.size >= 3)
+            // Search compares against lower-case words.
+            assertTrue(s.id, s.keywords.all { it == it.lowercase() && it.isNotBlank() })
+        }
+    }
+
+    @Test
+    fun packsAreWellFormed() {
+        assertEquals(StickerPacks.size, StickerPacks.map { it.id }.toSet().size)
+        for (p in StickerPacks) {
+            assertTrue(p.id, Regex("""^[a-z][a-z0-9]*$""").matches(p.id))
+            assertTrue(p.title.isNotBlank())
+            assertTrue(p.stickers.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun everyPackHasItsInfoFileSoItsArtSourceIsRecorded() {
+        // stickers/README.md: no pack ships without a PACK.md saying where its art came from.
+        for (p in StickerPacks) {
+            val info = File("../stickers/${p.id}/PACK.md")
+            assertTrue("missing ${info.path}", info.isFile)
+            assertTrue("${info.path} must say where the art came from", info.readText().contains("Source:"))
+        }
     }
 
     @Test
     fun lookupById() {
-        assertEquals("card03", flashCardById("card03")?.id)
-        assertEquals(FlashCardCatalog.last(), flashCardById("card09"))
+        assertEquals("card10", flashCardById("card10")?.id)
+        assertEquals(FlashCardCatalog.last(), flashCardById("card17"))
     }
 
     @Test
     fun unknownOrMissingIdsLookUpToNull() {
         assertNull(flashCardById(null))
         assertNull(flashCardById(""))
-        assertNull(flashCardById("card99")) // a newer app's card
-        assertNull(flashCardById("CARD03"))
+        assertNull(flashCardById("card99")) // a newer app's sticker
+        assertNull(flashCardById("CARD10"))
     }
 
     @Test
@@ -52,7 +81,7 @@ class FlashCardsTest {
         assertNull(cardIdFromPayload(null))
         assertNull(cardIdFromPayload(""))
         assertNull(cardIdFromPayload("   "))
-        assertEquals("card03", cardIdFromPayload(" card03 "))
+        assertEquals("card10", cardIdFromPayload(" card10 "))
         // Unknown ids are kept, so the overlay can show the "update Duudle" placeholder.
         assertEquals("card42", cardIdFromPayload("card42"))
     }
@@ -68,10 +97,50 @@ class FlashCardsTest {
 
     @Test
     fun textLines() {
-        assertEquals("@maya sent you a flash card", flashCardSentLine("maya"))
-        assertEquals("@maya sent a flash card — update Duudle to see it", unknownFlashCardText("card42", "maya"))
-        assertEquals("Update Duudle to see this flash card", unknownFlashCardText("card42", null))
-        assertEquals("This flash card is no longer available", unknownFlashCardText("card02", "maya"))
-        assertEquals("This flash card is no longer available", unknownFlashCardText("card05", null))
+        assertEquals("@maya sent you a sticker", flashCardSentLine("maya"))
+        assertEquals("@maya sent a sticker — update Duudle to see it", unknownFlashCardText("card42", "maya"))
+        assertEquals("Update Duudle to see this sticker", unknownFlashCardText("card42", null))
+        assertEquals("This sticker is no longer available", unknownFlashCardText("card02", "maya"))
+        assertEquals("This sticker is no longer available", unknownFlashCardText("card09", null))
+    }
+
+    // ---- search ----
+
+    @Test
+    fun emptySearchListsEverything() {
+        assertEquals(FlashCardCatalog, searchStickers(""))
+        assertEquals(FlashCardCatalog, searchStickers("   "))
+    }
+
+    @Test
+    fun searchMatchesKeywordsLabelsAndPackTitlesIgnoringCase() {
+        assertEquals(listOf("card15"), searchStickers("LOVE").map { it.id })
+        assertEquals(listOf("card14"), searchStickers("zzz").map { it.id })
+        assertEquals(listOf("card17"), searchStickers("crying").map { it.id }) // from the label
+        assertEquals(FlashCardCatalog, searchStickers("everyday")) // from the pack title
+    }
+
+    @Test
+    fun everyTypedWordMustMatch() {
+        assertEquals(listOf("card11", "card12"), searchStickers("joke").map { it.id })
+        assertEquals(listOf("card12"), searchStickers("joke wink").map { it.id })
+        assertTrue(searchStickers("joke sleepy").isEmpty())
+        assertTrue(searchStickers("dinosaur").isEmpty())
+    }
+
+    @Test
+    fun searchCanBeLimitedToOnePack() {
+        val a = StickerPack("cats", "Cats", listOf(FlashCard("card20", 1, "Sleepy cat", listOf("cat", "sleepy"))))
+        val b = StickerPack("dogs", "Dogs", listOf(FlashCard("card21", 2, "Sleepy dog", listOf("dog", "sleepy"))))
+        assertEquals(listOf("card20", "card21"), searchStickers("sleepy", null, listOf(a, b)).map { it.id })
+        assertEquals(listOf("card21"), searchStickers("sleepy", "dogs", listOf(a, b)).map { it.id })
+        assertEquals(listOf("card20"), searchStickers("cats", null, listOf(a, b)).map { it.id })
+        assertTrue(searchStickers("", "nope", listOf(a, b)).isEmpty())
+    }
+
+    @Test
+    fun someStickersMoveAndTheRestStayStill() {
+        assertTrue(FlashCardCatalog.any { it.motion != StickerMotion.NONE })
+        assertTrue(FlashCardCatalog.any { it.motion == StickerMotion.NONE })
     }
 }

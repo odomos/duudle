@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Heart-eyes face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M12,52a38,38 0 1,0 76,0a38,38 0 1,0 -76,0Z" android:fillColor="#F794D0" />
+    <path android:pathData="M36,51.1C24.3,42.1 26.1,33.1 31.5,33.1C34.2,33.1 36,34.9 36,37.6C36,34.9 37.8,33.1 40.5,33.1C45.9,33.1 47.7,42.1 36,51.1Z" android:fillColor="#E8265F" />
+    <path android:pathData="M64,51.1C52.3,42.1 54.1,33.1 59.5,33.1C62.2,33.1 64,34.9 64,37.6C64,34.9 65.8,33.1 68.5,33.1C73.9,33.1 75.7,42.1 64,51.1Z" android:fillColor="#E8265F" />
+    <path android:pathData="M36,61Q50,77 64,61" android:strokeColor="#141414" android:strokeWidth="4.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

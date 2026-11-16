@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Crying face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M46,12C68,6 90,22 90,48C90,74 74,92 50,90C28,88 8,76 10,52C11,32 24,16 46,12Z" android:fillColor="#7ABDF6" />
+    <path android:pathData="M26,36L45,30" android:strokeColor="#141414" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M74,36L55,30" android:strokeColor="#141414" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M28.5,48a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M32.75,51a4.25,4.25 0 1,0 8.5,0a4.25,4.25 0 1,0 -8.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M54.5,48a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M58.75,51a4.25,4.25 0 1,0 8.5,0a4.25,4.25 0 1,0 -8.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M30,60C26,66 26,71 30,71C34,71 34,66 30,60Z" android:fillColor="#EAF6FF" />
+    <path android:pathData="M38,71Q50,60 62,71" android:strokeColor="#141414" android:strokeWidth="4.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

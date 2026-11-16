@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -85,7 +86,7 @@ private val palette = listOf(
 )
 
 private val LavenderBackground = Color(0xFFEDE3FA)
-private val DrawModeLabels = listOf("Draw", "Flash cards")
+private val DrawModeLabels = listOf("Draw", "Stickers")
 private val FlashCardShape = RoundedCornerShape(20.dp)
 private const val RESTORED_SEND_GRACE_MS = 5000L
 
@@ -218,7 +219,7 @@ fun DrawScreen(
         ) { error ->
             sendingCardId = null
             if (error == null) {
-                Toast.makeText(context, "Flash card sent to ${toName ?: "your friend"}!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Sticker sent to ${toName ?: "your friend"}!", Toast.LENGTH_LONG).show()
                 onBack()
             } else {
                 Toast.makeText(context, rateLimitedOr(error, "Couldn't send. Check your connection."), Toast.LENGTH_LONG).show()
@@ -512,8 +513,9 @@ fun DrawScreen(
 }
 
 /**
- * Flash cards mode: who the card goes to (or a prompt to pick a friend) above a 3-column
- * grid of cards. [recipientName] null = no recipient yet.
+ * Stickers mode: who the sticker goes to (or a prompt to pick a friend), a search box, a row of
+ * pack chips (only when there's more than one pack) and a 3-column grid. [recipientName] null =
+ * no recipient yet.
  */
 @Composable
 private fun FlashCardPicker(
@@ -523,10 +525,13 @@ private fun FlashCardPicker(
     onCardClick: (FlashCard) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var packId by rememberSaveable { mutableStateOf<String?>(null) }
+    val results = remember(query, packId) { searchStickers(query, packId) }
     Column(modifier = modifier.fillMaxWidth()) {
         if (recipientName != null) {
             Text(
-                "Tap a card to send it to @$recipientName",
+                "Tap a sticker to send it to @$recipientName",
                 style = MaterialTheme.typography.bodyMedium,
                 color = DuudleColors.Ink,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -545,14 +550,40 @@ private fun FlashCardPicker(
                 TextButton(onClick = onPickFriend, modifier = Modifier.heightIn(min = 48.dp)) { Text("Pick a friend") }
             }
         }
+        GreySearchField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = "Search stickers (love, lol, sleepy…)",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+        if (StickerPacks.size > 1) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                item(key = "all") { PackChip("All", selected = packId == null) { packId = null } }
+                items(StickerPacks, key = { it.id }) { pack ->
+                    PackChip(pack.title, selected = packId == pack.id) { packId = pack.id }
+                }
+            }
+        }
+        if (results.isEmpty()) {
+            Text(
+                "No stickers match \"${query.trim()}\"",
+                style = MaterialTheme.typography.bodyMedium,
+                color = DuudleColors.Muted,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+            )
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            gridItems(FlashCardCatalog, key = { it.id }) { card ->
+            gridItems(results, key = { it.id }) { card ->
                 val description = if (recipientName != null) "Send ${card.label} to @$recipientName" else "Send ${card.label}"
                 val isSendingThis = card.id == sendingCardId
                 Box(
@@ -572,8 +603,8 @@ private fun FlashCardPicker(
                     Image(
                         painter = painterResource(card.thumbRes),
                         contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(6.dp)
                     )
                     if (isSendingThis) {
                         Box(
@@ -590,6 +621,28 @@ private fun FlashCardPicker(
                 }
             }
         }
+    }
+}
+
+/** A pill in the picker's pack row. Selected = black, like the app's other active pills. */
+@Composable
+private fun PackChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (selected) DuudleColors.Ink else DuudleColors.PillGrey)
+            .clickable(role = Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected }
+            .padding(horizontal = 18.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) DuudleColors.Paper else DuudleColors.Ink
+        )
     }
 }
 

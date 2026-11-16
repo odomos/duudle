@@ -75,12 +75,12 @@ object DoodleNotification {
 }
 
 fun doodleNotificationTitle(senderUsername: String, isFlashCard: Boolean): String =
-    "@$senderUsername sent you a ${if (isFlashCard) "flash card" else "doodle"}"
+    "@$senderUsername sent you a ${if (isFlashCard) "sticker" else "doodle"}"
 
 /** [popUpsTurnedOff]: the user chose notifications, so don't nag them about the setting. */
 fun doodleNotificationText(isFlashCard: Boolean, popUpsTurnedOff: Boolean = false): String =
     if (popUpsTurnedOff) "Tap to see it in your Vault."
-    else "Tap to see it in your Vault. To have ${if (isFlashCard) "cards" else "doodles"} pop up on screen, " +
+    else "Tap to see it in your Vault. To have ${if (isFlashCard) "stickers" else "doodles"} pop up on screen, " +
         "turn on \"Show over other apps\" in Profile."
 
 /** One notification per sender: a newer doodle from the same friend replaces the older one. */

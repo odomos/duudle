@@ -138,7 +138,7 @@ fun DeleteAccountDialog(username: String, onDismiss: () -> Unit, onDeleted: () -
             Column {
                 Text(
                     "This permanently deletes @$username: your profile, friends, friend requests, the doodles " +
-                        "and flash cards you sent and received, your chats, saved doodles and settings. Your " +
+                        "and stickers you sent and received, your chats, saved doodles and settings. Your " +
                         "friends lose your doodles and chats too. It can't be undone.",
                     fontSize = 14.sp
                 )

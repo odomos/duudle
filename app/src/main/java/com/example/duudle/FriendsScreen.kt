@@ -298,7 +298,7 @@ fun FriendsScreen(
 
 /** Grey rounded search field with a magnifier, used on the Friends and Add tabs. */
 @Composable
-private fun GreySearchField(
+internal fun GreySearchField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,

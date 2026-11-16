@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Winking face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M12,52a38,38 0 1,0 76,0a38,38 0 1,0 -76,0Z" android:fillColor="#98E27A" />
+    <path android:pathData="M26.5,44a9.5,9.5 0 1,0 19,0a9.5,9.5 0 1,0 -19,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M32.75,45.5a4.75,4.75 0 1,0 9.5,0a4.75,4.75 0 1,0 -9.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M57,48Q64,37 71,48" android:strokeColor="#141414" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M52,66Q60,65 60,73Q60,80 54,79Q50,78 50,70Z" android:fillColor="#FF8E8E" />
+    <path android:pathData="M35,60Q50,72 65,60" android:strokeColor="#141414" android:strokeWidth="4.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

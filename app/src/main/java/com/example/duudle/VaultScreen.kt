@@ -333,7 +333,7 @@ private fun VaultThumbnail(
     val label = if (isSent) "To @${doodle.receiverUsername}" else "From @${doodle.senderUsername}"
     val time = relativeTime(doodle.createdAt)
     val description = buildString {
-        val kind = if (doodle.cardId != null) "Flash card" else "Doodle"
+        val kind = if (doodle.cardId != null) "Sticker" else "Doodle"
         append(if (isSent) "$kind to @${doodle.receiverUsername}" else "$kind from @${doodle.senderUsername}")
         if (time.isNotEmpty()) append(", ").append(time)
         if (isSaved) append(", saved")

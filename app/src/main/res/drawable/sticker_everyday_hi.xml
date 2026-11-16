@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Friendly hello face" (Everyday pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M12,52a38,38 0 1,0 76,0a38,38 0 1,0 -76,0Z" android:fillColor="#FFD35E" />
+    <path android:pathData="M27.5,44a9.5,9.5 0 1,0 19,0a9.5,9.5 0 1,0 -19,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M34.75,41.5a4.75,4.75 0 1,0 9.5,0a4.75,4.75 0 1,0 -9.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M53.5,44a9.5,9.5 0 1,0 19,0a9.5,9.5 0 1,0 -19,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M60.75,41.5a4.75,4.75 0 1,0 9.5,0a4.75,4.75 0 1,0 -9.5,0Z" android:fillColor="#141414" />
+    <path android:pathData="M33,60Q50,78 67,60" android:strokeColor="#141414" android:strokeWidth="4.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

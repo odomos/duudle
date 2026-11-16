@@ -30,7 +30,7 @@ someone else.
    Firestore > `reports`, filter `status == open`, oldest first.
 2. For each report, look at the evidence:
    - `doodle`: open `doodles/{contentId}` (strokes are drawn in the app; `cardId` is a
-     flash card).
+     sticker).
    - `chat`: open `chats/{contentId}/messages`, sorted by `createdAt`.
    - `user`: their profile `users/{reportedUid}`, plus other reports about them
      (filter `reportedUid ==`).
