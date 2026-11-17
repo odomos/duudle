@@ -333,6 +333,12 @@ To fix later (owner, 2026-10-24)
 - [ ] Every character looks like it's wearing glasses even when Glasses is
       "No glasses". Remove that glasses look from the faces first, then make
       glasses a clear, separate option to pick (Extras step or its own step)
+      **2026-11-17: can't reproduce on the current build.** A character with "No glasses" has
+      plain dot eyes (checked in the editor's Extras > Glasses step on the emulator), and Round,
+      Square and Sunglasses each look clearly different. The arnav222 character on the A34 has
+      **Sunglasses selected** (that's saved on the phone), which is why it shows them. Please
+      check: Edit character > Extras > Glasses > No glasses > Save; if you still see glasses,
+      tell me which character and I'll look again
 
 Editor: look and steps
 - [ ] Top bar: X, "Edit Character", and a grey **Save** that turns black after
@@ -586,18 +592,24 @@ Checked on the emulator (Pixel 7 Pro, 2026-11-15):
       it big and it wobbles (the laughing one)
 - [x] With "Remove animations" on, the big view stays still
 
-Needs the A34 (pop-up over other apps; I can't see overlays from the emulator alone):
-- [ ] A friend's sticker pops up over another app, fitted inside the white square (not cropped),
-      with the right title ("@name sent you a sticker"); Snooze / Remove / Draw work on it
-- [ ] The hello sticker bounces, laughing wobbles, heart-eyes pulses in the pop-up; the others
-      stay still. With "Remove animations" on, none move
-- [ ] Snooze a sticker pop-up: it comes back as the same sticker after the snooze
+Checked on the A34 with the emulator as the other phone (2026-11-17, staging, A34 font 1.1x):
+- [x] A friend's sticker pops up over another app, fitted inside the white square (not cropped),
+      titled "@newme sent you a sticker"; Home says "@newme sent you a sticker!"
+- [x] Hello bounces, laughing wobbles, heart-eyes pulses in the pop-up; shocked stays still.
+      With "Remove animations" on (set on the emulator, the receiving phone) the pop-up stays still
+- [x] Draw on a sticker pop-up opens Draw with "To: newme" (name looked up); Remove closes it
+- [x] Snooze a sticker pop-up (5 min): it sits in Vault > Snoozed as the same sticker with
+      "Pop-ups paused until 17:34"; a second sticker sent meanwhile was held there too; the
+      "doodles waiting" notification posted at the end (17:34:31)
+- [x] Both directions work: emulator -> A34 and A34 -> emulator (the A34's picker shows the 8
+      stickers with the search box); stickers in the A34's Vault look sharp
+
+Still to check:
 - [ ] A sticker sent to an **older** Duudle build shows "@name sent a sticker — update Duudle to see
-      it" (the A34's previous staging build did this when I sent the laughing sticker from the
-      emulator; check it says that, then install the new build)
+      it" (the A34's previous staging build; I replaced it before testing this, so use any old
+      build you still have, or skip)
 - [ ] With "Display over other apps" off, a sticker arrives as the notification
       "@name sent you a sticker"
-- [ ] Both directions A34 <-> emulator; a sticker in a Vault tab on the A34 looks sharp
 - [ ] TalkBack reads a picker cell as "Send Laughing face to @name"; the search box and the
       Draw / Stickers switch are usable at the largest font size
 - [ ] An old Vault item that used one of the retired cards (if you have any) says
