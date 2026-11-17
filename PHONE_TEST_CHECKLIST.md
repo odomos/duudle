@@ -646,6 +646,25 @@ now All / Everyday / Cats / Dogs.
 - [ ] The panting dog bounces, the goofy dog wobbles, the puppy-eyes dog pulses in the pop-up; the
       other five stay still
 
+## Text sticker packs: Greetings, Replies, Feelings, Plans (built 2026-11-17; staging build)
+
+Four new packs of 12 (`card34`–`card81`): animals (cat, dog, bunny, bear, panda, fox, pig, chick, penguin)
+**saying things**, with the words drawn on the sticker: Hi!, Hello!, Hey you, Morning!, Good night, Sweet
+dreams, Bye!, See you!, Welcome!, Miss you, How r u?, Hugs! / Yes!, No, OK!, Maybe, Thanks!, Please, Sorry,
+No worries, Sure!, Same!, Really?, Idk / LOL, Love you, Wow!, OMG!, Hmm..., Oops!, So sad, Grr!, Sleepy,
+Bored, Yay!, Hungry / On my way, BRB, Call me, Busy, Where r u?, Let's go!, Lunch?, Congrats!, Happy bday!,
+Good luck!, Get well!, Cheers!. Original art; the lettering is Fredoka Bold (SIL OFL) converted to outlines.
+Search now matches the start of words ("cat" no longer finds "location").
+- [x] Emulator: all four packs show in the picker, sharp, text readable at grid size (2026-11-17)
+- [x] Scrolling the full 72-sticker grid on the A34: 2 of 612 frames slow (0.3%), median 11 ms. (The
+      emulator is slow at this, about half the frames: its graphics are weak, not a phone problem)
+- [x] A34: the Congrats panda (hat, confetti, big lettering) pops up fitted and bounces
+- [ ] Look through all 48 on the A34: are the words, animals and expressions right? Is anything you'd say
+      in a short chat missing? Tell me which to change or add
+- [ ] Words stay readable when the pop-up is small or shown over a busy app, and in the Vault
+- [ ] Search: "thanks", "birthday", "good morning", "brb", "hungry" each find their sticker; "cat" finds only cats
+- [ ] TalkBack reads a text sticker as e.g. "Send Panda saying "Congrats!" to @name"
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop

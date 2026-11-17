@@ -44,82 +44,7 @@ data class FlashCard(
 /** A themed set of stickers shown together in the picker. */
 data class StickerPack(val id: String, val title: String, val stickers: List<FlashCard>)
 
-/**
- * Every pack this build knows. The sticker ids are a STABLE storage and push-payload contract
- * (they're saved in Firestore doodle docs, FCM pushes and snooze files): never rename or
- * reuse one. The rules accept `card10` to `card99` (two digits), so take the next free number;
- * past 99 the rules must be loosened first (staging, then the owner's OK for live).
- * To retire a sticker, drop it from its pack but keep its id reserved forever
- * ([RetiredFlashCardIds]). Labels, keywords and pack titles are display-only and can change.
- */
-val StickerPacks: List<StickerPack> = listOf(
-    StickerPack(
-        id = "everyday",
-        title = "Everyday",
-        stickers = listOf(
-            FlashCard("card10", R.drawable.sticker_everyday_hi, "Friendly hello face",
-                listOf("hi", "hello", "hey", "wave", "friendly"), StickerMotion.BOUNCE),
-            FlashCard("card11", R.drawable.sticker_everyday_haha, "Laughing face",
-                listOf("haha", "lol", "laugh", "funny", "joke"), StickerMotion.WOBBLE),
-            FlashCard("card12", R.drawable.sticker_everyday_wink, "Winking face",
-                listOf("wink", "cheeky", "playful", "tease", "joke")),
-            FlashCard("card13", R.drawable.sticker_everyday_shocked, "Shocked face",
-                listOf("shocked", "wow", "omg", "surprised", "gasp")),
-            FlashCard("card14", R.drawable.sticker_everyday_sleepy, "Sleepy face",
-                listOf("sleepy", "tired", "sleep", "night", "zzz", "bored")),
-            FlashCard("card15", R.drawable.sticker_everyday_love, "Heart-eyes face",
-                listOf("love", "heart", "like", "crush", "cute", "aww"), StickerMotion.PULSE),
-            FlashCard("card16", R.drawable.sticker_everyday_grr, "Grumpy face",
-                listOf("grr", "angry", "mad", "grumpy", "annoyed")),
-            FlashCard("card17", R.drawable.sticker_everyday_sad, "Crying face",
-                listOf("sad", "cry", "tears", "sorry", "upset"))
-        )
-    ),
-    StickerPack(
-        id = "cats",
-        title = "Cats",
-        stickers = listOf(
-            FlashCard("card18", R.drawable.sticker_cats_grin, "Cat with a huge toothy grin",
-                listOf("cat", "kitty", "grin", "teeth", "smile", "cheeky", "happy"), StickerMotion.BOUNCE),
-            FlashCard("card19", R.drawable.sticker_cats_cackle, "Cat laughing so hard it cries",
-                listOf("cat", "kitty", "lol", "laugh", "cackle", "haha", "hilarious", "tears"), StickerMotion.WOBBLE),
-            FlashCard("card20", R.drawable.sticker_cats_shook, "Shocked cat with huge eyes",
-                listOf("cat", "kitty", "shook", "shocked", "wow", "omg", "scared", "surprised")),
-            FlashCard("card21", R.drawable.sticker_cats_smug, "Smug cat with half-closed eyes",
-                listOf("cat", "kitty", "smug", "sassy", "judging", "unimpressed", "smirk", "cool")),
-            FlashCard("card22", R.drawable.sticker_cats_nap, "Cat napping with a snot bubble",
-                listOf("cat", "kitty", "nap", "sleepy", "sleep", "tired", "zzz", "night")),
-            FlashCard("card23", R.drawable.sticker_cats_love, "Cat with heart eyes",
-                listOf("cat", "kitty", "love", "heart", "cute", "aww", "purr"), StickerMotion.PULSE),
-            FlashCard("card24", R.drawable.sticker_cats_yum, "Hungry cat licking its lips",
-                listOf("cat", "kitty", "yum", "hungry", "tasty", "lick", "food", "treat")),
-            FlashCard("card25", R.drawable.sticker_cats_hiss, "Angry cat hissing with fangs",
-                listOf("cat", "kitty", "hiss", "angry", "mad", "grumpy", "fangs"))
-        )
-    ),
-    StickerPack(
-        id = "dogs",
-        title = "Dogs",
-        stickers = listOf(
-            FlashCard("card26", R.drawable.sticker_dogs_pant, "Happy dog panting with its tongue out",
-                listOf("dog", "puppy", "doggo", "happy", "pant", "wag", "excited", "good boy"), StickerMotion.BOUNCE),
-            FlashCard("card27", R.drawable.sticker_dogs_derp, "Goofy dog with crossed eyes",
-                listOf("dog", "puppy", "doggo", "derp", "silly", "goofy", "blep", "tongue"), StickerMotion.WOBBLE),
-            FlashCard("card28", R.drawable.sticker_dogs_tilt, "Confused dog tilting its head",
-                listOf("dog", "puppy", "doggo", "confused", "what", "huh", "curious", "question")),
-            FlashCard("card29", R.drawable.sticker_dogs_puppy, "Puppy with huge begging eyes",
-                listOf("dog", "puppy", "doggo", "please", "beg", "sorry", "sad", "puppy eyes", "cute"), StickerMotion.PULSE),
-            FlashCard("card30", R.drawable.sticker_dogs_love, "Dog with heart eyes",
-                listOf("dog", "puppy", "doggo", "love", "heart", "cute", "aww")),
-            FlashCard("card31", R.drawable.sticker_dogs_grr, "Dog growling with bared fangs",
-                listOf("dog", "puppy", "doggo", "grr", "growl", "angry", "mad", "snarl")),
-            FlashCard("card32", R.drawable.sticker_dogs_ball, "Excited dog with a tennis ball",
-                listOf("dog", "puppy", "doggo", "ball", "play", "fetch", "excited", "game")),
-            FlashCard("card33", R.drawable.sticker_dogs_sleep, "Dog sleeping with a Zzz",
-                listOf("dog", "puppy", "doggo", "sleep", "sleepy", "nap", "tired", "zzz"))
-        )
-    )
-)
+// The packs themselves (StickerPacks) live in StickerPacks.kt.
 
 /** All stickers in all packs, in pack order. */
 val FlashCardCatalog: List<FlashCard> = StickerPacks.flatMap { it.stickers }
@@ -137,16 +62,19 @@ val RetiredFlashCardIds: Set<String> =
 fun flashCardById(id: String?): FlashCard? = if (id == null) null else FlashCardCatalog.firstOrNull { it.id == id }
 
 /**
- * The picker's search: every word typed must appear in a sticker's label, its keywords or its pack
- * title (case-insensitive). An empty [query] lists everything. [packId] null = all packs.
+ * The picker's search: every word typed must be the start of a word in a sticker's label, its
+ * keywords or its pack title (case-insensitive), so "cat" finds cats but not "location", and "lov"
+ * finds "love". An empty [query] lists everything. [packId] null = all packs.
  */
+private fun searchWords(s: String): List<String> = s.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+
 fun searchStickers(query: String, packId: String? = null, packs: List<StickerPack> = StickerPacks): List<FlashCard> {
-    val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+    val words = searchWords(query)
     return packs.filter { packId == null || it.id == packId }.flatMap { pack ->
+        val packTokens = searchWords(pack.title)
         pack.stickers.filter { s ->
-            words.all { w ->
-                s.label.lowercase().contains(w) || pack.title.lowercase().contains(w) || s.keywords.any { it.contains(w) }
-            }
+            val tokens = packTokens + searchWords(s.label) + s.keywords.flatMap { searchWords(it) }
+            words.all { w -> tokens.any { it.startsWith(w) } }
         }
     }
 }

@@ -194,15 +194,17 @@ back-filled once.
    "@name sent you a doodle!". The Vault listens for everything sent or received.
 
 ### 4.4 Stickers (stored as "flash cards")
-- Stickers live in **packs** (`StickerPacks` in `FlashCards.kt`): *Everyday* (8 faces, `card10`–`card17`),
-  *Cats* (8 cat reactions, `card18`–`card25`) and *Dogs* (8 dog reactions, `card26`–`card33`). They are original vector art (`res/drawable/sticker_<pack>_<name>.xml`),
+- Stickers live in **packs** (`StickerPacks` in `StickerPacks.kt`): *Everyday* (8 faces, `card10`–`card17`),
+  *Cats* and *Dogs* (8 reactions each, `card18`–`card33`) and four packs with **words on them** (animals
+  saying things): *Greetings*, *Replies*, *Feelings* and *Plans* (12 each, `card34`–`card81`). The words are
+  converted to vector outlines from an open-licence font (see `stickers/README.md`). They are original vector art (`res/drawable/sticker_<pack>_<name>.xml`),
   so they stay sharp at any size, and they ship inside the app: only the id is ever sent, so a
   pop-up needs no download. Each has a **stable id** that never changes or gets reused; the rules
   accept `card` plus two digits (`card10`–`card99`). How to add a pack, the art rules and the
   rights rule are in `stickers/README.md`; every pack has a `stickers/<pack>/PACK.md` recording
   where its art came from (a unit test enforces it).
-- The picker has a search box (matches label, keywords and pack title) and a row of pack chips
-  once there is more than one pack.
+- The picker has a search box (each word typed must start a word in the label, keywords or pack title,
+  so "cat" finds cats but not "location") and a scrolling row of pack chips.
 - A sticker can have a loop (wobble, bounce, pulse) that plays only when it is shown big: the
   pop-up and the Vault viewer, never in grids, never with "Remove animations" on.
 - `card01`–`card09` were the old image cards: 01, 02 and 05 carried third-party watermarks
@@ -413,7 +415,8 @@ app/src/main/java/com/example/duudle/
   Avatar.kt  AvatarArt.kt  AvatarStore.kt  AvatarPickers.kt
   CharacterEditor.kt  CharacterEditorScreen.kt   full-body character editor
   Chat.kt  ChatRepository.kt  ChatScreen.kt  ChatThemes.kt   in-app chat
-  FlashCards.kt              sticker packs + search + DoodleOrCard renderer
+  FlashCards.kt              sticker model + search + DoodleOrCard renderer
+  StickerPacks.kt            the packs (ids, labels, keywords, motion)
   StickerMotion.kt           wobble / bounce / pulse loops for big stickers
   DoodleSnooze.kt            snooze files, alarms, re-arming
   DuudleMessagingService.kt  FCM handling, stroke JSON

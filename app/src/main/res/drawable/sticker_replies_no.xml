@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Black cat saying 'No'" (Replies pack). Original artwork drawn for this project; lettering is Fredoka (SIL OFL 1.1) converted to outlines. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group android:scaleX="0.84" android:scaleY="0.84" android:pivotX="50" android:pivotY="50" android:translateY="-7">
+      <path android:pathData="M18,48L20,13Q21,9 25,11L46,28Z" android:fillColor="#2B2B31" />
+      <path android:pathData="M82,48L80,13Q79,9 75,11L54,28Z" android:fillColor="#2B2B31" />
+      <path android:pathData="M24,38L25,20L38,30Z" android:fillColor="#7A4F68" />
+      <path android:pathData="M76,38L75,20L62,30Z" android:fillColor="#7A4F68" />
+      <path android:pathData="M13,58a37,31 0 1,0 74,0a37,31 0 1,0 -74,0Z" android:fillColor="#2B2B31" />
+      <path android:pathData="M26.5,50a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+      <path android:pathData="M30.75,50a4.25,4.25 0 1,0 8.5,0a4.25,4.25 0 1,0 -8.5,0Z" android:fillColor="#141414" />
+      <path android:pathData="M56.5,50a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+      <path android:pathData="M60.75,50a4.25,4.25 0 1,0 8.5,0a4.25,4.25 0 1,0 -8.5,0Z" android:fillColor="#141414" />
+      <path android:pathData="M26,36L43,43" android:strokeColor="#D9D9E0" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M74,36L57,43" android:strokeColor="#D9D9E0" android:strokeWidth="4.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M39.2,73.9Q50,63 60.8,73.9" android:strokeColor="#141414" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M45.5,57H54.5L50,63Z" android:fillColor="#FF8FA3" android:strokeColor="#FF8FA3" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M20,64L5,60" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M20,68L4,68" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M21,72L6,77" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M80,64L95,60" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M80,68L96,68" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M79,72L94,77" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
+    <path android:pathData="M39.1,92.2L39.1,92.2Q38.1,92.2 37.7,91.9Q37.3,91.6 37.2,91.1Q37.1,90.7 37.1,90.2L37.1,90.2L37.1,78.8Q37.1,78.3 37.2,77.8Q37.3,77.4 37.7,77.1Q38.1,76.8 39.1,76.8L39.1,76.8Q40.1,76.8 40.5,77.1Q40.8,77.3 41.1,77.7L41.1,77.7L46.6,85.1L46.6,78.8Q46.6,78.3 46.7,77.8Q46.8,77.4 47.2,77.1Q47.6,76.8 48.6,76.8L48.6,76.8Q49.6,76.8 50,77.1Q50.4,77.4 50.5,77.9Q50.6,78.3 50.6,78.8L50.6,78.8L50.6,90.2Q50.6,90.7 50.5,91.1Q50.4,91.6 50,91.9Q49.6,92.2 48.6,92.2L48.6,92.2Q47.8,92.2 47.5,92.1Q47.1,92 46.8,91.6L46.8,91.6L41.1,84.1L41.1,90.2Q41.1,90.7 41,91.1Q40.9,91.6 40.5,91.9Q40.1,92.2 39.1,92.2M57.4,92.4L57.4,92.4Q56.4,92.4 55.3,92Q54.3,91.6 53.4,90.8Q52.6,90.1 52.1,89Q51.5,87.9 51.5,86.6L51.5,86.6Q51.5,85.4 52,84.3Q52.5,83.3 53.3,82.5Q54.1,81.7 55.1,81.2Q56.2,80.8 57.3,80.8L57.3,80.8Q59,80.8 60.3,81.5Q61.6,82.3 62.4,83.6Q63.2,85 63.2,86.6L63.2,86.6Q63.2,88 62.7,89.1Q62.1,90.1 61.3,90.9Q60.4,91.6 59.4,92Q58.4,92.4 57.4,92.4M57.3,88.4L57.3,88.4Q57.7,88.4 58.1,88.2Q58.5,88 58.9,87.6Q59.2,87.2 59.2,86.6L59.2,86.6Q59.2,86 58.9,85.6Q58.7,85.2 58.3,85Q57.9,84.8 57.3,84.8L57.3,84.8Q56.8,84.8 56.4,85Q56.1,85.2 55.8,85.7Q55.6,86.1 55.6,86.6L55.6,86.6Q55.6,87.2 55.9,87.6Q56.2,88 56.6,88.2Q57,88.4 57.3,88.4" android:fillColor="#FFFFFF" android:strokeColor="#FFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M39.1,92.2L39.1,92.2Q38.1,92.2 37.7,91.9Q37.3,91.6 37.2,91.1Q37.1,90.7 37.1,90.2L37.1,90.2L37.1,78.8Q37.1,78.3 37.2,77.8Q37.3,77.4 37.7,77.1Q38.1,76.8 39.1,76.8L39.1,76.8Q40.1,76.8 40.5,77.1Q40.8,77.3 41.1,77.7L41.1,77.7L46.6,85.1L46.6,78.8Q46.6,78.3 46.7,77.8Q46.8,77.4 47.2,77.1Q47.6,76.8 48.6,76.8L48.6,76.8Q49.6,76.8 50,77.1Q50.4,77.4 50.5,77.9Q50.6,78.3 50.6,78.8L50.6,78.8L50.6,90.2Q50.6,90.7 50.5,91.1Q50.4,91.6 50,91.9Q49.6,92.2 48.6,92.2L48.6,92.2Q47.8,92.2 47.5,92.1Q47.1,92 46.8,91.6L46.8,91.6L41.1,84.1L41.1,90.2Q41.1,90.7 41,91.1Q40.9,91.6 40.5,91.9Q40.1,92.2 39.1,92.2M57.4,92.4L57.4,92.4Q56.4,92.4 55.3,92Q54.3,91.6 53.4,90.8Q52.6,90.1 52.1,89Q51.5,87.9 51.5,86.6L51.5,86.6Q51.5,85.4 52,84.3Q52.5,83.3 53.3,82.5Q54.1,81.7 55.1,81.2Q56.2,80.8 57.3,80.8L57.3,80.8Q59,80.8 60.3,81.5Q61.6,82.3 62.4,83.6Q63.2,85 63.2,86.6L63.2,86.6Q63.2,88 62.7,89.1Q62.1,90.1 61.3,90.9Q60.4,91.6 59.4,92Q58.4,92.4 57.4,92.4M57.3,88.4L57.3,88.4Q57.7,88.4 58.1,88.2Q58.5,88 58.9,87.6Q59.2,87.2 59.2,86.6L59.2,86.6Q59.2,86 58.9,85.6Q58.7,85.2 58.3,85Q57.9,84.8 57.3,84.8L57.3,84.8Q56.8,84.8 56.4,85Q56.1,85.2 55.8,85.7Q55.6,86.1 55.6,86.6L55.6,86.6Q55.6,87.2 55.9,87.6Q56.2,88 56.6,88.2Q57,88.4 57.3,88.4" android:fillColor="#141414" />
+</vector>

@@ -7,7 +7,7 @@ sent. The image ships inside the app, so a pop-up needs no download and works wi
 Each pack has a folder here (`stickers/<pack id>/`) holding one file, `PACK.md`, which records
 where the art came from. The art itself lives in the app (`app/src/main/res/drawable/` or
 `drawable-nodpi/`), and the pack is listed in `StickerPacks` in
-`app/src/main/java/com/example/duudle/FlashCards.kt`.
+`app/src/main/java/com/example/duudle/StickerPacks.kt`.
 
 ## The rights rule (read this first)
 
@@ -48,7 +48,20 @@ can't be written down honestly, the pack doesn't ship.
    when shown big, never in grids, and never with "Remove animations" on.
 6. Run `./gradlew testDebugUnitTest`. It checks the ids, the keywords and each pack's `PACK.md`.
 7. Check the new stickers in the picker and as a pop-up on a phone (see
-   `PHONE_TEST_CHECKLIST.md`), then commit one pack per commit.
+   `PHONE_TEST_CHECKLIST.md`), then commit one pack per commit (or one themed batch).
+
+## Stickers with words on them
+
+The Greetings, Replies, Feelings and Plans packs draw words on the sticker. A VectorDrawable can't
+hold text, so the words are **converted to outlines** from an open-licence font (Fredoka Bold, SIL
+Open Font License 1.1; the licence text is `stickers/FONT-LICENSE-Fredoka-OFL.txt`). Rules:
+- Only use a font whose licence allows it (OFL or similar), and say which one in the pack's `PACK.md`.
+- The sticker's **label** must quote the words ("Ginger cat saying "Hi!""): TalkBack can't read
+  outlines, and a unit test checks it.
+- Put the words in the keywords too, so search finds them. Search matches the **start of a word**
+  ("cat" finds cats, not "location").
+- Keep the words short (about 12 characters at most) so the letters stay big enough to read in the
+  picker grid.
 
 ## Delivery and updates
 

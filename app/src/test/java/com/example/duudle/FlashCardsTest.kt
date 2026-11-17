@@ -11,11 +11,15 @@ class FlashCardsTest {
 
     @Test
     fun thePacksAndTheirIds() {
-        assertEquals(listOf("everyday", "cats", "dogs"), StickerPacks.map { it.id })
+        assertEquals(listOf("everyday", "cats", "dogs", "greetings", "replies", "feelings", "plans"), StickerPacks.map { it.id })
         assertEquals((10..17).map { "card$it" }, StickerPacks[0].stickers.map { it.id })
         assertEquals((18..25).map { "card$it" }, StickerPacks[1].stickers.map { it.id })
         assertEquals((26..33).map { "card$it" }, StickerPacks[2].stickers.map { it.id })
-        assertEquals((10..33).map { "card$it" }, FlashCardCatalog.map { it.id })
+        assertEquals((34..45).map { "card$it" }, StickerPacks[3].stickers.map { it.id })
+        assertEquals((46..57).map { "card$it" }, StickerPacks[4].stickers.map { it.id })
+        assertEquals((58..69).map { "card$it" }, StickerPacks[5].stickers.map { it.id })
+        assertEquals((70..81).map { "card$it" }, StickerPacks[6].stickers.map { it.id })
+        assertEquals((10..81).map { "card$it" }, FlashCardCatalog.map { it.id })
         assertEquals(StickerPacks.flatMap { it.stickers }, FlashCardCatalog)
     }
 
@@ -56,6 +60,18 @@ class FlashCardsTest {
     }
 
     @Test
+    fun everyStickerHasASoundDrawableFile() {
+        // One drawable per sticker, and none with broken path data (a NaN in a path crashed the picker).
+        val files = File("src/main/res/drawable").listFiles { f -> f.name.startsWith("sticker_") && f.name.endsWith(".xml") }!!
+        assertEquals(FlashCardCatalog.size, files.size)
+        for (file in files) {
+            val text = file.readText()
+            assertTrue(file.name, text.contains("<vector"))
+            assertFalse("${file.name} has broken path data", Regex("NaN|undefined|Infinity").containsMatchIn(text))
+        }
+    }
+
+    @Test
     fun everyPackHasItsInfoFileSoItsArtSourceIsRecorded() {
         // stickers/README.md: no pack ships without a PACK.md saying where its art came from.
         for (p in StickerPacks) {
@@ -70,7 +86,8 @@ class FlashCardsTest {
         assertEquals("card10", flashCardById("card10")?.id)
         assertEquals("card17", flashCardById("card17")?.id)
         assertEquals("card25", flashCardById("card25")?.id)
-        assertEquals(FlashCardCatalog.last(), flashCardById("card33"))
+        assertEquals("card33", flashCardById("card33")?.id)
+        assertEquals(FlashCardCatalog.last(), flashCardById("card81"))
     }
 
     @Test
@@ -119,23 +136,55 @@ class FlashCardsTest {
 
     @Test
     fun searchMatchesKeywordsLabelsAndPackTitlesIgnoringCase() {
-        assertEquals(listOf("card15", "card23", "card30"), searchStickers("LOVE").map { it.id }) // one per pack
+        // Everyday, Cats and Dogs each have a love sticker; Miss you, Hugs and Love you carry the word too.
+        assertEquals(listOf("card15", "card23", "card30", "card43", "card45", "card59"), searchStickers("LOVE").map { it.id })
         assertEquals(listOf("card14", "card22", "card33"), searchStickers("zzz").map { it.id })
-        assertEquals(listOf("card17"), searchStickers("crying").map { it.id }) // from the label
+        assertEquals(listOf("card17", "card64"), searchStickers("crying").map { it.id }) // a label, then a keyword
         assertEquals(StickerPacks[0].stickers, searchStickers("everyday")) // from the pack title
         assertEquals(StickerPacks[1].stickers, searchStickers("cats"))
-        assertEquals(StickerPacks[1].stickers, searchStickers("kitty"))
+        assertEquals(StickerPacks[1].stickers, searchStickers("kitty", "cats"))
         assertEquals(StickerPacks[2].stickers, searchStickers("dogs"))
-        assertEquals(StickerPacks[2].stickers, searchStickers("doggo"))
+        assertEquals(StickerPacks[2].stickers, searchStickers("doggo", "dogs"))
+        assertEquals(StickerPacks[3].stickers, searchStickers("greetings"))
+        assertEquals(StickerPacks[6].stickers, searchStickers("plans"))
+    }
+
+    @Test
+    fun searchMatchesTheStartOfWordsNotAnySubstring() {
+        // "location" contains "cat" in the middle; it must not match.
+        assertTrue(searchStickers("cat").none { it.id == "card74" })
+        assertTrue(searchStickers("cat").any { it.id == "card18" }) // a real cat
+        assertEquals(searchStickers("lov"), searchStickers("love")) // a prefix is enough
+        assertTrue(searchStickers("ove").isEmpty()) // the middle of a word is not
     }
 
     @Test
     fun everyTypedWordMustMatch() {
         assertEquals(listOf("card11", "card12"), searchStickers("joke").map { it.id })
         assertEquals(listOf("card12"), searchStickers("joke wink").map { it.id })
-        assertEquals(listOf("card19"), searchStickers("cat lol").map { it.id }) // "lol" is also on card11, "cat" narrows it
+        assertEquals(listOf("card19", "card58"), searchStickers("cat lol").map { it.id }) // "lol" is also on card11, "cat" narrows it
+        assertEquals(listOf("card37"), searchStickers("good morning").map { it.id })
         assertTrue(searchStickers("joke sleepy").isEmpty())
         assertTrue(searchStickers("dinosaur").isEmpty())
+    }
+
+    @Test
+    fun theTextPacksFindTheirSayings() {
+        assertEquals(listOf("card50"), searchStickers("thanks").map { it.id })
+        assertEquals(listOf("card78"), searchStickers("birthday").map { it.id })
+        assertEquals(listOf("card71"), searchStickers("brb").map { it.id })
+        assertEquals("card46", searchStickers("yes", "replies").first().id)
+    }
+
+    @Test
+    fun everyTextStickerSaysItsTextInItsLabelForTalkBack() {
+        // The new packs draw words on the sticker; TalkBack can't read vector paths, so the label must.
+        for (pack in StickerPacks.drop(3)) {
+            assertEquals(12, pack.stickers.size)
+            for (s in pack.stickers) {
+                assertTrue("${s.id} label should quote the text: ${s.label}", Regex(""".+ saying ".+"""").matches(s.label))
+            }
+        }
     }
 
     @Test
