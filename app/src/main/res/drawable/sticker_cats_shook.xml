@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Shocked cat with huge eyes" (Cats pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M18,48L20,13Q21,9 25,11L46,28Z" android:fillColor="#AEB6C4" />
+    <path android:pathData="M82,48L80,13Q79,9 75,11L54,28Z" android:fillColor="#AEB6C4" />
+    <path android:pathData="M24,38L25,20L38,30Z" android:fillColor="#FFB3C1" />
+    <path android:pathData="M76,38L75,20L62,30Z" android:fillColor="#FFB3C1" />
+    <path android:pathData="M13,58a37,31 0 1,0 74,0a37,31 0 1,0 -74,0Z" android:fillColor="#AEB6C4" />
+    <path android:pathData="M44,31L47,22L50,30L53,22L56,31" android:strokeColor="#8E97A8" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M24,33Q34,26 45,32" android:strokeColor="#141414" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M55,32Q66,26 76,33" android:strokeColor="#141414" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M23.5,50a11.5,11.5 0 1,0 23,0a11.5,11.5 0 1,0 -23,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M32.2,50a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0Z" android:fillColor="#141414" />
+    <path android:pathData="M53.5,50a11.5,11.5 0 1,0 23,0a11.5,11.5 0 1,0 -23,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M62.2,50a2.8,2.8 0 1,0 5.6,0a2.8,2.8 0 1,0 -5.6,0Z" android:fillColor="#141414" />
+    <path android:pathData="M45.5,57H54.5L50,63Z" android:fillColor="#FF8FA3" android:strokeColor="#FF8FA3" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M45,75a5,7.5 0 1,0 10,0a5,7.5 0 1,0 -10,0Z" android:fillColor="#141414" />
+    <path android:pathData="M20,64L5,60" android:strokeColor="#3A3A40" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M20,68L4,68" android:strokeColor="#3A3A40" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M21,72L6,77" android:strokeColor="#3A3A40" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M80,64L95,60" android:strokeColor="#3A3A40" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M80,68L96,68" android:strokeColor="#3A3A40" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M79,72L94,77" android:strokeColor="#3A3A40" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

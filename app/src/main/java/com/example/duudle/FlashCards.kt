@@ -74,6 +74,28 @@ val StickerPacks: List<StickerPack> = listOf(
             FlashCard("card17", R.drawable.sticker_everyday_sad, "Crying face",
                 listOf("sad", "cry", "tears", "sorry", "upset"))
         )
+    ),
+    StickerPack(
+        id = "cats",
+        title = "Cats",
+        stickers = listOf(
+            FlashCard("card18", R.drawable.sticker_cats_grin, "Cat with a huge toothy grin",
+                listOf("cat", "kitty", "grin", "teeth", "smile", "cheeky", "happy"), StickerMotion.BOUNCE),
+            FlashCard("card19", R.drawable.sticker_cats_cackle, "Cat laughing so hard it cries",
+                listOf("cat", "kitty", "lol", "laugh", "cackle", "haha", "hilarious", "tears"), StickerMotion.WOBBLE),
+            FlashCard("card20", R.drawable.sticker_cats_shook, "Shocked cat with huge eyes",
+                listOf("cat", "kitty", "shook", "shocked", "wow", "omg", "scared", "surprised")),
+            FlashCard("card21", R.drawable.sticker_cats_smug, "Smug cat with half-closed eyes",
+                listOf("cat", "kitty", "smug", "sassy", "judging", "unimpressed", "smirk", "cool")),
+            FlashCard("card22", R.drawable.sticker_cats_nap, "Cat napping with a snot bubble",
+                listOf("cat", "kitty", "nap", "sleepy", "sleep", "tired", "zzz", "night")),
+            FlashCard("card23", R.drawable.sticker_cats_love, "Cat with heart eyes",
+                listOf("cat", "kitty", "love", "heart", "cute", "aww", "purr"), StickerMotion.PULSE),
+            FlashCard("card24", R.drawable.sticker_cats_yum, "Hungry cat licking its lips",
+                listOf("cat", "kitty", "yum", "hungry", "tasty", "lick", "food", "treat")),
+            FlashCard("card25", R.drawable.sticker_cats_hiss, "Angry cat hissing with fangs",
+                listOf("cat", "kitty", "hiss", "angry", "mad", "grumpy", "fangs"))
+        )
     )
 )
 

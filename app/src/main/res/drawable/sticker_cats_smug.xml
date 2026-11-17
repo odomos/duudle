@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Smug cat with half-closed eyes" (Cats pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M18,48L20,13Q21,9 25,11L46,28Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M82,48L80,13Q79,9 75,11L54,28Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M24,38L25,20L38,30Z" android:fillColor="#7A4F68" />
+    <path android:pathData="M76,38L75,20L62,30Z" android:fillColor="#7A4F68" />
+    <path android:pathData="M13,58a37,31 0 1,0 74,0a37,31 0 1,0 -74,0Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M27.5,53a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#E9F06A" />
+    <path android:pathData="M33.9,56a2.1,5 0 1,0 4.2,0a2.1,5 0 1,0 -4.2,0Z" android:fillColor="#141414" />
+    <path android:pathData="M26,43.5H46V53H26Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M27,53H45" android:strokeColor="#6C6C78" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M55.5,53a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#E9F06A" />
+    <path android:pathData="M61.9,56a2.1,5 0 1,0 4.2,0a2.1,5 0 1,0 -4.2,0Z" android:fillColor="#141414" />
+    <path android:pathData="M54,43.5H74V53H54Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M55,53H73" android:strokeColor="#6C6C78" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M26,42L45,45" android:strokeColor="#D9D9E0" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M55,44Q65,35 76,40" android:strokeColor="#D9D9E0" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M45.5,57H54.5L50,63Z" android:fillColor="#F58FA7" android:strokeColor="#F58FA7" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M41,70Q50,73 58,70Q62,68.5 64,64" android:strokeColor="#E6E6EA" android:strokeWidth="2.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M20,64L5,60" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M20,68L4,68" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M21,72L6,77" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M80,64L95,60" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M80,68L96,68" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M79,72L94,77" android:strokeColor="#CFCFD8" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

@@ -615,6 +615,22 @@ Still to check:
 - [ ] An old Vault item that used one of the retired cards (if you have any) says
       "This sticker is no longer available"
 
+## Cats sticker pack (built 2026-11-17; staging build)
+
+A second pack, **Cats** (`card18`–`card25`): toothy grin (bounces), laughing until it cries
+(wobbles), shocked, smug, napping, heart eyes (pulses), hungry, hissing. Original designs in the same
+flat style as Everyday (the owner asked for funny, exaggerated cat reactions; no existing character
+was copied). The picker now shows pack chips: All / Everyday / Cats.
+- [x] Emulator: the chips show, "Cats" lists the 8 cats, sharp and distinct (2026-11-17)
+- [x] A34: the smug cat pops up over another app fitted in the white square, titled
+      "@newme sent you a sticker"
+- [ ] Look at all 8 cats on the A34 (picker and as pop-ups): do you like them, and do any need a
+      change (colours, faces, expressions)? Tell me which and I'll redraw them
+- [ ] Search: "cat" or "kitty" shows the 8 cats; "love" shows the heart-eyes face and the heart-eyes
+      cat; picking the **Cats** chip and typing "love" shows only the cat
+- [ ] The grin cat bounces, the laughing cat wobbles, the heart-eyes cat pulses in the pop-up; the
+      other five stay still
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop
