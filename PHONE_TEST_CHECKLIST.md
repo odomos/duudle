@@ -184,10 +184,12 @@ Bottom nav
 - [ ] On Friends, Vault and Profile, scroll to the very bottom: the last item
       can be read in full above the bar. Note whether the strip under the bar
       (gesture area) is a different colour from the screen: ________
-- [ ] Largest font size: the tab labels aren't cut off. **Known issue:** on the
-      emulator at 320dp wide with 1.3× font they clipped to "Hon", "Frie",
-      "Vau" (2026-10-22, found during the Profile character test; BottomNav.kt
-      not changed yet)
+- [ ] Largest font size: the tab labels aren't cut off. **Fixed 2026-11-17, needs your look at
+      your largest font:** the bar clipped labels ("Friend", "Hon", "Frie"). The cause was too
+      little room per tab: the A34 is 384dp wide with font 1.1x, so "Friends" needed about 47dp
+      and had 42dp. Tabs now have less padding and a label that doesn't fit shrinks a step at a
+      time until it does. Seen: the A34 at font 1.1x shows "Friends" in full; the emulator at 1.6x
+      font on a phone-sized screen shows all four labels, "Friends" a little smaller than the rest
 
 Welcome (needs a fresh install: only do this when you're ready to sign up again)
 - [ ] After a fresh install Welcome looks like the moimoi reference: pale sky

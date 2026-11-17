@@ -36,6 +36,9 @@ import com.example.duudle.ui.theme.DuudleColors
 enum class DuudleNavTab { HOME, FRIENDS, VAULT, ME }
 
 private val BarShape = RoundedCornerShape(percent = 50)
+private const val NAV_LABEL_SP = 11f
+private const val NAV_LABEL_MIN_SP = 8f
+private const val NAV_LABEL_STEP_SP = 0.5f
 
 @Composable
 fun DuudleBottomNav(
@@ -82,6 +85,9 @@ private fun NavTab(
     modifier: Modifier = Modifier
 ) {
     val contentColor = if (active) DuudleColors.Ink else DuudleColors.Paper.copy(alpha = 0.6f)
+    // A label that doesn't fit its tab (a narrow phone, or a big system font size) shrinks a step
+    // at a time until it does, instead of being cut off ("Friend", "Hon"). Only ever shrinks.
+    var labelSize by remember(label) { mutableStateOf(NAV_LABEL_SP) }
     Box(
         modifier = modifier
             .fillMaxHeight()
@@ -101,18 +107,21 @@ private fun NavTab(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(if (active) DuudleColors.Sunny.base else Color.Transparent)
-                .padding(horizontal = 12.dp, vertical = 5.dp),
+                .padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // The label is read out, so the icon itself stays silent.
             Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(22.dp))
             Text(
                 label,
-                fontSize = 11.sp,
+                fontSize = labelSize.sp,
                 color = contentColor,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
-                softWrap = false
+                softWrap = false,
+                onTextLayout = { result ->
+                    if (result.didOverflowWidth && labelSize > NAV_LABEL_MIN_SP) labelSize -= NAV_LABEL_STEP_SP
+                }
             )
         }
     }
