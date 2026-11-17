@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Excited dog with a tennis ball" (Dogs pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M26,28Q6,31 7,58Q8,76 22,74Q31,70 31,44Z" android:fillColor="#D9A62E" />
+    <path android:pathData="M74,28Q94,31 93,58Q92,76 78,74Q69,70 69,44Z" android:fillColor="#D9A62E" />
+    <path android:pathData="M16,53a34,31 0 1,0 68,0a34,31 0 1,0 -68,0Z" android:fillColor="#FFD35E" />
+    <path android:pathData="M33,67a17,13 0 1,0 34,0a17,13 0 1,0 -34,0Z" android:fillColor="#FFF0C2" />
+    <path android:pathData="M26,34Q34,27 43,32" android:strokeColor="#B5842A" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M57,32Q66,27 74,34" android:strokeColor="#B5842A" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M26.5,46a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M31.18,45a3.825,3.825 0 1,0 7.65,0a3.825,3.825 0 1,0 -7.65,0Z" android:fillColor="#141414" />
+    <path android:pathData="M56.5,46a8.5,8.5 0 1,0 17,0a8.5,8.5 0 1,0 -17,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M61.17,45a3.825,3.825 0 1,0 7.65,0a3.825,3.825 0 1,0 -7.65,0Z" android:fillColor="#141414" />
+    <path android:pathData="M43.5,59a6.5,4.8 0 1,0 13,0a6.5,4.8 0 1,0 -13,0Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M46.4,57.4a1.9,1.1 0 1,0 3.8,0a1.9,1.1 0 1,0 -3.8,0Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M39,76a11,11 0 1,0 22,0a11,11 0 1,0 -22,0Z" android:fillColor="#E3F35B" />
+    <path android:pathData="M41,72Q50,78 59,72" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M41,80Q50,74 59,80" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M12,22h9M16.5,17.5v9" android:strokeColor="#F2B136" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M79,14h8M83,10v8" android:strokeColor="#F2B136" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

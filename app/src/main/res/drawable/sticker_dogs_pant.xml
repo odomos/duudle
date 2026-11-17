@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Happy dog panting with its tongue out" (Dogs pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M26,28Q6,31 7,58Q8,76 22,74Q31,70 31,44Z" android:fillColor="#C77A33" />
+    <path android:pathData="M74,28Q94,31 93,58Q92,76 78,74Q69,70 69,44Z" android:fillColor="#C77A33" />
+    <path android:pathData="M16,53a34,31 0 1,0 68,0a34,31 0 1,0 -68,0Z" android:fillColor="#F0A25A" />
+    <path android:pathData="M33,67a17,13 0 1,0 34,0a17,13 0 1,0 -34,0Z" android:fillColor="#FBE0B5" />
+    <path android:pathData="M28,49Q35,37 42,49" android:strokeColor="#141414" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M58,49Q65,37 72,49" android:strokeColor="#141414" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M36,68Q50,71 64,68Q62,82 50,82Q38,82 36,68Z" android:fillColor="#141414" />
+    <path android:pathData="M43,75Q50,70 57,75L57,88Q57,94 50,94Q43,94 43,88Z" android:fillColor="#FF8E8E" />
+    <path android:pathData="M50,78V90" android:strokeColor="#E66A7A" android:strokeWidth="1.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M43.5,59a6.5,4.8 0 1,0 13,0a6.5,4.8 0 1,0 -13,0Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M46.4,57.4a1.9,1.1 0 1,0 3.8,0a1.9,1.1 0 1,0 -3.8,0Z" android:fillColor="#FFFFFF" />
+</vector>

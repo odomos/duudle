@@ -631,6 +631,21 @@ was copied). The picker now shows pack chips: All / Everyday / Cats.
 - [ ] The grin cat bounces, the laughing cat wobbles, the heart-eyes cat pulses in the pop-up; the
       other five stay still
 
+## Dogs sticker pack (built 2026-11-17; staging build)
+
+A third pack, **Dogs** (`card26`–`card33`): panting (bounces), goofy with crossed eyes (wobbles), head
+tilt with a "?", begging puppy eyes (pulses), heart eyes, growling, excited with a tennis ball,
+sleeping. Original designs (no blue dog, no white dog with black ears, no eye patch). The chips are
+now All / Everyday / Cats / Dogs.
+- [x] Emulator: the Dogs chip lists the 8 dogs, sharp and distinct (2026-11-17)
+- [x] A34: the head-tilt dog pops up over another app, rotated head and "?" fully visible inside the
+      white square, titled "@newme sent you a sticker"
+- [ ] Look at all 8 dogs on the A34: do you like them, and do any need a change? Tell me which
+- [ ] Search: "dog" or "doggo" shows the 8 dogs; "love" shows three stickers (one per pack); with the
+      **Dogs** chip, "love" shows only the heart-eyes dog
+- [ ] The panting dog bounces, the goofy dog wobbles, the puppy-eyes dog pulses in the pop-up; the
+      other five stay still
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop

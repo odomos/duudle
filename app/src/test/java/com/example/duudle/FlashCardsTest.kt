@@ -10,11 +10,12 @@ import java.io.File
 class FlashCardsTest {
 
     @Test
-    fun theTwoPacksAndTheirIds() {
-        assertEquals(listOf("everyday", "cats"), StickerPacks.map { it.id })
+    fun thePacksAndTheirIds() {
+        assertEquals(listOf("everyday", "cats", "dogs"), StickerPacks.map { it.id })
         assertEquals((10..17).map { "card$it" }, StickerPacks[0].stickers.map { it.id })
         assertEquals((18..25).map { "card$it" }, StickerPacks[1].stickers.map { it.id })
-        assertEquals((10..25).map { "card$it" }, FlashCardCatalog.map { it.id })
+        assertEquals((26..33).map { "card$it" }, StickerPacks[2].stickers.map { it.id })
+        assertEquals((10..33).map { "card$it" }, FlashCardCatalog.map { it.id })
         assertEquals(StickerPacks.flatMap { it.stickers }, FlashCardCatalog)
     }
 
@@ -68,7 +69,8 @@ class FlashCardsTest {
     fun lookupById() {
         assertEquals("card10", flashCardById("card10")?.id)
         assertEquals("card17", flashCardById("card17")?.id)
-        assertEquals(FlashCardCatalog.last(), flashCardById("card25"))
+        assertEquals("card25", flashCardById("card25")?.id)
+        assertEquals(FlashCardCatalog.last(), flashCardById("card33"))
     }
 
     @Test
@@ -117,12 +119,14 @@ class FlashCardsTest {
 
     @Test
     fun searchMatchesKeywordsLabelsAndPackTitlesIgnoringCase() {
-        assertEquals(listOf("card15", "card23"), searchStickers("LOVE").map { it.id }) // one per pack
-        assertEquals(listOf("card14", "card22"), searchStickers("zzz").map { it.id })
+        assertEquals(listOf("card15", "card23", "card30"), searchStickers("LOVE").map { it.id }) // one per pack
+        assertEquals(listOf("card14", "card22", "card33"), searchStickers("zzz").map { it.id })
         assertEquals(listOf("card17"), searchStickers("crying").map { it.id }) // from the label
         assertEquals(StickerPacks[0].stickers, searchStickers("everyday")) // from the pack title
         assertEquals(StickerPacks[1].stickers, searchStickers("cats"))
         assertEquals(StickerPacks[1].stickers, searchStickers("kitty"))
+        assertEquals(StickerPacks[2].stickers, searchStickers("dogs"))
+        assertEquals(StickerPacks[2].stickers, searchStickers("doggo"))
     }
 
     @Test
@@ -138,6 +142,8 @@ class FlashCardsTest {
     fun searchInOnePackOfTheRealCatalog() {
         assertEquals(listOf("card23"), searchStickers("love", "cats").map { it.id })
         assertEquals(listOf("card15"), searchStickers("love", "everyday").map { it.id })
+        assertEquals(listOf("card30"), searchStickers("love", "dogs").map { it.id })
+        assertEquals(listOf("card31"), searchStickers("growl", "dogs").map { it.id })
         assertEquals(StickerPacks[1].stickers, searchStickers("", "cats"))
     }
 

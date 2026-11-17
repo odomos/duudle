@@ -96,6 +96,28 @@ val StickerPacks: List<StickerPack> = listOf(
             FlashCard("card25", R.drawable.sticker_cats_hiss, "Angry cat hissing with fangs",
                 listOf("cat", "kitty", "hiss", "angry", "mad", "grumpy", "fangs"))
         )
+    ),
+    StickerPack(
+        id = "dogs",
+        title = "Dogs",
+        stickers = listOf(
+            FlashCard("card26", R.drawable.sticker_dogs_pant, "Happy dog panting with its tongue out",
+                listOf("dog", "puppy", "doggo", "happy", "pant", "wag", "excited", "good boy"), StickerMotion.BOUNCE),
+            FlashCard("card27", R.drawable.sticker_dogs_derp, "Goofy dog with crossed eyes",
+                listOf("dog", "puppy", "doggo", "derp", "silly", "goofy", "blep", "tongue"), StickerMotion.WOBBLE),
+            FlashCard("card28", R.drawable.sticker_dogs_tilt, "Confused dog tilting its head",
+                listOf("dog", "puppy", "doggo", "confused", "what", "huh", "curious", "question")),
+            FlashCard("card29", R.drawable.sticker_dogs_puppy, "Puppy with huge begging eyes",
+                listOf("dog", "puppy", "doggo", "please", "beg", "sorry", "sad", "puppy eyes", "cute"), StickerMotion.PULSE),
+            FlashCard("card30", R.drawable.sticker_dogs_love, "Dog with heart eyes",
+                listOf("dog", "puppy", "doggo", "love", "heart", "cute", "aww")),
+            FlashCard("card31", R.drawable.sticker_dogs_grr, "Dog growling with bared fangs",
+                listOf("dog", "puppy", "doggo", "grr", "growl", "angry", "mad", "snarl")),
+            FlashCard("card32", R.drawable.sticker_dogs_ball, "Excited dog with a tennis ball",
+                listOf("dog", "puppy", "doggo", "ball", "play", "fetch", "excited", "game")),
+            FlashCard("card33", R.drawable.sticker_dogs_sleep, "Dog sleeping with a Zzz",
+                listOf("dog", "puppy", "doggo", "sleep", "sleepy", "nap", "tired", "zzz"))
+        )
     )
 )
 

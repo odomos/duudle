@@ -194,8 +194,8 @@ back-filled once.
    "@name sent you a doodle!". The Vault listens for everything sent or received.
 
 ### 4.4 Stickers (stored as "flash cards")
-- Stickers live in **packs** (`StickerPacks` in `FlashCards.kt`): *Everyday* (8 faces, `card10`–`card17`)
-  and *Cats* (8 cat reactions, `card18`–`card25`). They are original vector art (`res/drawable/sticker_<pack>_<name>.xml`),
+- Stickers live in **packs** (`StickerPacks` in `FlashCards.kt`): *Everyday* (8 faces, `card10`–`card17`),
+  *Cats* (8 cat reactions, `card18`–`card25`) and *Dogs* (8 dog reactions, `card26`–`card33`). They are original vector art (`res/drawable/sticker_<pack>_<name>.xml`),
   so they stay sharp at any size, and they ship inside the app: only the id is ever sent, so a
   pop-up needs no download. Each has a **stable id** that never changes or gets reused; the rules
   accept `card` plus two digits (`card10`–`card99`). How to add a pack, the art rules and the

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Confused dog tilting its head" (Dogs pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group android:rotation="12" android:pivotX="50" android:pivotY="55">
+      <path android:pathData="M26,28Q6,31 7,58Q8,76 22,74Q31,70 31,44Z" android:fillColor="#8E857E" />
+      <path android:pathData="M74,28Q94,31 93,58Q92,76 78,74Q69,70 69,44Z" android:fillColor="#8E857E" />
+      <path android:pathData="M16,53a34,31 0 1,0 68,0a34,31 0 1,0 -68,0Z" android:fillColor="#BDB6B0" />
+      <path android:pathData="M33,67a17,13 0 1,0 34,0a17,13 0 1,0 -34,0Z" android:fillColor="#EAE6E1" />
+      <path android:pathData="M26,33Q34,26 43,32" android:strokeColor="#141414" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M57,37L73,37" android:strokeColor="#141414" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M27.5,46a7.5,7.5 0 1,0 15,0a7.5,7.5 0 1,0 -15,0Z" android:fillColor="#FFFFFF" />
+      <path android:pathData="M31.25,46a3.75,3.75 0 1,0 7.5,0a3.75,3.75 0 1,0 -7.5,0Z" android:fillColor="#141414" />
+      <path android:pathData="M57.5,46a7.5,7.5 0 1,0 15,0a7.5,7.5 0 1,0 -15,0Z" android:fillColor="#FFFFFF" />
+      <path android:pathData="M61.25,46a3.75,3.75 0 1,0 7.5,0a3.75,3.75 0 1,0 -7.5,0Z" android:fillColor="#141414" />
+      <path android:pathData="M43,70Q47,66 51,69Q54,72 58,68" android:strokeColor="#141414" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+      <path android:pathData="M43.5,59a6.5,4.8 0 1,0 13,0a6.5,4.8 0 1,0 -13,0Z" android:fillColor="#2B2B31" />
+      <path android:pathData="M46.4,57.4a1.9,1.1 0 1,0 3.8,0a1.9,1.1 0 1,0 -3.8,0Z" android:fillColor="#FFFFFF" />
+    </group>
+    <path android:pathData="M78,20Q78,11 86,11Q94,11 94,18Q94,23 87,26Q85,28 85,32" android:strokeColor="#141414" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M83,38a2,2 0 1,0 4,0a2,2 0 1,0 -4,0Z" android:fillColor="#141414" />
+</vector>

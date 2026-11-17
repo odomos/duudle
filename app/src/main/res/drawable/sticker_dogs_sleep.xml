@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Duudle sticker "Dog sleeping with a Zzz" (Dogs pack). Original artwork drawn for this project. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:pathData="M26,28Q6,31 7,58Q8,76 22,74Q31,70 31,44Z" android:fillColor="#9F7FD1" />
+    <path android:pathData="M74,28Q94,31 93,58Q92,76 78,74Q69,70 69,44Z" android:fillColor="#9F7FD1" />
+    <path android:pathData="M16,53a34,31 0 1,0 68,0a34,31 0 1,0 -68,0Z" android:fillColor="#C8A6F5" />
+    <path android:pathData="M33,67a17,13 0 1,0 34,0a17,13 0 1,0 -34,0Z" android:fillColor="#E9DDFA" />
+    <path android:pathData="M28,48Q35,57 42,48" android:strokeColor="#141414" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M58,48Q65,57 72,48" android:strokeColor="#141414" android:strokeWidth="3.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M44,70Q50,73 56,70" android:strokeColor="#141414" android:strokeWidth="2.2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M58,70C54,76 54,81 58,81C62,81 62,76 58,70Z" android:fillColor="#BFE6FF" />
+    <path android:pathData="M80,9h8l-8,9h8" android:strokeColor="#141414" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M72,2h5l-5,6h5" android:strokeColor="#141414" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M43.5,59a6.5,4.8 0 1,0 13,0a6.5,4.8 0 1,0 -13,0Z" android:fillColor="#2B2B31" />
+    <path android:pathData="M46.4,57.4a1.9,1.1 0 1,0 3.8,0a1.9,1.1 0 1,0 -3.8,0Z" android:fillColor="#FFFFFF" />
+</vector>
