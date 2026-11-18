@@ -680,8 +680,10 @@ Be mine, Tea time. Original art, small prop icons included.
       scroll-then-search starts at the top. "Quack!" (card97) sent from the A34 and popped up fitted on the
       emulator. "Coffee?" (card106) was REFUSED by the current rules, as expected, and the sender sees
       "Couldn't send. Check your connection." (misleading, but only until the rule is deployed)
-- [ ] Deploy the loosened rule to staging, then on the A34 send one card100+ sticker (e.g. Daily Life > "Coffee?")
-      to the emulator and check it pops up
+- [x] Loosened rule deployed to duudle-staging (2026-11-18). A34 sent "Coffee?" (card106) and "Winner!" (card118) to the
+      emulator: accepted, the function pushed, the in-app viewer showed Coffee?, and Winner! popped up fitted with its
+      trophy. (The emulator briefly stopped receiving pushes until its Wi-Fi was toggled; queued ones then arrived.)
+- [ ] Live: deploy the same rule to duudle-296a9 before any live build that ships these stickers (needs the owner OK)
 - [ ] Look through all 48 on the A34: right words, animals, props? Anything missing or to change?
 - [ ] An older build that gets one of these shows "update Duudle to see it" (not a crash)
 - [ ] Bounce/wobble/pulse in the pop-up look fine (Roar!, Game on!, Moo!, Quack!, Winner!, Cake time...)

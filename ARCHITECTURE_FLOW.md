@@ -172,7 +172,7 @@ The current account is anonymous and effectively tied to the installed app data.
 **Current (implemented; released to production 2026-10-27; 80 emulator tests):**
 - `doodles`:
   - read: sender and receiver only;
-  - create: only as yourself, under your stored username, to someone else, with status `unseen` and at most 500 strokes or a card id matching `card[0-9]{2}`;
+  - create: only as yourself, under your stored username, to someone else, with status `unseen` and at most 500 strokes or a card id matching `card[0-9]{2,3}`;
   - update: the receiver may only set `status` to `removed`;
   - delete: never.
 - `friend_requests`:
