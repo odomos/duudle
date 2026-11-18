@@ -5,8 +5,9 @@ package com.example.duudle
 /**
  * Every pack this build knows. The sticker ids are a STABLE storage and push-payload contract
  * (they're saved in Firestore doodle docs, FCM pushes and snooze files): never rename or
- * reuse one. The rules accept `card10` to `card99` (two digits), so take the next free number;
- * past 99 the rules must be loosened first (staging, then the owner's OK for live).
+ * reuse one. The rules accept `card10` to `card999` (two or three digits) once the loosened
+ * rule is deployed (it was `card10` to `card99` before; see firestore.rules), so take the next free
+ * number. Past `card999` the rules need loosening again (staging first, then the owner's OK for live).
  * To retire a sticker, drop it from its pack but keep its id reserved forever
  * ([RetiredFlashCardIds]). Labels, keywords and pack titles are display-only and can change.
  */
@@ -195,6 +196,126 @@ val StickerPacks: List<StickerPack> = listOf(
                 listOf("get well", "get well soon", "feel better", "sick", "ill", "bear")),
             FlashCard("card81", R.drawable.sticker_plans_cheers, "Gray bunny saying \"Cheers!\"",
                 listOf("cheers", "celebrate", "toast", "party", "congrats", "bunny"), StickerMotion.BOUNCE)
+        )
+    ),
+    StickerPack(
+        id = "wild",
+        title = "Wild Bunch",
+        stickers = listOf(
+            FlashCard("card82", R.drawable.sticker_wild_roar, "Lion saying \"Roar!\"",
+                listOf("roar", "rawr", "angry", "lion", "loud", "mad"), StickerMotion.WOBBLE),
+            FlashCard("card83", R.drawable.sticker_wild_bossmode, "Lion with sunglasses saying \"Boss mode\"",
+                listOf("boss", "boss mode", "cool", "king", "lion", "sunglasses")),
+            FlashCard("card84", R.drawable.sticker_wild_gameon, "Tiger with a headband saying \"Game on!\"",
+                listOf("game on", "lets play", "ready", "fight", "tiger", "challenge"), StickerMotion.BOUNCE),
+            FlashCard("card85", R.drawable.sticker_wild_chillin, "Tiger with sunglasses saying \"Chillin'\"",
+                listOf("chill", "chillin", "relax", "cool", "tiger", "calm")),
+            FlashCard("card86", R.drawable.sticker_wild_bighug, "Elephant saying \"Big hug\"",
+                listOf("big hug", "hug", "hugs", "love", "elephant", "cuddle"), StickerMotion.PULSE),
+            FlashCard("card87", R.drawable.sticker_wild_saywhat, "Elephant saying \"Say what?\"",
+                listOf("say what", "what", "huh", "confused", "elephant", "pardon")),
+            FlashCard("card88", R.drawable.sticker_wild_oohooh, "Monkey saying \"Ooh ooh!\"",
+                listOf("ooh ooh", "excited", "monkey", "yay", "wild", "fun"), StickerMotion.BOUNCE),
+            FlashCard("card89", R.drawable.sticker_wild_whome, "Monkey saying \"Who, me?\"",
+                listOf("who me", "me", "innocent", "monkey", "what did i do", "huh")),
+            FlashCard("card90", R.drawable.sticker_wild_naptime, "Koala saying \"Nap time\"",
+                listOf("nap", "nap time", "sleep", "koala", "tired", "yawn")),
+            FlashCard("card91", R.drawable.sticker_wild_cuddle, "Koala saying \"Cuddle?\"",
+                listOf("cuddle", "snuggle", "hug", "koala", "cute", "love"), StickerMotion.PULSE),
+            FlashCard("card92", R.drawable.sticker_wild_sneaky, "Raccoon saying \"Sneaky\"",
+                listOf("sneaky", "sneak", "plotting", "raccoon", "naughty", "secret")),
+            FlashCard("card93", R.drawable.sticker_wild_snacktime, "Raccoon saying \"Snack time\"",
+                listOf("snack", "snack time", "hungry", "raccoon", "cookie", "food"))
+        )
+    ),
+    StickerPack(
+        id = "farm",
+        title = "Farm & Pond",
+        stickers = listOf(
+            FlashCard("card94", R.drawable.sticker_farm_moo, "Cow saying \"Moo!\"",
+                listOf("moo", "cow", "hello", "farm", "cute", "animal"), StickerMotion.WOBBLE),
+            FlashCard("card95", R.drawable.sticker_farm_moove, "Cow saying \"Moo-ve it!\"",
+                listOf("move it", "moove", "hurry", "cow", "quick", "faster"), StickerMotion.BOUNCE),
+            FlashCard("card96", R.drawable.sticker_farm_mood, "Cow saying \"Mood\"",
+                listOf("mood", "same", "meh", "cow", "whatever", "unbothered")),
+            FlashCard("card97", R.drawable.sticker_farm_quack, "Duck saying \"Quack!\"",
+                listOf("quack", "duck", "hello", "hi", "pond", "funny"), StickerMotion.BOUNCE),
+            FlashCard("card98", R.drawable.sticker_farm_rainyday, "Duck with an umbrella saying \"Rainy day\"",
+                listOf("rainy day", "rain", "umbrella", "duck", "weather", "wet")),
+            FlashCard("card99", R.drawable.sticker_farm_quackup, "Duck saying \"Quack up!\"",
+                listOf("quack up", "lol", "haha", "duck", "funny", "laughing"), StickerMotion.WOBBLE),
+            FlashCard("card100", R.drawable.sticker_farm_ribbit, "Frog saying \"Ribbit\"",
+                listOf("ribbit", "frog", "hello", "pond", "hi", "croak")),
+            FlashCard("card101", R.drawable.sticker_farm_jumpin, "Frog saying \"Jump in!\"",
+                listOf("jump in", "join", "come", "frog", "hop", "leap"), StickerMotion.BOUNCE),
+            FlashCard("card102", R.drawable.sticker_farm_pondmood, "Frog with sunglasses saying \"Pond mood\"",
+                listOf("pond mood", "chill", "relax", "frog", "cool", "calm")),
+            FlashCard("card103", R.drawable.sticker_farm_nomnom, "Hamster saying \"Nom nom\"",
+                listOf("nom nom", "yum", "eating", "hamster", "snack", "cookie"), StickerMotion.WOBBLE),
+            FlashCard("card104", R.drawable.sticker_farm_squeak, "Hamster saying \"Squeak!\"",
+                listOf("squeak", "hamster", "surprise", "eek", "tiny", "wow")),
+            FlashCard("card105", R.drawable.sticker_farm_nightowl, "Owl saying \"Night owl\"",
+                listOf("night owl", "owl", "awake", "late", "night", "insomnia"))
+        )
+    ),
+    StickerPack(
+        id = "daily",
+        title = "Daily Life",
+        stickers = listOf(
+            FlashCard("card106", R.drawable.sticker_daily_coffee, "Brown bear saying \"Coffee?\"",
+                listOf("coffee", "cafe", "drink", "morning", "bear", "caffeine")),
+            FlashCard("card107", R.drawable.sticker_daily_studying, "Owl with glasses saying \"Studying\"",
+                listOf("studying", "study", "homework", "exam", "owl", "reading")),
+            FlashCard("card108", R.drawable.sticker_daily_atwork, "Raccoon saying \"At work\"",
+                listOf("at work", "work", "working", "busy", "raccoon", "laptop")),
+            FlashCard("card109", R.drawable.sticker_daily_gym, "Tiger with a headband saying \"Gym time\"",
+                listOf("gym", "gym time", "workout", "exercise", "tiger", "fit"), StickerMotion.BOUNCE),
+            FlashCard("card110", R.drawable.sticker_daily_shopping, "Pig saying \"Shopping!\"",
+                listOf("shopping", "shop", "mall", "pig", "buy", "bag")),
+            FlashCard("card111", R.drawable.sticker_daily_roadtrip, "Golden dog saying \"Road trip\"",
+                listOf("road trip", "trip", "drive", "dog", "car", "travel"), StickerMotion.BOUNCE),
+            FlashCard("card112", R.drawable.sticker_daily_vacation, "Tan bunny saying \"Vacation!\"",
+                listOf("vacation", "holiday", "travel", "bunny", "trip", "suitcase")),
+            FlashCard("card113", R.drawable.sticker_daily_imhome, "Cream cat saying \"I'm home\"",
+                listOf("im home", "home", "back home", "cat", "house", "arrived")),
+            FlashCard("card114", R.drawable.sticker_daily_cooking, "Fox with a chef hat saying \"Cooking\"",
+                listOf("cooking", "cook", "kitchen", "fox", "chef", "dinner")),
+            FlashCard("card115", R.drawable.sticker_daily_pizza, "Yellow dog saying \"Pizza?\"",
+                listOf("pizza", "food", "hungry", "dog", "dinner", "eat")),
+            FlashCard("card116", R.drawable.sticker_daily_raining, "Gray cat saying \"Raining\"",
+                listOf("raining", "rain", "wet", "cat", "weather", "umbrella")),
+            FlashCard("card117", R.drawable.sticker_daily_snowday, "Penguin saying \"Snow day\"",
+                listOf("snow day", "snow", "cold", "winter", "penguin", "freezing"))
+        )
+    ),
+    StickerPack(
+        id = "party",
+        title = "Praise & Treats",
+        stickers = listOf(
+            FlashCard("card118", R.drawable.sticker_party_winner, "Panda saying \"Winner!\"",
+                listOf("winner", "win", "won", "champion", "panda", "trophy"), StickerMotion.BOUNCE),
+            FlashCard("card119", R.drawable.sticker_party_welldone, "Yellow dog saying \"Well done\"",
+                listOf("well done", "good job", "great job", "dog", "medal", "proud"), StickerMotion.PULSE),
+            FlashCard("card120", R.drawable.sticker_party_yourock, "Black cat with sunglasses saying \"You rock!\"",
+                listOf("you rock", "rock", "awesome", "cool", "cat", "legend")),
+            FlashCard("card121", R.drawable.sticker_party_niceone, "White bunny saying \"Nice one\"",
+                listOf("nice one", "nice", "good", "bunny", "thumbs up", "great")),
+            FlashCard("card122", R.drawable.sticker_party_proud, "Brown bear saying \"Proud of you\"",
+                listOf("proud of you", "proud", "well done", "bear", "love", "support"), StickerMotion.PULSE),
+            FlashCard("card123", R.drawable.sticker_party_thankyou, "Koala saying \"Thank you\"",
+                listOf("thank you", "thanks", "thx", "koala", "flower", "grateful")),
+            FlashCard("card124", R.drawable.sticker_party_caketime, "Pig with a party hat saying \"Cake time\"",
+                listOf("cake", "cake time", "birthday", "party", "pig", "dessert"), StickerMotion.WOBBLE),
+            FlashCard("card125", R.drawable.sticker_party_cookie, "Tan bear saying \"Cookie?\"",
+                listOf("cookie", "cookies", "snack", "bear", "treat", "biscuit"), StickerMotion.PULSE),
+            FlashCard("card126", R.drawable.sticker_party_sweet, "White bunny saying \"Sweet!\"",
+                listOf("sweet", "ice cream", "dessert", "bunny", "treat", "yum")),
+            FlashCard("card127", R.drawable.sticker_party_donut, "Cream puppy saying \"Donut worry\"",
+                listOf("donut worry", "dont worry", "donut", "dog", "puppy", "pun")),
+            FlashCard("card128", R.drawable.sticker_party_bemine, "Pink cat saying \"Be mine\"",
+                listOf("be mine", "love", "valentine", "cat", "crush", "heart"), StickerMotion.PULSE),
+            FlashCard("card129", R.drawable.sticker_party_teatime, "Duck saying \"Tea time\"",
+                listOf("tea", "tea time", "cuppa", "duck", "cozy", "break"))
         )
     )
 )

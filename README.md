@@ -109,7 +109,7 @@ Doodles and stickers (the stored name is still "flash cards") live here.
 | `senderId`, `senderUsername` | string | |
 | `receiverId`, `receiverUsername` | string | |
 | `strokes` | array | `[{ points: [{x, y}], color, width }]`; empty for a sticker |
-| `cardId` | string, optional | Present only for a sticker: `"card10"` … `"card99"` (`card01`–`card09`, the old image cards, are all retired) |
+| `cardId` | string, optional | Present only for a sticker: `"card10"` … `"card999"` (`card01`–`card09`, the old image cards, are all retired) |
 | `createdAt` | number | client ms |
 | `status` | string | `"unseen"` when sent, `"removed"` once the receiver removes it or replies |
 
@@ -196,11 +196,11 @@ back-filled once.
 ### 4.4 Stickers (stored as "flash cards")
 - Stickers live in **packs** (`StickerPacks` in `StickerPacks.kt`): *Everyday* (8 faces, `card10`–`card17`),
   *Cats* and *Dogs* (8 reactions each, `card18`–`card33`) and four packs with **words on them** (animals
-  saying things): *Greetings*, *Replies*, *Feelings* and *Plans* (12 each, `card34`–`card81`). The words are
+  saying things): *Greetings*, *Replies*, *Feelings* and *Plans* (12 each, `card34`–`card81`), then four more animal packs of 12 (`card82`–`card129`): *Wild Bunch*, *Farm & Pond*, *Daily Life* and *Praise & Treats* (some with small props such as a coffee or a trophy). The words are
   converted to vector outlines from an open-licence font (see `stickers/README.md`). They are original vector art (`res/drawable/sticker_<pack>_<name>.xml`),
   so they stay sharp at any size, and they ship inside the app: only the id is ever sent, so a
   pop-up needs no download. Each has a **stable id** that never changes or gets reused; the rules
-  accept `card` plus two digits (`card10`–`card99`). How to add a pack, the art rules and the
+  accept `card` plus two or three digits (`card10`–`card999`; the three-digit form needs the rules deployed first). How to add a pack, the art rules and the
   rights rule are in `stickers/README.md`; every pack has a `stickers/<pack>/PACK.md` recording
   where its art came from (a unit test enforces it).
 - The picker has a search box (each word typed must start a word in the label, keywords or pack title,

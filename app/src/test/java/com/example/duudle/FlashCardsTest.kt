@@ -11,7 +11,7 @@ class FlashCardsTest {
 
     @Test
     fun thePacksAndTheirIds() {
-        assertEquals(listOf("everyday", "cats", "dogs", "greetings", "replies", "feelings", "plans"), StickerPacks.map { it.id })
+        assertEquals(listOf("everyday", "cats", "dogs", "greetings", "replies", "feelings", "plans", "wild", "farm", "daily", "party"), StickerPacks.map { it.id })
         assertEquals((10..17).map { "card$it" }, StickerPacks[0].stickers.map { it.id })
         assertEquals((18..25).map { "card$it" }, StickerPacks[1].stickers.map { it.id })
         assertEquals((26..33).map { "card$it" }, StickerPacks[2].stickers.map { it.id })
@@ -19,7 +19,11 @@ class FlashCardsTest {
         assertEquals((46..57).map { "card$it" }, StickerPacks[4].stickers.map { it.id })
         assertEquals((58..69).map { "card$it" }, StickerPacks[5].stickers.map { it.id })
         assertEquals((70..81).map { "card$it" }, StickerPacks[6].stickers.map { it.id })
-        assertEquals((10..81).map { "card$it" }, FlashCardCatalog.map { it.id })
+        assertEquals((82..93).map { "card$it" }, StickerPacks[7].stickers.map { it.id })
+        assertEquals((94..105).map { "card$it" }, StickerPacks[8].stickers.map { it.id })
+        assertEquals((106..117).map { "card$it" }, StickerPacks[9].stickers.map { it.id })
+        assertEquals((118..129).map { "card$it" }, StickerPacks[10].stickers.map { it.id })
+        assertEquals((10..129).map { "card$it" }, FlashCardCatalog.map { it.id })
         assertEquals(StickerPacks.flatMap { it.stickers }, FlashCardCatalog)
     }
 
@@ -31,11 +35,12 @@ class FlashCardsTest {
     }
 
     @Test
-    fun idsAreUniqueTwoDigitAndNeverBelowTen() {
+    fun idsAreUniqueTwoOrThreeDigitsAndNeverBelowTen() {
         val ids = FlashCardCatalog.map { it.id }
         assertEquals(ids.size, ids.toSet().size)
-        // The rules accept card + exactly two digits; 01-09 belong to the retired image cards.
-        ids.forEach { assertTrue(it, Regex("""^card([1-9]\d)$""").matches(it)) }
+        // The rules accept card + two or three digits (the loosened rule; only two until it is deployed);
+        // 01-09 belong to the retired image cards.
+        ids.forEach { assertTrue(it, Regex("""^card([1-9]\d{1,2})$""").matches(it)) }
     }
 
     @Test
@@ -87,14 +92,16 @@ class FlashCardsTest {
         assertEquals("card17", flashCardById("card17")?.id)
         assertEquals("card25", flashCardById("card25")?.id)
         assertEquals("card33", flashCardById("card33")?.id)
-        assertEquals(FlashCardCatalog.last(), flashCardById("card81"))
+        assertEquals("card81", flashCardById("card81")?.id)
+        assertEquals(FlashCardCatalog.last(), flashCardById("card129"))
     }
 
     @Test
     fun unknownOrMissingIdsLookUpToNull() {
         assertNull(flashCardById(null))
         assertNull(flashCardById(""))
-        assertNull(flashCardById("card99")) // a newer app's sticker
+        assertNull(flashCardById("card130")) // a newer app's sticker
+        assertNull(flashCardById("card999"))
         assertNull(flashCardById("CARD10"))
     }
 
@@ -136,8 +143,8 @@ class FlashCardsTest {
 
     @Test
     fun searchMatchesKeywordsLabelsAndPackTitlesIgnoringCase() {
-        // Everyday, Cats and Dogs each have a love sticker; Miss you, Hugs and Love you carry the word too.
-        assertEquals(listOf("card15", "card23", "card30", "card43", "card45", "card59"), searchStickers("LOVE").map { it.id })
+        // Everyday, Cats and Dogs each have a love sticker; Miss you, Hugs, Love you, Big hug, Cuddle?, Proud of you and Be mine carry the word too.
+        assertEquals(listOf("card15", "card23", "card30", "card43", "card45", "card59", "card86", "card91", "card122", "card128"), searchStickers("LOVE").map { it.id })
         assertEquals(listOf("card14", "card22", "card33"), searchStickers("zzz").map { it.id })
         assertEquals(listOf("card17", "card64"), searchStickers("crying").map { it.id }) // a label, then a keyword
         assertEquals(StickerPacks[0].stickers, searchStickers("everyday")) // from the pack title
@@ -170,9 +177,13 @@ class FlashCardsTest {
 
     @Test
     fun theTextPacksFindTheirSayings() {
-        assertEquals(listOf("card50"), searchStickers("thanks").map { it.id })
-        assertEquals(listOf("card78"), searchStickers("birthday").map { it.id })
+        assertEquals(listOf("card50", "card123"), searchStickers("thanks").map { it.id })
+        assertEquals(listOf("card78", "card124"), searchStickers("birthday").map { it.id })
         assertEquals(listOf("card71"), searchStickers("brb").map { it.id })
+        // The second animal batch (ids past card99).
+        assertEquals(listOf("card115"), searchStickers("pizza").map { it.id })
+        assertEquals(listOf("card127"), searchStickers("donut").map { it.id })
+        assertEquals(StickerPacks[7].stickers, searchStickers("wild"))
         assertEquals("card46", searchStickers("yes", "replies").first().id)
     }
 

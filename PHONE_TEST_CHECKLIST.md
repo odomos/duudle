@@ -665,6 +665,25 @@ Search now matches the start of words ("cat" no longer finds "location").
 - [ ] Search: "thanks", "birthday", "good morning", "brb", "hungry" each find their sticker; "cat" finds only cats
 - [ ] TalkBack reads a text sticker as e.g. "Send Panda saying "Congrats!" to @name"
 
+## Animal packs 2: Wild Bunch, Farm & Pond, Daily Life, Praise & Treats (built 2026-11-17; staging build)
+
+Four more packs of 12 (`card82`–`card129`, 48 stickers). Wild Bunch: lion, tiger, elephant, monkey, koala,
+raccoon (Roar!, Boss mode, Game on!, Chillin', Big hug, Say what?, Ooh ooh!, Who me?, Nap time, Cuddle?,
+Sneaky, Snack time). Farm & Pond: cow, duck, frog, hamster, owl (Moo!, Moo-ve it!, Mood, Quack!, Rainy day,
+Quack up!, Ribbit, Jump in!, Pond mood, Nom nom, Squeak!, Night owl). Daily Life: Coffee?, Studying, At work,
+Gym time, Shopping!, Road trip, Vacation!, I'm home, Cooking, Pizza?, Raining, Snow day. Praise & Treats:
+Winner!, Well done, You rock!, Nice one, Proud of you, Thank you, Cake time, Cookie?, Sweet!, Donut worry,
+Be mine, Tea time. Original art, small prop icons included.
+**These need the loosened Firestore rule (`card[0-9]{2,3}`) deployed before ids card100+ can be sent.**
+- [x] Emulator (staging build): all four packs show in the picker, sharp, words readable (2026-11-17)
+- [ ] Deploy the loosened rule to staging, then on the A34 send one card100+ sticker (e.g. Daily Life > "Coffee?")
+      to the emulator and check it pops up. Before the rule is deployed the send is refused
+- [ ] Look through all 48 on the A34: right words, animals, props? Anything missing or to change?
+- [ ] An older build that gets one of these shows "update Duudle to see it" (not a crash)
+- [ ] Bounce/wobble/pulse in the pop-up look fine (Roar!, Game on!, Moo!, Quack!, Winner!, Cake time...)
+- [ ] Search: "pizza", "coffee", "trophy", "cow", "nap", "donut" each find their sticker
+- [ ] TalkBack reads e.g. "Send Cow saying "Moo!" to @name"
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop

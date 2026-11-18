@@ -41,8 +41,9 @@ can't be written down honestly, the pack doesn't ship.
 3. Add a `StickerPack` to `StickerPacks` with one `FlashCard(id, drawable, label, keywords)` per
    sticker. `label` is what TalkBack reads; `keywords` (at least 3, lower case) feed the picker's
    search ("cat", "sleepy", ...).
-4. **Ids:** `card10` to `card99`, the next free number, never reused or renamed (they're stored in
-   doodles and pushes). The Firestore rules accept exactly `card` plus two digits, so past `card99`
+4. **Ids:** the next free number from `card10`, never reused or renamed (they're stored in
+   doodles and pushes). The Firestore rules accept `card` plus two or three digits (`card10` to
+   `card999`) once the loosened rule is deployed, so past `card999`
    the rules must be loosened first (staging, then the owner's OK for live).
 5. Optional: give a sticker a loop (`StickerMotion.WOBBLE`, `BOUNCE` or `PULSE`). It plays only
    when shown big, never in grids, and never with "Remove animations" on.
