@@ -676,8 +676,12 @@ Winner!, Well done, You rock!, Nice one, Proud of you, Thank you, Cake time, Coo
 Be mine, Tea time. Original art, small prop icons included.
 **These need the loosened Firestore rule (`card[0-9]{2,3}`) deployed before ids card100+ can be sent.**
 - [x] Emulator (staging build): all four packs show in the picker, sharp, words readable (2026-11-17)
+- [x] A34 (2026-11-18): all four packs render sharp in the picker; search by pack name and by word works;
+      scroll-then-search starts at the top. "Quack!" (card97) sent from the A34 and popped up fitted on the
+      emulator. "Coffee?" (card106) was REFUSED by the current rules, as expected, and the sender sees
+      "Couldn't send. Check your connection." (misleading, but only until the rule is deployed)
 - [ ] Deploy the loosened rule to staging, then on the A34 send one card100+ sticker (e.g. Daily Life > "Coffee?")
-      to the emulator and check it pops up. Before the rule is deployed the send is refused
+      to the emulator and check it pops up
 - [ ] Look through all 48 on the A34: right words, animals, props? Anything missing or to change?
 - [ ] An older build that gets one of these shows "update Duudle to see it" (not a crash)
 - [ ] Bounce/wobble/pulse in the pop-up look fine (Roar!, Game on!, Moo!, Quack!, Winner!, Cake time...)
