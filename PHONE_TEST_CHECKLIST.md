@@ -729,7 +729,7 @@ losing the push silently (same as `onDoodleCreated`).
 - [x] Functions: `onChatMessageCreated` deployed to staging (2026-11-19, revision 00007). newme sent a chat
       message to arnav222 from the emulator and Cloud Logging shows "Chat push sent successfully" at 07:56:49Z
 - [x] Live: `onChatMessageCreated` deployed to duudle-296a9 (2026-11-19, owner OK); healthy after rollout
-- [ ] Live: confirm "Chat push sent successfully" in the live logs after the next real chat message
+- [x] Live: emulator3 sent a chat message to arnav111 and the live logs show "Chat push sent successfully" (2026-11-19, 09:36:21Z)
 
 ## R8 release build (A34, 2026-11-05)
 
