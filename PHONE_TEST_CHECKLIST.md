@@ -3,6 +3,22 @@
 Verified on the Samsung Galaxy A34 on 2026-10-17. For future rounds, install the current build
 from Android Studio first (Run with the phone selected).
 
+## Vault hides strangers' doodles (not committed yet)
+
+Received doodles in the Vault now show only from friends; doodles you sent all stay. No
+rules or functions change, nothing to deploy. Files: `IncomingDoodleScreen.kt`
+(`visibleVaultDoodles`, `rememberFriendUids`), `VaultScreen.kt`.
+
+- [ ] Open the Vault on the A34: doodles from current friends and everything you sent
+      still show, and the grid doesn't flash empty or jump while it loads (try a cold
+      start with the app killed, and once on a slow connection or in airplane mode)
+- [ ] Unfriend someone who sent you doodles: their received doodles drop out of the
+      Vault (yours to them stay). Re-add them as a friend: the doodles come back
+- [ ] Saved and Snoozed tabs follow the same rule (a held doodle from a non-friend
+      doesn't show in Snoozed)
+- [ ] Optional, if you can write one from a second test account that isn't your friend
+      (e.g. the emulator with a debug build): its doodle never shows in the A34's Vault
+
 ## Real Snooze (roadmap #5), commit d082321
 
 Pushed before phone testing; verified on the Samsung afterwards.

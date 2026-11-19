@@ -80,10 +80,11 @@ fun VaultScreen(
     onSnoozedTabOpened: () -> Unit = {}
 ) {
     var allDoodles by remember { mutableStateOf<List<IncomingDoodle>>(emptyList()) }
-    // Doodles from people I've blocked are hidden (the ones I sent them stay).
+    // Received doodles show only from friends I haven't blocked (the ones I sent all stay).
     val blocked by Blocks.state.collectAsState()
-    val doodles = remember(allDoodles, blocked) {
-        allDoodles.filter { it.senderId == currentUid || it.senderId !in blocked }
+    val friendUids = rememberFriendUids(currentUid)
+    val doodles = remember(allDoodles, blocked, friendUids) {
+        visibleVaultDoodles(allDoodles, currentUid, blocked.keys, friendUids)
     }
     val safety = rememberSafetyActions()
     var loaded by remember { mutableStateOf(false) }

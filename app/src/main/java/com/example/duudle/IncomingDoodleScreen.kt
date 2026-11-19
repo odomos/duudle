@@ -137,6 +137,63 @@ fun rememberFavoriteDoodleIds(myUid: String): Set<String> {
     return favoriteIds
 }
 
+/**
+ * What the Vault shows: everything I sent, and received doodles only from friends I haven't
+ * blocked. The rules can't check friendship, so a stranger who knows my uid can still write
+ * a doodle to me; this keeps it out of sight. friendUids is null while the friends list is
+ * loading (or if it failed), and then only blocked senders are hidden, so the Vault never
+ * blanks out or flickers on the way in.
+ */
+fun visibleVaultDoodles(
+    all: List<IncomingDoodle>,
+    myUid: String,
+    blocked: Set<String>,
+    friendUids: Set<String>?
+): List<IncomingDoodle> = all.filter {
+    it.senderId == myUid || (it.senderId !in blocked && (friendUids == null || it.senderId in friendUids))
+}
+
+/**
+ * My friends' uids, from both sides of the friendships collection. Null until both
+ * listeners have answered from the server or a non-empty cache, and stays null if either
+ * fails, so callers hide nothing rather than everything.
+ */
+@Composable
+fun rememberFriendUids(myUid: String): Set<String>? {
+    var asA by remember(myUid) { mutableStateOf<List<String>?>(null) }
+    var asB by remember(myUid) { mutableStateOf<List<String>?>(null) }
+    DisposableEffect(myUid) {
+        if (myUid.isBlank()) return@DisposableEffect onDispose {}
+        val friendships = FirebaseFirestore.getInstance().collection("friendships")
+        val listenerA = friendships.whereEqualTo("userA", myUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("DuudleDebug", "Vault friendships A failed: ${error.message}")
+                    return@addSnapshotListener
+                }
+                // An empty answer from the cache may just mean nothing is cached yet.
+                if (snapshot == null || (snapshot.metadata.isFromCache && snapshot.isEmpty)) return@addSnapshotListener
+                asA = snapshot.documents.mapNotNull { it.getString("userB") }
+            }
+        val listenerB = friendships.whereEqualTo("userB", myUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("DuudleDebug", "Vault friendships B failed: ${error.message}")
+                    return@addSnapshotListener
+                }
+                if (snapshot == null || (snapshot.metadata.isFromCache && snapshot.isEmpty)) return@addSnapshotListener
+                asB = snapshot.documents.mapNotNull { it.getString("userA") }
+            }
+        onDispose {
+            listenerA.remove()
+            listenerB.remove()
+        }
+    }
+    val a = asA
+    val b = asB
+    return if (a == null || b == null) null else (a + b).toSet()
+}
+
 fun setDoodleFavorite(myUid: String, doodleId: String, favorite: Boolean, onError: (String?) -> Unit = {}) {
     val favoriteRef = FirebaseFirestore.getInstance()
         .collection("users").document(myUid)
