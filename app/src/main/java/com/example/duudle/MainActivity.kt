@@ -19,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -67,7 +68,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The screens are always light, so the bars always get dark icons; the default style
+        // follows the phone's dark mode and turned the clock/battery white on white.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        )
         // Safety net: a force-stop wipes alarms and sends no broadcast, so re-arm any
         // snoozed doodles (or show overdue ones) whenever the app starts. Idempotent.
         DoodleSnooze.rescheduleAll(this)

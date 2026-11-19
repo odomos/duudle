@@ -683,12 +683,22 @@ Be mine, Tea time. Original art, small prop icons included.
 - [x] Loosened rule deployed to duudle-staging (2026-11-18). A34 sent "Coffee?" (card106) and "Winner!" (card118) to the
       emulator: accepted, the function pushed, the in-app viewer showed Coffee?, and Winner! popped up fitted with its
       trophy. (The emulator briefly stopped receiving pushes until its Wi-Fi was toggled; queued ones then arrived.)
-- [ ] Live: deploy the same rule to duudle-296a9 before any live build that ships these stickers (needs the owner OK)
+- [x] Live: rule deployed to duudle-296a9 (2026-11-18, owner OK). No sticker app build is on live yet, so live users see no change
 - [ ] Look through all 48 on the A34: right words, animals, props? Anything missing or to change?
 - [ ] An older build that gets one of these shows "update Duudle to see it" (not a crash)
 - [ ] Bounce/wobble/pulse in the pop-up look fine (Roar!, Game on!, Moo!, Quack!, Winner!, Cake time...)
 - [ ] Search: "pizza", "coffee", "trophy", "cow", "nap", "donut" each find their sticker
 - [ ] TalkBack reads e.g. "Send Cow saying "Moo!" to @name"
+
+## Status bar icons in dark mode (staging build, 2026-11-19)
+
+The screens are always light, but the system bars followed the phone's dark mode, so the clock, Wi-Fi and
+battery were white on white. `MainActivity` now forces dark icons on both bars.
+
+- [x] A34 in dark mode, Home screen: clock, Wi-Fi and battery are dark and readable; the nav strip is white
+- [ ] Same on Draw, Chat, Vault, Profile and Welcome (full-screen pages) in dark mode
+- [ ] Same with the phone in light mode (should look as before)
+- [ ] The pop-up overlay still looks right in dark mode
 
 ## R8 release build (A34, 2026-11-05)
 
