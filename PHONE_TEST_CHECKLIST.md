@@ -716,6 +716,19 @@ battery were white on white. `MainActivity` now forces dark icons on both bars.
 - [ ] Same with the phone in light mode (should look as before)
 - [ ] The pop-up overlay still looks right in dark mode
 
+## Small review fixes: overlay removal and chat push logging (2026-11-19, not committed yet)
+
+From the Android Studio review. `removeRealDoodleOverlay` and `removeTestOverlay` no longer crash if the
+system already detached the window. `onChatMessageCreated` now logs a failed Firestore read instead of
+losing the push silently (same as `onDoodleCreated`).
+
+- [ ] A friend's doodle pops up and Remove / Snooze / Draw still close it, as before
+- [ ] "Test a pop-up" (debug) still shows and closes
+- [ ] While a pop-up is showing, revoke "Display over other apps" for Duudle in Settings, then tap Remove or
+      reopen the app: no crash (optional, rare)
+- [ ] Functions: deploy `onChatMessageCreated` to staging, send a chat message, and confirm "Chat push sent
+      successfully" in Cloud Logging (live deploy needs the owner OK)
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop

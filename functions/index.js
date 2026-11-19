@@ -136,7 +136,8 @@ exports.onDoodleCreated = onDocumentCreated("doodles/{doodleId}", async (event) 
   }
 });
 
-exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messageId}", async (event) => {
+/** The chat push itself; onChatMessageCreated below wraps it so a failed read is logged. */
+async function sendChatPush(event) {
   const snapshot = event.data;
   if (!snapshot) {
     logger.warn("No data in chat message event, exiting");
@@ -247,6 +248,16 @@ exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messa
   } catch (error) {
     logger.error("Failed to send chat push", {chatId, messageId, recipientId, error: error.message, code: error.code});
     if (isDeadTokenError(error)) await cleanUpDeadToken(recipientRef, fcmToken, {chatId, messageId, recipientId});
+  }
+}
+
+exports.onChatMessageCreated = onDocumentCreated("chats/{chatId}/messages/{messageId}", async (event) => {
+  try {
+    await sendChatPush(event);
+  } catch (error) {
+    // The Firestore lookups before the send aren't guarded one by one, and no retries are
+    // configured, so log enough to find the lost push (as onDoodleCreated does).
+    logger.error("Chat push failed", {chatId: event.params.chatId, messageId: event.params.messageId, error: error.message, code: error.code});
   }
 });
 

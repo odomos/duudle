@@ -765,8 +765,9 @@ fun showTestOverlay(context: Context) {
 }
 
 fun removeTestOverlay(context: Context) {
-    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    overlayView?.let { windowManager.removeView(it); overlayView = null }
+    val view = overlayView ?: return
+    overlayView = null
+    removeOverlayWindow(context, view)
 }
 
 // ===== REAL DOODLE OVERLAY =====
@@ -953,6 +954,17 @@ fun showRealDoodleOverlay(
 }
 
 fun removeRealDoodleOverlay(context: Context) {
+    val view = realDoodleOverlayView ?: return
+    realDoodleOverlayView = null
+    removeOverlayWindow(context, view)
+}
+
+/** removeView throws if the system already detached the window (e.g. the permission was revoked). */
+private fun removeOverlayWindow(context: Context, view: View) {
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    realDoodleOverlayView?.let { windowManager.removeView(it); realDoodleOverlayView = null }
+    try {
+        windowManager.removeView(view)
+    } catch (e: IllegalArgumentException) {
+        android.util.Log.w("DuudleDebug", "Overlay window was already gone: ${e.message}")
+    }
 }
