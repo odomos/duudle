@@ -731,6 +731,26 @@ losing the push silently (same as `onDoodleCreated`).
 - [x] Live: `onChatMessageCreated` deployed to duudle-296a9 (2026-11-19, owner OK); healthy after rollout
 - [x] Live: emulator3 sent a chat message to arnav111 and the live logs show "Chat push sent successfully" (2026-11-19, 09:36:21Z)
 
+## Draw screen and pop-up restyle (2026-11-25, staging build)
+
+Draw uses the app's cream page, a rounded square canvas, and a white tool card (size pills, colour circles,
+Undo / Clear); Send is a black pill and the friend list matches. The pop-up is a white rounded card with the
+sender's avatar and pill buttons (`PopupViews.kt`). Behaviour is meant to be unchanged.
+
+Emulator (Pixel, 1080 x 1920 and full size): Draw layout, drawing, colour selection, friend list, "To: name",
+Stickers tab and the test pop-up (shows over the home screen, Remove closes it). A real pop-up from arnav222
+(sent from the A34) showed avatar, name and the doodle; Snooze opened the 5 min / 15 min / 1 hour row, Back
+returned, Draw closed it and opened a reply to the sender. No crashes. (No snooze duration was picked.)
+
+- [x] A34: Draw screen fits (canvas big enough, nothing cut off), drawing and two-finger zoom / Reset zoom work
+      (owner reported all good, 2026-11-25)
+- [x] A34: send a doodle and a sticker; rotate mid-drawing keeps the drawing (owner, 2026-11-25)
+- [ ] A real pop-up from a friend on the A34: avatar, name, doodle and sticker look right; Remove and Draw work
+- [ ] Pop-up Snooze: picking 5 min / 15 min / 1 hour pauses pop-ups (the row and Back were checked on the emulator)
+- [x] Largest font size: Draw tool labels and sample pop-up buttons stay readable (owner, 2026-11-25)
+- [x] Phone in dark mode: sample pop-up and Draw look the same (owner, 2026-11-25)
+- [ ] TalkBack reads brush sizes and colour names with their selected state
+
 ## R8 release build (A34, 2026-11-05)
 
 Release builds are now shrunk with R8 (4.2 MB APK instead of 18 MB debug) and drop

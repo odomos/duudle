@@ -12,7 +12,6 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -38,6 +37,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.example.duudle.ui.theme.DuudleColors
 import com.example.duudle.ui.theme.DuudleTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -715,46 +715,36 @@ fun showTestOverlay(context: Context) {
     if (overlayView != null) return
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-    val layout = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        setBackgroundColor(Color.parseColor("#F5F0FB"))
-        setPadding(32, 32, 32, 32)
-    }
-    layout.addView(TextView(context).apply {
-        text = "🖍 Doodle from a friend"
-        setTextColor(Color.BLACK)
-        textSize = 16f
-        setPadding(0, 0, 0, 4)
-    })
     val canvasSize = dpToPx(context, 260)
-    // As wide as the canvas, so the line wraps instead of being cut off.
-    layout.addView(TextView(context).apply {
-        text = "A sample: this is how friends' doodles pop up."
-        setTextColor(Color.DKGRAY)
-        textSize = 13f
-        setPadding(0, 0, 0, 16)
-    }, LinearLayout.LayoutParams(canvasSize, LinearLayout.LayoutParams.WRAP_CONTENT))
-    layout.addView(
-        DoodleCanvasView(context, sampleDoodleStrokes()).apply { setBackgroundColor(Color.WHITE) },
+    val card = popupCard(context)
+    card.addView(
+        popupHeader(
+            context, "🖍", DuudleColors.Sunny.light,
+            "A friend", "A sample: this is how friends' doodles pop up.", canvasSize
+        )
+    )
+    card.addView(
+        popupSquare(context, DoodleCanvasView(context, sampleDoodleStrokes())),
         LinearLayout.LayoutParams(canvasSize, canvasSize)
     )
-    val buttonRow = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        setPadding(0, 16, 0, 0)
-    }
-    listOf("Snooze", "Remove", "Draw").forEach { label ->
-        buttonRow.addView(Button(context).apply {
-            text = label
-            setOnClickListener { removeTestOverlay(context) }
-        })
-    }
-    layout.addView(buttonRow)
+    val close = { removeTestOverlay(context) }
+    card.addView(
+        popupButtonRow(
+            context, canvasSize,
+            listOf(
+                popupButton(context, "Snooze", onClick = close),
+                popupButton(context, "Remove", onClick = close),
+                popupButton(context, "Draw", primary = true, onClick = close)
+            )
+        )
+    )
+    val layout = popupFrame(context, card)
 
     val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.CENTER
@@ -850,100 +840,80 @@ fun showRealDoodleOverlay(
     removeRealDoodleOverlay(context)
     val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-    val container = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        setBackgroundColor(Color.parseColor("#F5F0FB"))
-        setPadding(32, 32, 32, 32)
-    }
-
-    container.addView(TextView(context).apply {
-        text = if (cardId != null) "🖍 ${flashCardSentLine(senderUsername)}" else "🖍 Doodle from $senderUsername"
-        setTextColor(Color.BLACK)
-        textSize = 16f
-        setPadding(0, 0, 0, 16)
-    })
-
-    val canvasView = if (cardId != null) flashCardOverlayView(context, cardId) else DoodleCanvasView(context, strokes).apply {
-        setBackgroundColor(Color.WHITE)
-    }
     val canvasSize = dpToPx(context, 260)
-    container.addView(canvasView, LinearLayout.LayoutParams(canvasSize, canvasSize))
+    val card = popupCard(context)
+    card.addView(
+        popupHeader(
+            context, emojiForUid(senderUid), avatarPastelFor(senderUid).light, "@$senderUsername",
+            if (cardId != null) "sent you a sticker" else "sent you a doodle", canvasSize
+        )
+    )
 
-    val buttonRow = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        setPadding(0, 16, 0, 0)
-    }
+    val canvasView = if (cardId != null) flashCardOverlayView(context, cardId) else DoodleCanvasView(context, strokes)
+    card.addView(popupSquare(context, canvasView), LinearLayout.LayoutParams(canvasSize, canvasSize))
 
     // Tapping Snooze swaps the main buttons for duration choices, with Back
     // on its own line since four buttons don't fit the overlay's width.
     val snoozePanel = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(0, 16, 0, 0)
         visibility = View.GONE
     }
-    val durationRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-    for ((label, minutes) in listOf("5 min" to 5, "15 min" to 15, "1 hour" to 60)) {
-        durationRow.addView(Button(context).apply {
-            text = label
-            setOnClickListener {
-                val triggerAt = DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes, cardId)
-                removeRealDoodleOverlay(context)
-                // Snooze pauses every pop-up until then. The phone's own time format (12/24h),
-                // e.g. "Pop-ups paused until 4:35 PM".
-                val until = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(triggerAt))
-                Toast.makeText(context, "Pop-ups paused until $until", Toast.LENGTH_SHORT).show()
-            }
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    var buttonRow: LinearLayout? = null
+    val durations = listOf("5 min" to 5, "15 min" to 15, "1 hour" to 60).map { (label, minutes) ->
+        popupButton(context, label) {
+            val triggerAt = DoodleSnooze.snooze(context, doodleId, senderUid, senderUsername, strokes, minutes, cardId)
+            removeRealDoodleOverlay(context)
+            // Snooze pauses every pop-up until then. The phone's own time format (12/24h),
+            // e.g. "Pop-ups paused until 4:35 PM".
+            val until = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(triggerAt))
+            Toast.makeText(context, "Pop-ups paused until $until", Toast.LENGTH_SHORT).show()
+        }
     }
-    snoozePanel.addView(durationRow)
-    snoozePanel.addView(Button(context).apply {
-        text = "Back"
-        setOnClickListener {
+    snoozePanel.addView(popupButtonRow(context, canvasSize, durations))
+    snoozePanel.addView(
+        popupButtonRow(context, canvasSize, listOf(popupButton(context, "Back") {
             snoozePanel.visibility = View.GONE
-            buttonRow.visibility = View.VISIBLE
-        }
-    }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            buttonRow?.visibility = View.VISIBLE
+        }))
+    )
 
-    buttonRow.addView(Button(context).apply {
-        text = "Snooze"
-        setOnClickListener {
-            buttonRow.visibility = View.GONE
-            snoozePanel.visibility = View.VISIBLE
-        }
-    })
-    buttonRow.addView(Button(context).apply {
-        text = "Remove"
-        setOnClickListener {
-            markDoodleStatus(doodleId, "removed")
-            DoodleSnooze.cancel(context, doodleId)
-            removeRealDoodleOverlay(context)
-        }
-    })
-    buttonRow.addView(Button(context).apply {
-        text = "Draw"
-        setOnClickListener {
-            markDoodleStatus(doodleId, "removed")
-            DoodleSnooze.cancel(context, doodleId)
-            removeRealDoodleOverlay(context)
-            val replyIntent = Intent(context, MainActivity::class.java).apply {
-                // CLEAR_TOP + SINGLE_TOP route the intent to the running
-                // MainActivity's onNewIntent instead of being silently dropped.
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra("reply_to_uid", senderUid)
+    buttonRow = popupButtonRow(
+        context, canvasSize,
+        listOf(
+            popupButton(context, "Snooze") {
+                buttonRow?.visibility = View.GONE
+                snoozePanel.visibility = View.VISIBLE
+            },
+            popupButton(context, "Remove") {
+                markDoodleStatus(doodleId, "removed")
+                DoodleSnooze.cancel(context, doodleId)
+                removeRealDoodleOverlay(context)
+            },
+            popupButton(context, "Draw", primary = true) {
+                markDoodleStatus(doodleId, "removed")
+                DoodleSnooze.cancel(context, doodleId)
+                removeRealDoodleOverlay(context)
+                val replyIntent = Intent(context, MainActivity::class.java).apply {
+                    // CLEAR_TOP + SINGLE_TOP route the intent to the running
+                    // MainActivity's onNewIntent instead of being silently dropped.
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra("reply_to_uid", senderUid)
+                }
+                context.startActivity(replyIntent)
             }
-            context.startActivity(replyIntent)
-        }
-    })
-    container.addView(buttonRow)
-    container.addView(snoozePanel)
+        )
+    )
+    card.addView(buttonRow)
+    card.addView(snoozePanel)
+    val container = popupFrame(context, card)
 
     val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.CENTER

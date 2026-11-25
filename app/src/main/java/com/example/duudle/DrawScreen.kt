@@ -56,6 +56,14 @@ import com.example.duudle.ui.theme.DuudleColors
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.duudle.ui.theme.DuudleDisplayFont
 
 data class DoodleStroke(
     val points: List<Offset>,
@@ -71,23 +79,27 @@ private val brushSizes = listOf(
     BrushSize("Thick", 14f, 22.dp)
 )
 
+private data class PaintColor(val color: Color, val name: String)
+
 private val palette = listOf(
-    Color.Black,
-    Color(0xFF5C5C5C), // Gray
-    Color.White,       // doubles as an eraser on the white canvas
-    Color.Red,
-    Color(0xFFFF8A00), // Orange
-    Color(0xFFF9A825), // Yellow
-    Color(0xFF2E7D32), // Green
-    Color(0xFF00BCD4), // Cyan
-    Color(0xFF1565C0), // Blue
-    Color(0xFF6A1B9A), // Purple
-    Color(0xFFD81B60)  // Pink
+    PaintColor(Color.Black, "Black"),
+    PaintColor(Color(0xFF5C5C5C), "Grey"),
+    PaintColor(Color.White, "White, works as an eraser"),
+    PaintColor(Color.Red, "Red"),
+    PaintColor(Color(0xFFFF8A00), "Orange"),
+    PaintColor(Color(0xFFF9A825), "Yellow"),
+    PaintColor(Color(0xFF2E7D32), "Green"),
+    PaintColor(Color(0xFF00BCD4), "Cyan"),
+    PaintColor(Color(0xFF1565C0), "Blue"),
+    PaintColor(Color(0xFF6A1B9A), "Purple"),
+    PaintColor(Color(0xFFD81B60), "Pink")
 )
 
-private val LavenderBackground = Color(0xFFEDE3FA)
 private val DrawModeLabels = listOf("Draw", "Stickers")
 private val FlashCardShape = RoundedCornerShape(20.dp)
+private val CanvasShape = RoundedCornerShape(16.dp)
+private val ToolCardShape = RoundedCornerShape(24.dp)
+private val DrawPillShape = RoundedCornerShape(percent = 50)
 private const val RESTORED_SEND_GRACE_MS = 5000L
 
 @Composable
@@ -227,69 +239,49 @@ fun DrawScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onBack) { Text("← Back") }
-            Text(
-                text = activeRecipientUsername?.let { "To: $it" } ?: "Draw",
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (!flashCardsMode) {
-                TextButton(
-                    onClick = {
-                        when {
-                            strokes.isEmpty() -> Toast.makeText(
-                                context, "Draw something first!", Toast.LENGTH_SHORT
-                            ).show()
-                            activeRecipientUid == null -> {
-                                // The fix: open a picker right here instead of failing
-                                // silently or navigating away and losing the drawing.
-                                if (friends.isEmpty() && !friendsLoading) {
-                                    Toast.makeText(
-                                        context, "Add a friend first from the Friends tab", Toast.LENGTH_SHORT
-                                    ).show()
-                                } else {
-                                    showFriendPicker = true
-                                }
-                            }
-                            canvasSize.width == 0 || canvasSize.height == 0 -> Toast.makeText(
-                                context, "Canvas not ready yet, try again", Toast.LENGTH_SHORT
-                            ).show()
-                            else -> {
-                                isSending = true
-                                sendDoodle(
-                                    senderId = currentUid,
-                                    senderUsername = currentUsername,
-                                    receiverId = activeRecipientUid!!,
-                                    receiverUsername = activeRecipientUsername ?: "Unknown",
-                                    strokes = strokes,
-                                    canvasWidth = canvasSize.width.toFloat(),
-                                    canvasHeight = canvasSize.height.toFloat()
-                                ) { error ->
-                                    isSending = false
-                                    if (error == null) {
-                                        Toast.makeText(context, "Doodle sent to $activeRecipientUsername!", Toast.LENGTH_LONG).show()
-                                        onBack()
-                                    } else {
-                                        Toast.makeText(context, rateLimitedOr(error, "Failed to send: ${error.message}"), Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    enabled = !isSending
-                ) {
-                    Text(if (isSending) "Sending..." else "Send")
+    fun onSendClick() {
+        when {
+            strokes.isEmpty() -> Toast.makeText(
+                context, "Draw something first!", Toast.LENGTH_SHORT
+            ).show()
+            // Pick a friend right here instead of failing silently or navigating
+            // away and losing the drawing.
+            activeRecipientUid == null -> openFriendPicker()
+            canvasSize.width == 0 || canvasSize.height == 0 -> Toast.makeText(
+                context, "Canvas not ready yet, try again", Toast.LENGTH_SHORT
+            ).show()
+            else -> {
+                isSending = true
+                sendDoodle(
+                    senderId = currentUid,
+                    senderUsername = currentUsername,
+                    receiverId = activeRecipientUid!!,
+                    receiverUsername = activeRecipientUsername ?: "Unknown",
+                    strokes = strokes,
+                    canvasWidth = canvasSize.width.toFloat(),
+                    canvasHeight = canvasSize.height.toFloat()
+                ) { error ->
+                    isSending = false
+                    if (error == null) {
+                        Toast.makeText(context, "Doodle sent to $activeRecipientUsername!", Toast.LENGTH_LONG).show()
+                        onBack()
+                    } else {
+                        Toast.makeText(context, rateLimitedOr(error, "Failed to send: ${error.message}"), Toast.LENGTH_LONG).show()
+                    }
                 }
-            } else {
-                // Cards send on tap; keep the title where it was.
-                Spacer(Modifier.width(64.dp))
             }
         }
+    }
+
+    DuudlePage(modifier = modifier) {
+        DrawHeader(
+            title = activeRecipientUsername?.let { "To: $it" } ?: "Draw",
+            onBack = onBack,
+            // Stickers send on tap, so there's no Send button in that mode.
+            showSend = !flashCardsMode,
+            sending = isSending,
+            onSend = { onSendClick() }
+        )
 
         DuudleSegmentedControl(
             options = DrawModeLabels,
@@ -311,7 +303,16 @@ fun DrawScreen(
             // The canvas is the largest centered 1:1 square that fits the leftover space, so the
             // 0-1 normalized strokes keep their proportions on the square viewers. wrapContentSize()
             // drops the fill min-constraints so aspectRatio can shrink and center the square.
-            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(LavenderBackground).wrapContentSize().aspectRatio(1f)) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .wrapContentSize()
+                    .aspectRatio(1f)
+                    .clip(CanvasShape)
+                    .border(1.dp, DuudleColors.Hairline, CanvasShape)
+            ) {
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
@@ -390,92 +391,43 @@ fun DrawScreen(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(10.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xCC333333))
-                            .clickable {
+                            .heightIn(min = 48.dp)
+                            .clip(DrawPillShape)
+                            .background(DuudleColors.Ink.copy(alpha = 0.85f))
+                            .clickable(role = Role.Button) {
                                 zoomScale = 1f
                                 zoomOffset = Offset.Zero
                             }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text("Reset zoom · ${"%.1f".format(zoomScale)}×", color = Color.White, fontSize = 12.sp)
                     }
                 }
             }
 
-            // Brush size picker
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                brushSizes.forEach { brush ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clickable { selectedBrushIndex = brushSizes.indexOf(brush) }
-                            .border(
-                                width = if (brush == selectedBrush) 2.dp else 0.dp,
-                                color = Color.DarkGray,
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(brush.dotSize)
-                                .clip(CircleShape)
-                                .background(Color.Black)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(brush.label, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-
-            // Color palette — scrollable so it never overflows on smaller screens
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(palette) { color ->
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .border(
-                                width = if (color == selectedColor) 3.dp else 1.dp,
-                                color = if (color == selectedColor) Color.DarkGray else Color.LightGray,
-                                shape = CircleShape
-                            )
-                            .clickable { selectedColorArgb = color.toArgb() }
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Button(onClick = { if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex) }) {
-                    Text("Undo")
-                }
-                Button(onClick = { strokes.clear() }) {
-                    Text("Clear")
-                }
-            }
+            DrawTools(
+                brushIndex = selectedBrushIndex,
+                onBrush = { selectedBrushIndex = it },
+                color = selectedColor,
+                onColor = { selectedColorArgb = it.toArgb() },
+                onUndo = { if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex) },
+                onClear = { strokes.clear() }
+            )
         }
     }
 
     if (showFriendPicker) {
         AlertDialog(
             onDismissRequest = { showFriendPicker = false },
-            title = { Text("Send to...") },
+            containerColor = DuudleColors.Paper,
+            titleContentColor = DuudleColors.Ink,
+            textContentColor = DuudleColors.Ink,
+            title = { Text("Send to…", fontWeight = FontWeight.ExtraBold) },
             text = {
                 if (friendsLoading) {
                     Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = DuudleColors.Ink)
                     }
                 } else if (friends.isEmpty()) {
                     Text("You don't have any friends yet. Add one from the Friends tab first.")
@@ -488,27 +440,166 @@ fun DrawScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(LavenderBackground, RoundedCornerShape(12.dp))
-                                    .clickable {
+                                    .heightIn(min = 56.dp)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(DuudleColors.Cream)
+                                    .clickable(role = Role.Button) {
                                         activeRecipientUid = friend.uid
                                         activeRecipientUsername = friend.username
                                         showFriendPicker = false
                                     }
-                                    .padding(12.dp),
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(friend.avatarEmoji, fontSize = 20.sp)
-                                Spacer(Modifier.width(8.dp))
-                                Text(friend.username, fontWeight = FontWeight.Bold)
+                                DuudleAvatar(friend.uid, size = 40.dp, emoji = friend.avatarEmoji)
+                                Spacer(Modifier.width(12.dp))
+                                Text("@${friend.username}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showFriendPicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showFriendPicker = false }) {
+                    Text("Cancel", color = DuudleColors.Ink, fontWeight = FontWeight.Bold)
+                }
             }
         )
+    }
+}
+
+/** Back arrow, centred title and the Send pill. Both side slots are equally wide, so the title stays centred. */
+@Composable
+private fun DrawHeader(title: String, onBack: () -> Unit, showSend: Boolean, sending: Boolean, onSend: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.width(100.dp), contentAlignment = Alignment.CenterStart) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = DuudleColors.Ink)
+            }
+        }
+        Text(
+            title,
+            fontFamily = DuudleDisplayFont,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 22.sp,
+            color = DuudleColors.Ink,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).semantics { heading() }
+        )
+        Box(modifier = Modifier.width(100.dp).padding(end = 8.dp), contentAlignment = Alignment.CenterEnd) {
+            if (showSend) {
+                Box(
+                    modifier = Modifier
+                        .height(48.dp)
+                        .clip(DrawPillShape)
+                        .background(if (sending) DuudleColors.Ink.copy(alpha = 0.45f) else DuudleColors.Ink)
+                        .clickable(enabled = !sending, role = Role.Button, onClick = onSend)
+                        .padding(horizontal = if (sending) 10.dp else 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (sending) "Sending…" else "Send",
+                        color = DuudleColors.Paper,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (sending) 13.sp else 16.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** The white card under the canvas: brush size, colours, then Undo and Clear. */
+@Composable
+private fun DrawTools(
+    brushIndex: Int,
+    onBrush: (Int) -> Unit,
+    color: Color,
+    onColor: (Color) -> Unit,
+    onUndo: () -> Unit,
+    onClear: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(ToolCardShape)
+            .background(DuudleColors.Paper)
+            .border(1.dp, DuudleColors.Hairline, ToolCardShape)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            brushSizes.forEachIndexed { index, brush ->
+                val selected = index == brushIndex
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(DrawPillShape)
+                        .background(if (selected) DuudleColors.Ink else DuudleColors.PillGrey)
+                        .selectable(selected = selected, role = Role.RadioButton) { onBrush(index) },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(brush.dotSize * 0.8f)
+                            .clip(CircleShape)
+                            .background(if (selected) DuudleColors.Paper else DuudleColors.Ink)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        brush.label,
+                        color = if (selected) DuudleColors.Paper else DuudleColors.Ink,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // Scrollable so it never overflows on smaller screens.
+        LazyRow(modifier = Modifier.fillMaxWidth().selectableGroup()) {
+            items(palette) { paint ->
+                val selected = paint.color == color
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .selectable(selected = selected, role = Role.RadioButton) { onColor(paint.color) }
+                        .semantics { contentDescription = paint.name },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selected) {
+                        Box(Modifier.size(44.dp).border(3.dp, DuudleColors.Ink, CircleShape))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(if (selected) 30.dp else 36.dp)
+                            .clip(CircleShape)
+                            .background(paint.color)
+                            .border(1.dp, DuudleColors.Ink.copy(alpha = 0.15f), CircleShape)
+                    )
+                }
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DuudleOutlinePill("Undo", onClick = onUndo, modifier = Modifier.weight(1f))
+            DuudleOutlinePill("Clear", onClick = onClear, modifier = Modifier.weight(1f))
+        }
     }
 }
 
@@ -547,7 +638,9 @@ private fun FlashCardPicker(
                     color = DuudleColors.Ink,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onPickFriend, modifier = Modifier.heightIn(min = 48.dp)) { Text("Pick a friend") }
+                TextButton(onClick = onPickFriend, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text("Pick a friend", color = DuudleColors.Ink, fontWeight = FontWeight.Bold)
+                }
             }
         }
         GreySearchField(
@@ -631,7 +724,8 @@ private fun PackChip(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(if (selected) DuudleColors.Ink else DuudleColors.PillGrey)
+            .background(if (selected) DuudleColors.Ink else DuudleColors.Paper)
+            .border(1.dp, if (selected) DuudleColors.Ink else DuudleColors.Hairline, RoundedCornerShape(24.dp))
             .clickable(role = Role.Tab, onClick = onClick)
             .semantics { this.selected = selected }
             .padding(horizontal = 18.dp),
